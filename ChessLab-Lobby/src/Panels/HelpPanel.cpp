@@ -67,16 +67,16 @@ namespace Panels
 				helpFunc("Ctrl + E",			 "Open a window where you can edit your current position.");
 				helpFunc("Left Arrow",			 "Go to previous move.");
 				helpFunc("Right Arrow",			 "Go to next move.");
-				helpFunc("Ctrl + Up Arrow",		 "Open the default chess engine (stockfish16).");
+				helpFunc("Ctrl + Up Arrow",		 "Open the default chess engine.");
 				helpFunc("Ctrl + Down Arrow",	 "Close the chess engine.");
 
-				helpFunc("R key Down + Right Click", "Highlight a block on your board with red.");
-				helpFunc("G key Down + Right Click", "Highlight a block on your board with green.");
-				helpFunc("B key Down + Right Click", "Highlight a block on your board with blue.");
+				helpFunc("R key Down + Right Click (or Ctrl + R + Left Click)", "Highlight a block on your board with red.");
+				helpFunc("G key Down + Right Click (or Ctrl + G + Left Click)", "Highlight a block on your board with green.");
+				helpFunc("B key Down + Right Click (or Ctrl + B + Left Click)", "Highlight a block on your board with blue.");
 
-				helpFunc("R key Down + Right Down and Released", "Draw a red arrow on your board from the first click to the release of the mouse button.");
-				helpFunc("G key Down + Right Down and Released", "Draw a green arrow on your board from the first click to the release of the mouse button.");
-				helpFunc("B key Down + Right Down and Released", "Draw a blue arrow on your board from the first click to the release of the mouse button.");
+				helpFunc("R key Down + Right Down and Released (or the same but Left and Ctrl)", "Draw a red arrow on your board from the first click to the release of the mouse button.");
+				helpFunc("G key Down + Right Down and Released (or the same but Left and Ctrl)", "Draw a green arrow on your board from the first click to the release of the mouse button.");
+				helpFunc("B key Down + Right Down and Released (or the same but Left and Ctrl)", "Draw a blue arrow on your board from the first click to the release of the mouse button.");
 
 				ImGui::Separator();
 
@@ -121,7 +121,7 @@ namespace Panels
 			{
 				ImGui::Separator();
 
-				helpFunc("Raw tab",				  "Just present moves a simble formaat.");
+				helpFunc("Raw tab",				  "Just present moves a simble format.");
 				helpFunc("Training tab",		  "Present only the previous move.");
 				helpFunc("Left Click on a move",  "Go to selected position.");
 				helpFunc("Right Click on a move", "Open a menu with useful options.");
@@ -146,7 +146,9 @@ namespace Panels
 			{
 				ImGui::Separator();
 
-				helpFunc("Double Click",		  "Open the selected chess game.");
+				helpFunc("Double Click",	   "Open the selected chess game.");
+				helpFunc("New Game Button",	   "Creates a new game in file.");
+				helpFunc("Delete Game Button", "Marks the selected game as deleted. To delete the marked games you should close the file and then delete the games throuth the file menu by right clicking the file on main browser.");
 
 				ImGui::Separator();
 

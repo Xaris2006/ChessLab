@@ -32,7 +32,7 @@ static std::vector<ArrowsData> s_arrows;
 static ImVec2 s_startPressedPos = ImVec2(-1, -1);
 
 
-void RenderRotatedImage(ImTextureID texture, ImVec2 pos, ImVec2 size, float cosValue, float sinValue, ImU32 color = IM_COL32_WHITE)
+static void RenderRotatedImage(ImTextureID texture, ImVec2 pos, ImVec2 size, float cosValue, float sinValue, ImU32 color = IM_COL32_WHITE)
 {
 	ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
@@ -61,7 +61,7 @@ void RenderRotatedImage(ImTextureID texture, ImVec2 pos, ImVec2 size, float cosV
 	draw_list->AddImageQuad(texture, vertices[0], vertices[1], vertices[2], vertices[3], uv0, uv1, uv2, uv3, color);
 }
 
-void DrawRedDotAt(const ImVec2& SetPosition, float radius = 5.0f)
+static void DrawRedDotAt(const ImVec2& SetPosition, float radius = 5.0f)
 {
 	ImDrawList* draw_list = ImGui::GetWindowDrawList();
 	draw_list->AddCircleFilled(ImVec2(SetPosition.x + ImGui::GetWindowPos().x, SetPosition.y + ImGui::GetWindowPos().y), radius, IM_COL32(255, 0, 0, 255));
@@ -285,9 +285,9 @@ void ImGuiBoard::OnUIRender()
 			bool blueKey = ImGui::IsKeyDown(ImGuiKey_B);
 			bool magicKey = redKey + greenKey + blueKey;
 
-			bool rMouseClicked = ImGui::IsMouseClicked(ImGuiMouseButton_Right);
-			bool rMouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Right);
-			bool rMouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Right);
+			bool rMouseClicked = ImGui::IsMouseClicked(ImGuiMouseButton_Right) || (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)));
+			bool rMouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Right) || (ImGui::IsMouseDown(ImGuiMouseButton_Left) && (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)));
+			bool rMouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Right) || (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)));
 
 			bool doArrow = false;
 			bool doTag = false;
@@ -801,7 +801,7 @@ void ImGuiBoard::OnUIRender()
 	//Piece Moving and Playing
 	if (!ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
 	{
-		if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+		if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && !ImGui::IsKeyDown(ImGuiKey_RightCtrl))
 		{
 			if (MousePos.x > -1 && MousePos.y > -1
 				&& MousePos.x < 8 && MousePos.y < 8)

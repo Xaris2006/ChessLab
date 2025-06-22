@@ -13,7 +13,7 @@ namespace Chess
 			m_pgnGame->RemoveReference();
 	}
 
-	void GameManager::InitPgnGame(PgnGame& pgnGame)
+	bool GameManager::InitPgnGame(PgnGame& pgnGame)
 	{
 		if (m_pgnGame)
 			m_pgnGame->RemoveReference();
@@ -21,12 +21,17 @@ namespace Chess
 		pgnGame.AddReference();
 		m_pgnGame = &pgnGame;
 
-		m_Board.NewPosition((*m_pgnGame)["FEN"]);
+		bool ret = m_Board.NewPosition((*m_pgnGame)["FEN"]);
+
+		if (!ret)
+			(*m_pgnGame)["FEN"] = m_Board.GetFen();
 
 		m_mapMoves.clear();
 		m_lastMoveKey.clear();
 
 		m_lastMoveKey.emplace_back(-1);
+
+		return ret;
 	}
 
 	void GameManager::Clear()
@@ -192,6 +197,7 @@ namespace Chess
 		{
 			if (m_Board.MakeMove(m_mapMoves[m_lastMoveKey].move, m_mapMoves[m_lastMoveKey].piecePromote) != Board::SUCCESS)
 			{
+				m_lastMoveKey[m_lastMoveKey.size() - 1] = oldValue;
 				GoInitialPosition();
 				m_mapMoves.clear();
 			}
@@ -515,6 +521,12 @@ namespace Chess
 
 	void GameManager::ConvertMoveDataToString(const MoveData& move, std::string& strmove) const
 	{
+		if (move.pieceToMove == NONE)
+		{
+			strmove = "";
+			return;
+		}
+
 		if (m_Board.GetPlayerToPlayColor() == WHITE) 
 			strmove += (std::to_string(m_Board.GetBlackMovesCount()) + ". ");
 		if (move.pieceToMove == KING && std::abs(move.move.move) == 2.0f)
@@ -584,9 +596,6 @@ namespace Chess
 			strmove += '+';
 		else if(kingSecurity == Board::MATED)
 			strmove += '#';
-
-		if (move.pieceToMove == NONE)
-			strmove = "";
 	}
 
 	void GameManager::ConvertStringToMoveData(const std::string& strmove, MoveData& move) const
@@ -838,5 +847,13 @@ namespace Chess
 		m_lastMoveKey.emplace_back(0);
 
 		m_mapMoves[m_lastMoveKey] = move;
+
+		MoveKey toGo = m_lastMoveKey;
+
+		GoInitialPosition();
+
+		m_mapMoves.clear();
+
+		GoToPositionByKey(toGo);
 	}
 }

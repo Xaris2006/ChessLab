@@ -72,7 +72,7 @@ namespace Chess
 		GameManager() = default;
 		~GameManager();
 
-		void InitPgnGame(PgnGame& pgnGame);
+		bool InitPgnGame(PgnGame& pgnGame);
 		
 		GameManager& operator=(const GameManager& other) = delete;
 		void Clear();

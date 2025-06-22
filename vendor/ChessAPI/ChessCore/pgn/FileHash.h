@@ -10,7 +10,7 @@
 
 inline std::array<uint8_t, HASH_LENGTH> xxHashFile(const std::filesystem::path& path)
 {
-	constexpr size_t BUF_SIZE = 64 * 1024 * 1024 * 30; // 64 MB buffer
+	constexpr size_t BUF_SIZE = 64 * 1024 * 1024; // 64 MB buffer
 	std::unique_ptr<char[]> buffer(new char[BUF_SIZE]);
 
 	std::ifstream file(path, std::ios::binary);

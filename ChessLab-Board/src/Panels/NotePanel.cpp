@@ -14,7 +14,7 @@ namespace Panels
 		
 		ChessAPI::SetNotePanelPointed(ImGui::IsWindowFocused());
 
-		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0));
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.4f, 0.4f, 0.4f, 0.4f));
 
 		ImGui::InputTextMultiline("##note", &ChessAPI::GetNote(ChessAPI::GetMoveIntFormat()), ImGui::GetContentRegionAvail());
 		ImGui::PopStyleColor();

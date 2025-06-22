@@ -89,6 +89,10 @@ namespace Panels
 			{
 				std::string nEngine;
 				inFile >> nEngine;
+
+				if (nEngine.empty())
+					continue;
+
 				int extensionIndex = nEngine.find_last_of('.');
 				if (extensionIndex != std::string::npos)
 					nEngine.erase(extensionIndex);
@@ -181,26 +185,32 @@ namespace Panels
 		}
 
 		ImVec4 color = ImVec4(0.3f, 0.58f, 0.97f, 1.0f);
-		if (m_Score[0] < -0.8) { color = ImVec4(0.79f, 0.1f, 0.1f, 1.0f); }
-		else if (m_Score[0] > 0.8) { color = ImVec4(0.1f, 0.79f, 0.31f, 1.0f); }
+
+		if (std::abs(m_Score[0]) != 1000.0f)
+		{
+			if (m_Score[0] < -0.8)
+				color = ImVec4(0.79f, 0.1f, 0.1f, 1.0f);
+			else if (m_Score[0] > 0.8)
+				color = ImVec4(0.1f, 0.79f, 0.31f, 1.0f);
+		}
 
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.6f, 0.6f, 0.4f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.6f, 0.6f, 0.4f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.6f, 0.6f, 0.4f));
 
 		ImGui::PushStyleColor(ImGuiCol_Text, color);
-		ImGui::PushFont(io.Fonts->Fonts[1]);
+		ImGui::PushFont(Walnut::Application::GetFont("Bold"));
 
 		float buSize = ImGui::CalcTextSize("1234567").x;
 
 		if (std::abs(m_Score[0]) > 1000.0f)
 			ImGui::Button(std::format("{0}#", m_Score[0] - 1000.0f * std::abs(m_Score[0]) / m_Score[0]).c_str(), ImVec2(buSize, 0));
 		else if (std::abs(m_Score[0]) == 1000.0f)
-			ImGui::Button("Mated", ImVec2(buSize, 0));
+			ImGui::Button("#", ImVec2(buSize, 0));
 		else
 			ImGui::Button(std::format("{0}", m_Score[0]).c_str(), ImVec2(buSize, 0));
 		
-		g_ChessEngineValue = m_Score[0];
+		g_ChessEngineValue = (std::abs(m_Score[0]) == 1000.0f ? m_Score[0] * -1 : m_Score[0]);
 
 		ImGui::PopFont();
 		ImGui::PopStyleColor(4);
@@ -577,7 +587,17 @@ namespace Panels
 
 							pgngame.Clear();
 							pgngame["FEN"] = cur_fen;
-							game.InitPgnGame(pgngame);
+
+							if (!game.InitPgnGame(pgngame))
+							{
+								s_moveMutex.lock();
+
+								m_Moves[list].clear();
+
+								s_moveMutex.unlock();
+
+								continue;
+							}
 
 							int indexhere = 0;
 							for (auto& move : helperVector)

@@ -79,7 +79,7 @@ void Update::StartOperationForUpdate()
 		[this]()
 		{
 			Web::DownLoadStatus status = Web::Nothing;
-			auto name = Web::DownLoadFileFromGoogleDrive("1aBeo7DlwrKIB9tZD7FSKWKxEdkyEHW88", "ALoNOglt_2hYbSiwowwywADKOhaq:1747598185917", status);
+			auto name = Web::DownLoadFileFromGoogleDrive("1brkDjWEsoV5Y_UNrksbnzT_SIFLqZmir", "AN8xHooOZ0AaBH50QGYFw873WScq:1750179988527", status);
 
 			std::filesystem::remove_all("toUpdate");
 

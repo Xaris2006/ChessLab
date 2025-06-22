@@ -141,14 +141,24 @@ int main(int argc, char* argv[])
     glfwWindowHint(GLFW_TITLEBAR, GLFW_FALSE);
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 
-    // Load image
-    int width, height, nrChannels;
-    stbi_set_flip_vertically_on_load(true);
-    unsigned char* data = stbi_load("..\\king2W2.png", &width, &height, &nrChannels, 0);
-    stbi_set_flip_vertically_on_load(false);
+
+    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+    if (!monitor) {
+        fprintf(stderr, "Failed to get primary monitor\n");
+        glfwTerminate();
+        return -1;
+    }
+
+    // Get the video mode of the monitor
+    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    if (!mode) {
+        fprintf(stderr, "Failed to get video mode\n");
+        glfwTerminate();
+        return -1;
+    }
 
     // Create a window
-    GLFWwindow* window = glfwCreateWindow(width /3, height /3, "OpenGL Texture Example", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(mode->height / 2.5f, mode->height / 2.5f, "Update", NULL, NULL);
     if (!window) {
         std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -161,23 +171,25 @@ int main(int argc, char* argv[])
 
 #ifdef WL_DIST
 
-    std::string iconPathStr = "..\\ChessLabApp\\Resources\\ChessLab\\lsb.png";
+    std::string iconPathStr = "..\\ChessLabApp\\Resources\\ChessLab\\clb.png";
+	std::string imagePathStr = "..\\IntallingCL.png";
 
 #else
 
-    std::string iconPathStr = "..\\..\\ChessLab-Lobby\\ChessLabApp\\Resources\\ChessLab\\lsb.png";
+    std::string iconPathStr = "..\\ChessLab-Lobby\\ChessLabApp\\Resources\\ChessLab\\clb.png";
+    std::string imagePathStr = "IntallingCL.png";
 
 #endif
 
     icon.pixels = stbi_load(iconPathStr.c_str(), &icon.width, &icon.height, &channels, 4);
     glfwSetWindowIcon(window, 1, &icon);
     stbi_image_free(icon.pixels);
-    
-    // Get the monitor that the window is currently on
-    GLFWmonitor* monitor = glfwGetPrimaryMonitor();
 
-    // Get the video mode of the monitor (resolution, refresh rate, etc.)
-    const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+    // Load image
+    int widthImage, heightImage, nrChannels;
+    stbi_set_flip_vertically_on_load(true);
+    unsigned char* data = stbi_load(imagePathStr.c_str(), &widthImage, &heightImage, &nrChannels, 0);
+    stbi_set_flip_vertically_on_load(false);
 
     // Get the monitor position (in case it's not at the origin)
     int monitorX, monitorY;
@@ -252,7 +264,7 @@ int main(int argc, char* argv[])
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
     if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, widthImage, heightImage, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     }
     else {
@@ -269,15 +281,15 @@ int main(int argc, char* argv[])
     std::thread updater(
         [&threadEnded]()
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-
+            std::this_thread::sleep_for(std::chrono::seconds(6));
+    
             std::error_code ec;
-            std::filesystem::copy(std::filesystem::current_path() / "ChessLab", std::filesystem::canonical(std::filesystem::current_path() / "..\\..\\LightSource"), std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive);
+            std::filesystem::copy(std::filesystem::current_path() / "ChessLab", std::filesystem::canonical(std::filesystem::current_path() / "..\\..\\ChessLab"), std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive);
             
-			std::ofstream outfile("logfile.txt");
-			outfile << ec.message();
-			outfile.close();
-
+	 		std::ofstream outfile("logfile.txt");
+	 		outfile << ec.message();
+	 		outfile.close();
+    
             threadEnded = true;
         });
 

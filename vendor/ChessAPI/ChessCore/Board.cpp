@@ -2227,7 +2227,9 @@ namespace Chess
 		if (kingsDistance == 1 || kingsDistance == 7 || kingsDistance == 8 || kingsDistance == 9)
 			return false;
 
-		if (GetKingStatus() != SECURE)
+		UpdateVitualValues();
+
+		if (GetVirtualKingStatus((m_PlayerToPlay == WHITE ? BLACK : WHITE)) != SECURE)
 			return false;
 		
 		return true;

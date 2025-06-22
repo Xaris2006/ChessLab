@@ -227,37 +227,37 @@ public:
 		}
 		else if (m_MenuIntex == 1)
 		{
-			//ImGui::Begin("Not Ready");
-			//
-			//ImVec2 textSize = ImGui::CalcTextSize("Coming Soon!");
-			//
-			//{
-			//	float actualSizeX = textSize.x + ImGui::GetStyle().FramePadding.x * 2.0f;
-			//	float availX = ImGui::GetContentRegionAvail().x;
-			//
-			//	float offX = (availX - actualSizeX) * 0.5f;
-			//	if (offX > 0.0f)
-			//		ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offX);
-			//}
-			//
-			//{
-			//	float actualSizeY = textSize.y + ImGui::GetStyle().FramePadding.y * 2.0f;
-			//	float availY = ImGui::GetContentRegionAvail().y;
-			//
-			//	float offY = (availY - actualSizeY) * 0.5f;
-			//	if (offY > 0.0f)
-			//		ImGui::SetCursorPosY(ImGui::GetCursorPosY() + offY);
-			//}
-			//
-			//ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
-			//
-			//ImGui::Text("Coming Soon!");
-			//
-			//ImGui::PopStyleColor();
-			//
-			//ImGui::End();
+			ImGui::Begin("Not Ready");
+			
+			ImVec2 textSize = ImGui::CalcTextSize("Coming Soon!");
+			
+			{
+				float actualSizeX = textSize.x + ImGui::GetStyle().FramePadding.x * 2.0f;
+				float availX = ImGui::GetContentRegionAvail().x;
+			
+				float offX = (availX - actualSizeX) * 0.5f;
+				if (offX > 0.0f)
+					ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offX);
+			}
+			
+			{
+				float actualSizeY = textSize.y + ImGui::GetStyle().FramePadding.y * 2.0f;
+				float availY = ImGui::GetContentRegionAvail().y;
+			
+				float offY = (availY - actualSizeY) * 0.5f;
+				if (offY > 0.0f)
+					ImGui::SetCursorPosY(ImGui::GetCursorPosY() + offY);
+			}
+			
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+			
+			ImGui::Text("Coming Soon!");
+			
+			ImGui::PopStyleColor();
+			
+			ImGui::End();
 
-			m_ProfilePanel->OnImGuiRender();
+			//m_ProfilePanel->OnImGuiRender();
 		}
 		else if (m_MenuIntex == 2)
 		{
