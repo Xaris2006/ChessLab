@@ -471,14 +471,11 @@ namespace Chess
 
 	void PgnFile::Clear()
 	{
-		std::unique_lock<std::shared_mutex> ul(m_Data->FileMutex);
-		
-		m_Data->FilePath = "";
-		m_Data->GamesTimer.clear();
-		m_Data->EditedGames.clear();
-		m_Data->Games.clear();
+		PgnManager::Get().RemoveFile(m_ID);
 
-		m_Data->DataPointers.clear();
+		m_Data = std::make_shared<Chess::PgnManager::PgnFileData>();
+		m_ID = PgnManager::Get().AddFile(m_Data);
+
 		m_AddedGamesCount = 0;
 		m_DeletedGames.clear();
 	}

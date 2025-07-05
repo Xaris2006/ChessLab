@@ -285,7 +285,7 @@ namespace Chess
 
 	PgnManager::FileID PgnManager::AddFile(std::shared_ptr<PgnFileData> ptr)
 	{
-		FileID nID = UUID();
+		FileID nID;
 		s_FileDataAccessMutex.lock();
 		m_FileDataPtr[nID] = ptr;
 		s_FileDataAccessMutex.unlock();
@@ -304,7 +304,7 @@ namespace Chess
 
 	PgnManager::WorkID PgnManager::AddWork(std::shared_ptr<SearchWorkData> ptr)
 	{
-		FileID nID = UUID();
+		FileID nID;
 		s_WorkDataAccessMutex.lock();
 		m_WorkDataPtr[nID] = ptr;
 		s_WorkDataAccessMutex.unlock();

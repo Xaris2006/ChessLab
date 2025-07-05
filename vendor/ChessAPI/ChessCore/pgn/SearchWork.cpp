@@ -20,7 +20,7 @@ namespace Chess
 		size_t added = 0;
 		auto file = PgnManager::Get().GetFileData(id);
 
-		PgnManager::TargetID nID = UUID();
+		PgnManager::TargetID nID;
 		m_Data->Targets[nID] = std::make_shared<PgnManager::Target>();
 
 		m_Data->Targets[nID]->FDataID = id;
@@ -45,17 +45,10 @@ namespace Chess
 
 	void SearchWork::Clear()
 	{
-		//m_Data->WorkMutex.lock();
+		PgnManager::Get().RemoveWork(m_ID);
 
-		std::unique_lock<std::shared_mutex> ul(m_Data->WorkMutex);
-
-		m_Data->Jobs = 0;
-		m_Data->JobsToDo.clear();
-		m_Data->AllPossitiveIndexes.clear();
-		m_Data->Targets.clear();
-		
-
-		//m_Data->WorkMutex.unlock();
+		m_Data = std::make_shared<PgnManager::SearchWorkData>();
+		m_ID = PgnManager::Get().AddWork(m_Data);
 	}
 
 	std::vector<size_t>& SearchWork::GetResult() const

@@ -154,7 +154,7 @@ namespace ChessAPI
 		m_IsLastPointedPanelNotes = ispointed;
 	}
 
-	void  OpenChessFile(const std::string& path)
+	void OpenChessFile(const std::string& path)
 	{
 		s_movePromotion.index = -1;
 

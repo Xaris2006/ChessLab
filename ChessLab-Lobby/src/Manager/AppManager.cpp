@@ -162,14 +162,18 @@ namespace Manager
 						bool alreadyOpened = false;
 
 						std::filesystem::path npath = s_AppManager->m_NewPath;
+						auto npathHash = hasher(npath);
 
-						for (auto& [key, other] : s_AppManager->m_OpenedPaths)
+						if (npathHash != 0)
 						{
-							if (other == hasher(npath))
+							for (auto& [key, other] : s_AppManager->m_OpenedPaths)
 							{
-								alreadyOpened = true;
-								g_AlreadyOpenedModalOpen = true;
-								break;
+								if (other == npathHash)
+								{
+									alreadyOpened = true;
+									g_AlreadyOpenedModalOpen = true;
+									break;
+								}
 							}
 						}
 
