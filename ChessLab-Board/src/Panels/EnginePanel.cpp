@@ -19,8 +19,8 @@
 float g_ChessEngineValue;
 bool g_ChessEngineOpen;
 
-static std::mutex s_vectorMutex;
-static std::mutex s_moveMutex;
+static std::mutex s_messageMutex;
+static std::mutex s_moveDataMutex;
 
 static Walnut::Timer s_time;
 static Walnut::Timer s_timeScore;
@@ -48,25 +48,7 @@ namespace Panels
 {
 	EnginePanel::EnginePanel()
 	{
-		std::ifstream inFile("MyDocuments\\engines\\settings.ce");
-
-		inFile >> m_threadCount;
-		inFile >> m_hashMb;
-		inFile >> m_lines;
-		inFile >> m_SkillLevel;
-		inFile >> m_SyzygyPath;
-		inFile >> m_Syzygy50MoveRule;
-		inFile >> m_LimitStrength;
-		inFile >> m_Elo;
-		inFile >> m_DefaultEngine;
-
-		if (m_SyzygyPath == "False")
-			m_SyzygyPath = "";
-
-		if (m_DefaultEngine == "False")
-			m_DefaultEngine = "";
-
-		inFile.close();
+		Reset();
 	}
 
 	EnginePanel::~EnginePanel()
@@ -76,7 +58,6 @@ namespace Panels
 
 	void EnginePanel::OnImGuiRender()
 	{
-
 		if (ImGui::IsKeyDown(ImGuiKey_LeftArrow) || ImGui::IsKeyDown(ImGuiKey_RightArrow))// || ImGui::IsMouseDown(ImGuiMouseButton_Left))
 			s_timeScore.Reset();
 
@@ -103,6 +84,7 @@ namespace Panels
 		}
 
 		m_viewPanel = IsEngineOpen();
+
 		if (!m_viewPanel)
 			return;
 
@@ -111,51 +93,12 @@ namespace Panels
 		if (!m_viewPanel)
 			CloseEngine();
 
-		//Title
 		ImGui::TextWrapped(GetName().c_str());
 
 		ImGui::Separator();
-		//End-Title
-
-		//Settings
 
 		static bool barCheckBox = false;
 		barCheckBox = g_ChessEngineOpen;
-
-		//if (ImGui::TreeNode("Settings"))
-		//{
-		//	ImGui::NewLine();
-		//
-		//	if (ImGui::InputInt("Thread Count", &m_threadCount, 1, 1))
-		//	{
-		//		if (m_threadCount < 1) { m_threadCount = 1; }
-		//		if (m_threadCount > std::thread::hardware_concurrency()) { m_threadCount = std::thread::hardware_concurrency(); }
-		//
-		//		m_running = false;
-		//		CommandChessEngine("stop");
-		//		CommandChessEngine("setoption name Threads value " + std::to_string(m_threadCount));
-		//		CommandChessEngine("setoption name Hash value " + std::to_string(m_hashMb));
-		//		//CommandChessEngine("ucinewgame");
-		//
-		//	}
-		//	if (ImGui::InputInt("Hash amount", &m_hashMb, 1, 1))
-		//	{
-		//		if (m_hashMb < 64) { m_hashMb = 64; }
-		//		if (m_hashMb > 1024) { m_hashMb = 1024; }
-		//
-		//		m_running = false;
-		//		CommandChessEngine("stop");
-		//		CommandChessEngine("setoption name Threads value " + std::to_string(m_threadCount));
-		//		CommandChessEngine("setoption name Hash value " + std::to_string(m_hashMb));
-		//		//CommandChessEngine("ucinewgame");
-		//
-		//	}
-		//	
-		//	ImGui::Checkbox("Evaluation Bar", &barCheckBox);
-		//
-		//	ImGui::TreePop();
-		//}
-
 
 		ImGui::Checkbox("Evaluation Bar", &barCheckBox);
 
@@ -163,16 +106,8 @@ namespace Panels
 
 		g_ChessEngineOpen = barCheckBox;
 
-		//End-Settings
-
-
-		//Moves
-
 		auto& io = ImGui::GetIO();
 
-		//blue(0.3, 0.58, 0.97) -> equal
-		//red(0.79, 0.1, 0.1) -> black
-		//green(0.1, 0.79, 0.31) -> white
 		auto curBoard = ChessAPI::GetFormatedPosition();
 		if (m_oldBoard != curBoard && m_running && !ChessAPI::IsWaitingForNewType()
 			&& s_timeScore.Elapsed() > 0.2)
@@ -272,20 +207,26 @@ namespace Panels
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
 		for (int i = 0; i < m_lines; i++)
 		{
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 0.58f, 0.97f, 1.0f));
-
-			if (std::abs(m_Score[i]) > 1000.0f)
-				ImGui::TextWrapped("Mate in %.0f", m_Score[i] - 1000.0f * std::abs(m_Score[i]) / m_Score[i]);
-			else if (std::abs(m_Score[i]) == 1000.0f)
-				ImGui::TextWrapped("Mated");
-			else
-				ImGui::TextWrapped("%.2f", m_Score[i]);
-
-			ImGui::PopStyleColor();
-
 			std::vector<std::string> EngineMoves;
 			GetBestMoveStr(i, EngineMoves);
-			
+
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 0.58f, 0.97f, 1.0f));
+
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.6f, 0.6f, 0.0f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.6f, 0.6f, 0.0f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.6f, 0.6f, 0.0f));
+
+			if(EngineMoves.empty())
+				ImGui::TextWrapped("-");
+			else if (std::abs(m_Score[i]) > 1000.0f)
+				ImGui::Button(std::format("{0}#", m_Score[i] - 1000.0f * std::abs(m_Score[i]) / m_Score[i]).c_str(), ImVec2(buSize, 0));
+			else if (std::abs(m_Score[i]) == 1000.0f)
+				ImGui::Button("#", ImVec2(buSize, 0));
+			else
+				ImGui::Button(std::format("{0}", m_Score[i]).c_str(), ImVec2(buSize, 0));
+
+			ImGui::PopStyleColor(4);
+
 			int index = 0;
 			for (int j = 0; j < EngineMoves.size() && m_running && std::abs(m_Score[0]) != 1000.0f; j++)
 			{
@@ -314,18 +255,12 @@ namespace Panels
 		ImGui::PopStyleColor();
 
 		ImGui::EndChild();
-		//End-Moves
 
-		if(!m_viewPanel)
-		{
-			CloseEngine();
-		}
 		ImGui::End();
 	}
 
 	void EnginePanel::Reset()
 	{
-		m_running = false;
 		m_oldBoard.clear();
 
 		{
@@ -361,11 +296,12 @@ namespace Panels
 		if (programpath.empty())
 			return;
 
-		if (IsEngineOpen())
-			CloseEngine();
+		CloseEngine();
 
-		g_ChessEngineOpen = true;
+		Reset();
+
 		m_running = true;
+		g_ChessEngineOpen = true;
 
 		m_processThread = new std::thread(
 			[this, programpath]()
@@ -403,6 +339,7 @@ namespace Panels
 					return;
 				}
 
+				EngineApp.Write("setoption name MultiPV value " + std::to_string(m_lines));
 				EngineApp.Write("setoption name Threads value " + std::to_string(m_threadCount));
 				EngineApp.Write("setoption name Hash value " + std::to_string(m_hashMb));
 
@@ -412,8 +349,17 @@ namespace Panels
 				Chess::PgnGame pgngame;
 				Chess::GameManager game;
 				game.InitPgnGame(pgngame);
+
+				std::string cur_fen;// = game.GetFen();
+
 				while (true)
 				{
+					if (!EngineApp.IsProcessActive())
+					{
+						m_EndThread = true;
+						return;
+					}
+
 					if (m_EndThread)
 					{
 						EngineApp.Write("quit");
@@ -421,27 +367,23 @@ namespace Panels
 						return;
 					}
 
-					overall.clear();
-
-					std::string cur_fen = game.GetFen();
-
 					EngineApp.Write("isready");
 					
-					s_vectorMutex.lock();
+					s_messageMutex.lock();
 
 					for (auto& command : m_write)
 					{
 						EngineApp.Write(command);
 						int indexFen = command.find("position");
 						if (indexFen != std::string::npos)
-						{
 							cur_fen = std::string(command.begin() + indexFen + 13, command.end());
-							overall.clear();
-						}
 					}
+					
+					overall.clear();
 
 					m_write.clear();
-					s_vectorMutex.unlock();
+
+					s_messageMutex.unlock();
 
 					std::this_thread::sleep_for(std::chrono::milliseconds(250));
 					overall += EngineApp.Read();
@@ -492,7 +434,10 @@ namespace Panels
 							break;
 
 						if (m_FinalStreams[list] == -1)
+						{
+							//m_Score[list] = 10000;
 							continue;
+						}
 
 						overall = StockMoveStreams[m_FinalStreams[list]];
 
@@ -590,11 +535,11 @@ namespace Panels
 
 							if (!game.InitPgnGame(pgngame))
 							{
-								s_moveMutex.lock();
+								s_moveDataMutex.lock();
 
 								m_Moves[list].clear();
 
-								s_moveMutex.unlock();
+								s_moveDataMutex.unlock();
 
 								continue;
 							}
@@ -622,6 +567,8 @@ namespace Panels
 
 								move = game.ConvertUCIStringToString(move);
 			
+								//std::cout << game.GetFen() << '\n';
+
 								if (game.MakeMove(move) == Chess::Board::MOVEERROR)
 								{
 									helperVector.resize(indexhere);
@@ -632,12 +579,12 @@ namespace Panels
 							}
 							game.GoInitialPosition();
 							
-							s_moveMutex.lock();
+							s_moveDataMutex.lock();
 							
 							m_Moves[list].clear();
 							m_Moves[list] = helperVector;
 							
-							s_moveMutex.unlock();
+							s_moveDataMutex.unlock();
 						}
 					}
 				}
@@ -655,9 +602,6 @@ namespace Panels
 		m_processThread->join();
 		delete m_processThread;
 		m_processThread = nullptr;
-		m_running = false;
-		m_oldBoard.clear();
-		Reset();
 	}
 
 	std::vector<std::string>& EnginePanel::GetAvailEngines()
@@ -667,11 +611,10 @@ namespace Panels
 
 	void EnginePanel::CommandChessEngine(const std::string& command)
 	{
-		s_vectorMutex.lock();
+		s_messageMutex.lock();
+
 		if (IsEngineOpen())
-		{
-			m_write.push_back(command);
-		}
+			m_write.emplace_back(command);
 
 		if ((int)command.find("position fen") + 1)
 		{
@@ -681,7 +624,7 @@ namespace Panels
 				m_BlackToPlay = false;
 		}
 
-		s_vectorMutex.unlock();
+		s_messageMutex.unlock();
 	}
 
 	bool EnginePanel::IsEngineOpen() const
@@ -696,11 +639,11 @@ namespace Panels
 		if (s_timeScore.Elapsed() < 0.5)			
 			return;
 
-		s_moveMutex.lock();
+		s_moveDataMutex.lock();
 		
 		moves = m_Moves[list];
 		
-		s_moveMutex.unlock();
+		s_moveDataMutex.unlock();
 	}
 
 	int EnginePanel::GetDepth() const
