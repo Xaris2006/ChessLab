@@ -923,8 +923,10 @@ namespace Chess
 		else
 			m_LastMovedPieceIndex = -1;
 
+		m_FiftyMoveCounter++;
+
 		if (type == PAWN || enemyType != NONE)
-			m_FiftyMoveCounter++;
+			m_FiftyMoveCounter = 0;
 
 		m_PlayerToPlay = nextToPlay;
 
@@ -2125,12 +2127,12 @@ namespace Chess
 
 			if (m_K)
 			{
-				if (!m_Pieces.At(4 + 1) && !m_Pieces.At(4 + 2) && IsMoveKingSecured({ 4, 0 }) && IsMoveKingSecured({ 4, 1 }))
+				if (!m_Pieces.At(4 + 1) && !m_Pieces.At(4 + 2) && m_mapWhitePieces[ROOK].At(4 + 3) && IsMoveKingSecured({4, 0}) && IsMoveKingSecured({4, 1}))
 					moves.emplace_back(4, 2);
 			}
 			if (m_Q)
 			{
-				if (!m_Pieces.At(4 - 1) && !m_Pieces.At(4 - 3) && IsMoveKingSecured({ 4, 0 }) && IsMoveKingSecured({ 4, -1 }))
+				if (!m_Pieces.At(4 - 1) && !m_Pieces.At(4 - 2) && !m_Pieces.At(4 - 3) && m_mapWhitePieces[ROOK].At(4 - 4) && IsMoveKingSecured({ 4, 0 }) && IsMoveKingSecured({ 4, -1 }))
 					moves.emplace_back(4, -2);
 			}
 		}
@@ -2176,12 +2178,12 @@ namespace Chess
 
 			if (m_k)
 			{
-				if (!m_Pieces.At(60 + 1) && !m_Pieces.At(60 + 2) && IsMoveKingSecured({ 60, 0 }) && IsMoveKingSecured({ 60, 1 }))
+				if (!m_Pieces.At(60 + 1) && !m_Pieces.At(60 + 2) && m_mapBlackPieces[ROOK].At(60 + 3) && IsMoveKingSecured({ 60, 0 }) && IsMoveKingSecured({ 60, 1 }))
 					moves.emplace_back(60, 2);
 			}
 			if (m_q)
 			{
-				if (!m_Pieces.At(60 - 1) && !m_Pieces.At(60 - 3) && IsMoveKingSecured({ 60, 0 }) && IsMoveKingSecured({ 60, -1 }))
+				if (!m_Pieces.At(60 - 1) && !m_Pieces.At(60 - 2) && !m_Pieces.At(60 - 3) && m_mapBlackPieces[ROOK].At(60 - 4) && IsMoveKingSecured({ 60, 0 }) && IsMoveKingSecured({ 60, -1 }))
 					moves.emplace_back(60, -2);
 			}
 		}

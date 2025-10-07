@@ -1613,11 +1613,11 @@ void ImGuiBoard::EditorPopup()
 			{
 				for (int j = 0; j < 8; j++)
 				{
-					auto id = gameNew.GetPieceID(i + 8 * j);
+					Chess::GameManager::PieceID id = gameNew.GetPieceID(i + 8 * j);
 
 					int ret = ((int)id.type + (id.color == Chess::WHITE ? 0 : 1) * 6 + 1);
 
-					m_Editorblock[i][j] = (id.type != (Chess::NONE ? ret : 0));
+					m_Editorblock[i][j] = (id.type != Chess::NONE ? ret : 0);
 				}
 			}
 		}
