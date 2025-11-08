@@ -11,7 +11,6 @@ namespace Panels
 {
 	DatabasePanel::DatabasePanel()
 	{
-		m_searchSetting = new std::map<std::string, std::string>();
 		m_ecoItems.reserve(500);
 		for (int i = 0; i < 5; i++)
 		{
@@ -28,7 +27,7 @@ namespace Panels
 
 	void DatabasePanel::Reset()
 	{
-		m_searchSetting->clear();
+		m_searchSetting.clear();
 		m_name_white = true;
 		m_name_black = true;
 		m_name_to_search.clear();
@@ -86,29 +85,29 @@ namespace Panels
 				s_searched = true;
 				if (m_name_white || !m_name_black)
 				{
-					m_searchSetting->clear();
+					m_searchSetting.clear();
 
 					if (m_name_to_search != "")
-						(*m_searchSetting)["White"] = m_name_to_search;
+						(m_searchSetting)["White"] = m_name_to_search;
 					if (m_eco_to_search != "")
-						(*m_searchSetting)["ECO"] = m_eco_to_search;
+						(m_searchSetting)["ECO"] = m_eco_to_search;
 					if (m_date_to_search != "")
-						(*m_searchSetting)["Date"] = m_date_to_search;
+						(m_searchSetting)["Date"] = m_date_to_search;
 
-					work.SearchLabel(pgnfile->GetID(), *m_searchSetting);
+					work.SearchLabel(pgnfile->GetID(), m_searchSetting);
 				}
 				if (m_name_black || !m_name_white)
 				{
-					m_searchSetting->clear();
+					m_searchSetting.clear();
 
 					if (m_name_to_search != "")
-						(*m_searchSetting)["Black"] = m_name_to_search;
+						(m_searchSetting)["Black"] = m_name_to_search;
 					if (m_eco_to_search != "")
-						(*m_searchSetting)["ECO"] = m_eco_to_search;
+						(m_searchSetting)["ECO"] = m_eco_to_search;
 					if (m_date_to_search != "")
-						(*m_searchSetting)["Date"] = m_date_to_search;
+						(m_searchSetting)["Date"] = m_date_to_search;
 
-					work.SearchLabel(pgnfile->GetID(), *m_searchSetting);
+					work.SearchLabel(pgnfile->GetID(), m_searchSetting);
 				}
 			}
 			ImGui::PopStyleColor(3);

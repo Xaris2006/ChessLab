@@ -124,7 +124,7 @@ namespace Chess
 							continue;
 						}
 
-						auto&& workData = s_PgnManager->m_WorkDataPtr[ID];
+						std::shared_ptr workData = s_PgnManager->m_WorkDataPtr[ID];
 
 						s_WorkDataAccessMutex.unlock();
 
@@ -136,7 +136,7 @@ namespace Chess
 								continue;
 							}
 
-							auto&& target = workData->Targets[job.tID];
+							std::shared_ptr target = workData->Targets[job.tID];
 
 
 							if (!Get().m_FileDataPtr.contains(target->FDataID))

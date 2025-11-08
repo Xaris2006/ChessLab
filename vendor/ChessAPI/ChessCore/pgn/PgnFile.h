@@ -39,7 +39,7 @@ namespace Chess
 			size_t operator() (const std::filesystem::path& path) const
 			{
 				std::size_t hash = 0;
-				std::hash<std::u8string> hasher;
+				std::hash<std::string> hasher;
 				
 				std::error_code ec;
 

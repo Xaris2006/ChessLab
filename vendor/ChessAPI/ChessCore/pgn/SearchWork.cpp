@@ -15,6 +15,8 @@ namespace Chess
 
 	void SearchWork::SearchLabel(PgnManager::FileID id, const std::map<std::string, std::string>& settings)
 	{
+		Clear();
+
 		std::unique_lock<std::shared_mutex> ul(m_Data->WorkMutex);
 
 		size_t added = 0;

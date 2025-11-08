@@ -141,8 +141,9 @@ namespace Panels {
 		for (auto& directoryEntry : std::filesystem::directory_iterator(m_CurrentDirectory))
 		{
 			const auto& path = directoryEntry.path();
-			std::u8string filenameU8String = path.filename().u8string();
-			std::string filenameString = std::string(filenameU8String.begin(), filenameU8String.end());
+			std::string filenameString = path.filename().u8string();
+			//std::u8string filenameU8String = path.filename().u8string();
+			//std::string filenameString = std::string(filenameU8String.begin(), filenameU8String.end());
 
 
 			ImGui::PushID(filenameString.c_str());

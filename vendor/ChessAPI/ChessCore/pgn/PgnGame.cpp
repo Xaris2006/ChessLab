@@ -121,8 +121,8 @@ namespace Chess
 		}
 		output += '\n';
 
-		if (!m_firstNote.empty())
-			output += ('{' + m_firstNote + "} ");
+		//if (!m_firstNote.empty())
+		//	output += ('{' + m_firstNote + "} ");
 
 		WriteMoves(output, m_chessmoves);
 		if (resultExist && m_labels.at("Result") != "?")
@@ -293,6 +293,74 @@ namespace Chess
 
 				if (data[i] == '}')
 				{
+					if (Parent->move.empty())
+						continue;
+
+					int detailIndex = Parent->move.size() - 2;
+					
+					Parent->details[detailIndex].note += ' ';
+
+					std::string realNote;
+					bool lastPer = false;
+					bool cmdSection = false, cmdSectionValue = false;
+
+					std::string cmdName, cmdValue;
+
+					for(int i = 0; i < Parent->details[detailIndex].note.size() - 1; i++)
+					{
+						if(Parent->details[detailIndex].note[i] == '[' && Parent->details[detailIndex].note[i + 1] == '%')
+						{
+							cmdSection = true;
+							i++;
+							continue;
+						}
+
+						if(cmdSection && !cmdSectionValue && (Parent->details[detailIndex].note[i] == ' ' || Parent->details[detailIndex].note[i] == '\n'))
+						{
+							cmdSectionValue = true;
+							continue;
+						}
+
+						if(cmdSectionValue && Parent->details[detailIndex].note[i] == ']')
+						{
+							cmdSection = false;
+							cmdSectionValue = false;
+							
+							Parent->details[detailIndex].cmds[cmdName] = cmdValue;
+							
+							cmdName.clear();
+							cmdValue.clear();
+							continue;
+						}
+
+						if(cmdSection)
+						{
+							if(cmdSectionValue)
+								cmdValue += Parent->details[detailIndex].note[i];
+							else
+								cmdName += Parent->details[detailIndex].note[i];
+							continue;
+						}
+						
+						if (Parent->details[detailIndex].note[i] != '%')
+						{
+							if (lastPer)
+							{
+								lastPer = false;
+								realNote += '%';
+							}
+						}
+						else
+							lastPer = true;
+
+						if(realNote.empty() && (Parent->details[detailIndex].note[i] == ' ' || Parent->details[detailIndex].note[i] == '\n'))
+							continue;
+
+						realNote += Parent->details[detailIndex].note[i];
+					}
+
+					Parent->details[detailIndex].note = realNote;
+
 					detailsopen = false;
 					continue;
 				}
@@ -302,13 +370,7 @@ namespace Chess
 					if (Parent->move.empty())
 						continue;
 
-					if (Parent->move[0] == "" && !Parent->parent)
-					{
-						m_firstNote += data[i];
-						continue;
-					}
-
-					Parent->details[Parent->move.size() - 1] += data[i];
+					Parent->details[Parent->move.size() - 2].note += data[i];
 					continue;
 				}
 			}
@@ -422,6 +484,22 @@ namespace Chess
 	void PgnGame::WriteMoves(std::string& op, ChessMovesPath par) const
 	{
 		int index = 0;
+
+		if (par.details.contains(-1) && (par.details[-1].note != "" || !par.details[-1].cmds.empty()))
+		{
+			op += "{ ";
+
+			if (!par.details[-1].note.empty())
+				op += (par.details[-1].note + " ");
+
+			for (auto& [cmdname, cmdvalue] : par.details[-1].cmds)
+			{
+				op += ("[%" + cmdname + " " + cmdvalue + "] ");
+			}
+
+			op += "} ";
+		}
+
 		for (int i = 0; i < par.move.size(); i++)
 		{
 			if (par.move[i] == "child") { op += "( "; WriteMoves(op, par.children[index]); op += ") "; index += 1; continue; }
@@ -429,8 +507,20 @@ namespace Chess
 			{
 				op += par.move[i] + " ";
 
-				if (par.details[i] != "")
-					op += ("{ " + par.details[i] + " } ");
+				if (par.details.contains(i) && (par.details[i].note != "" || !par.details[i].cmds.empty()))
+				{
+					op += "{ ";
+					
+					if (!par.details[i].note.empty())
+						op += (par.details[i].note + " ");
+
+					for(auto& [cmdname, cmdvalue] : par.details[i].cmds)
+					{
+						op += ("[%" + cmdname + " " + cmdvalue + "] ");
+					}
+
+					op += "} ";
+				}
 			}
 		}
 	}

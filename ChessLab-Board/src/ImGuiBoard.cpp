@@ -13,6 +13,7 @@
 
 #include "../../Walnut/Source/Walnut/Application.h"
 
+extern bool g_IsMoveChooseOpen;
 extern bool g_AlreadyOpenedModalOpen;
 extern float g_ChessEngineValue;
 extern bool g_ChessEngineOpen;
@@ -188,7 +189,7 @@ void ImGuiBoard::OnUIRender()
 
 
 	auto mif = (std::vector<int>)ChessAPI::GetMoveIntFormat();
-	auto& note = ChessAPI::GetNote(mif);
+	auto& cmds = ChessAPI::GetNote(mif).cmds;
 
 	for (int i = 0; i < 8; i++)
 	{
@@ -200,21 +201,22 @@ void ImGuiBoard::OnUIRender()
 	
 	s_arrows.clear();
 
-	if (note.find("%csl") != std::string::npos)
+	if (cmds.contains("csl"))
 	{
 		static const std::string hor = "abcdefgh";
 		static const std::string ver = "12345678";
 		static const std::string type = " RGY";
 		
-		for (int i = note.find("%csl") + 5; i < note.size(); i++)
+		std::string clsCmd = cmds["csl"];
+
+		for (int i = 0; i < clsCmd.size(); i++)
 		{
-			if (note[i] == ',')
+			if (clsCmd[i] == ',')
 				continue;
-			if (note[i] == ']')
-				break;
-			char t = note[i];
-			char h = note[++i];
-			char v = note[++i];
+
+			char t = clsCmd[i];
+			char h = clsCmd[++i];
+			char v = clsCmd[++i];
 
 			if(!m_reverse)
 				s_tags[7 - ver.find(v)][hor.find(h)] = type.find(t);
@@ -224,23 +226,24 @@ void ImGuiBoard::OnUIRender()
 
 	}
 
-	if (note.find("%cal") != std::string::npos)
+	if (cmds.contains("cal"))
 	{
 		static const std::string hor = "abcdefgh";
 		static const std::string ver = "12345678";
 		static const std::string type = " RGY";
 		
-		for (int i = note.find("%cal") + 5; i < note.size(); i++)
+		std::string calCmd = cmds["cal"];
+
+		for (int i = 0; i < calCmd.size(); i++)
 		{
-			if (note[i] == ',')
+			if (calCmd[i] == ',')
 				continue;
-			if (note[i] == ']')
-				break;
-			char t = note[i];
-			char hs = note[++i];
-			char vs = note[++i];
-			char he = note[++i];
-			char ve = note[++i];
+			
+			char t = calCmd[i];
+			char hs = calCmd[++i];
+			char vs = calCmd[++i];
+			char he = calCmd[++i];
+			char ve = calCmd[++i];
 
 			if (!m_reverse)
 			{
@@ -327,6 +330,8 @@ void ImGuiBoard::OnUIRender()
 
 			if (doTag)
 			{
+				auto& CslCmd = cmds["csl"];
+
 				if (redKey)
 				{
 					auto MousePos = FindMousePos();
@@ -344,55 +349,44 @@ void ImGuiBoard::OnUIRender()
 						vh += ver[(int)MousePos.y];
 					}
 
-					int endIndex;
-					int startIndex = note.find("%csl");
-					bool newTagArea = false;
-
-					if (startIndex == std::string::npos)
+					int indexVH = CslCmd.find(vh);
+					if (indexVH != std::string::npos)
 					{
-						newTagArea = true;
-
-						note += "[%csl ]";
-						startIndex = note.find("%csl");
-					}
-
-					endIndex = note.find(']', startIndex);
-
-					int indexVH = note.find(vh, startIndex);
-					if (indexVH != std::string::npos && indexVH < endIndex)
-					{
-						if (note[indexVH - 1] == 'R')
+						if (CslCmd[indexVH - 1] == 'R')
 						{
 							bool first = false;
-							if (note[indexVH - 2] != ',')
+							if (indexVH == 1)
 								first = true;
 
 							if (!first)
-								note.erase(indexVH - 2, 4);
+								CslCmd.erase(indexVH - 2, 4);
 							else
 							{
-								bool last = false;
-								if (note[indexVH + 2] == ']')
-									last = true;
-
-								if (last)
-									note.erase(startIndex - 1, startIndex + 2 + 7);
+								if (CslCmd.size() == 1 + 2)
+									CslCmd.erase(indexVH - 1, 3);
 								else
-									note.erase(indexVH - 1, 4);
+									CslCmd.erase(indexVH - 1, 4);
+
+								//bool last = false;
+								//if (CslCmd[indexVH + 2] == CslCmd.size())
+								//	last = true;
+								//
+								//if (last)
+								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
+								//else
+								//	CslCmd.erase(indexVH - 1, 4);
 							}
 						}
 						else
-							note[indexVH - 1] = 'R';
+							CslCmd[indexVH - 1] = 'R';
 					}
 					else
 					{
-						std::string noteToAdd = 'R' + vh;
-						if (!newTagArea)
-							noteToAdd += ',';
-						note.insert(startIndex + 5, noteToAdd);
-
-					}
-					
+						if (CslCmd.empty())
+							CslCmd = ('R' + vh);
+						else
+							CslCmd += (",R" + vh);
+					}					
 				}
 				if (greenKey)
 				{
@@ -411,55 +405,44 @@ void ImGuiBoard::OnUIRender()
 						vh += ver[(int)MousePos.y];
 					}
 
-					int endIndex;
-					int startIndex = note.find("%csl");
-					bool newTagArea = false;
-
-					if (startIndex == std::string::npos)
+					int indexVH = CslCmd.find(vh);
+					if (indexVH != std::string::npos)
 					{
-						newTagArea = true;
-
-						note += "[%csl ]";
-						startIndex = note.find("%csl");
-					}
-
-					endIndex = note.find(']', startIndex);
-
-					int indexVH = note.find(vh, startIndex);
-					if (indexVH != std::string::npos && indexVH < endIndex)
-					{
-						if (note[indexVH - 1] == 'G')
+						if (CslCmd[indexVH - 1] == 'G')
 						{
 							bool first = false;
-							if (note[indexVH - 2] != ',')
+							if (indexVH == 1)
 								first = true;
 
 							if (!first)
-								note.erase(indexVH - 2, 4);
+								CslCmd.erase(indexVH - 2, 4);
 							else
 							{
-								bool last = false;
-								if (note[indexVH + 2] == ']')
-									last = true;
-
-								if (last)
-									note.erase(startIndex - 1, startIndex + 2 + 7);
+								if (CslCmd.size() == 1 + 2)
+									CslCmd.erase(indexVH - 1, 3);
 								else
-									note.erase(indexVH - 1, 4);
+									CslCmd.erase(indexVH - 1, 4);
+
+								//bool last = false;
+								//if (CslCmd[indexVH + 2] == CslCmd.size())
+								//	last = true;
+								//
+								//if (last)
+								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
+								//else
+								//	CslCmd.erase(indexVH - 1, 4);
 							}
 						}
 						else
-							note[indexVH - 1] = 'G';
+							CslCmd[indexVH - 1] = 'G';
 					}
 					else
 					{
-						std::string noteToAdd = 'G' + vh;
-						if (!newTagArea)
-							noteToAdd += ',';
-						note.insert(startIndex + 5, noteToAdd);
-
+						if (CslCmd.empty())
+							CslCmd = ('G' + vh);
+						else
+							CslCmd += (",G" + vh);
 					}
-					
 				}
 				if (blueKey)
 				{
@@ -478,60 +461,51 @@ void ImGuiBoard::OnUIRender()
 						vh += ver[(int)MousePos.y];
 					}
 
-					int endIndex;
-					int startIndex = note.find("%csl");
-					bool newTagArea = false;
-
-					if (startIndex == std::string::npos)
+					int indexVH = CslCmd.find(vh);
+					if (indexVH != std::string::npos)
 					{
-						newTagArea = true;
-
-						note += "[%csl ]";
-						startIndex = note.find("%csl");
-					}
-
-					endIndex = note.find(']', startIndex);
-
-					int indexVH = note.find(vh, startIndex);
-					if (indexVH != std::string::npos && indexVH < endIndex)
-					{
-						if (note[indexVH - 1] == 'Y')
+						if (CslCmd[indexVH - 1] == 'Y')
 						{
 							bool first = false;
-							if (note[indexVH - 2] != ',')
+							if (indexVH == 1)
 								first = true;
 
 							if (!first)
-								note.erase(indexVH - 2, 4);
+								CslCmd.erase(indexVH - 2, 4);
 							else
 							{
-								bool last = false;
-								if (note[indexVH + 2] == ']')
-									last = true;
-
-								if (last)
-									note.erase(startIndex - 1, startIndex + 2 + 7);
+								if (CslCmd.size() == 1 + 2)
+									CslCmd.erase(indexVH - 1, 3);
 								else
-									note.erase(indexVH - 1, 4);
+									CslCmd.erase(indexVH - 1, 4);
+
+								//bool last = false;
+								//if (CslCmd[indexVH + 2] == CslCmd.size())
+								//	last = true;
+								//
+								//if (last)
+								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
+								//else
+								//	CslCmd.erase(indexVH - 1, 4);
 							}
 						}
 						else
-							note[indexVH - 1] = 'Y';
+							CslCmd[indexVH - 1] = 'Y';
 					}
 					else
 					{
-						std::string noteToAdd = 'Y' + vh;
-						if (!newTagArea)
-							noteToAdd += ',';
-						note.insert(startIndex + 5, noteToAdd);
-
+						if (CslCmd.empty())
+							CslCmd = ('Y' + vh);
+						else
+							CslCmd += (",Y" + vh);
 					}
-					
 				}
 			}
 
 			if (doArrow)
 			{
+				auto& CalCmd = cmds["cal"];
+
 				if (redKey)
 				{
 					auto MousePos = FindMousePos();
@@ -553,53 +527,34 @@ void ImGuiBoard::OnUIRender()
 						vh += ver[(int)MousePos.y];
 					}
 
-					int endIndex;
-					int startIndex = note.find("%cal");
-					bool newTagArea = false;
-
-					if (startIndex == std::string::npos)
+					int indexVH = CalCmd.find(vh);
+					if (indexVH != std::string::npos)
 					{
-						newTagArea = true;
-
-						note += "[%cal ]";
-						startIndex = note.find("%cal");
-					}
-
-					endIndex = note.find(']', startIndex);
-
-					int indexVH = note.find(vh, startIndex);
-					if (indexVH != std::string::npos && indexVH < endIndex)
-					{
-						if (note[indexVH - 1] == 'R')
+						if (CalCmd[indexVH - 1] == 'R')
 						{
 							bool first = false;
-							if (note[indexVH - 2] != ',')
+							if (indexVH == 1)
 								first = true;
 
 							if (!first)
-								note.erase(indexVH - 2, 6);
+								CalCmd.erase(indexVH - 2, 6);
 							else
 							{
-								bool last = false;
-								if (note[indexVH + 4] == ']')
-									last = true;
-
-								if (last)
-									note.erase(startIndex - 1, startIndex + 4 + 7);
+								if (CalCmd.size() == 1 + 2 + 2)
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2);
 								else
-									note.erase(indexVH - 1, 6);
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2 + 1);
 							}
 						}
 						else
-							note[indexVH - 1] = 'R';
+							CalCmd[indexVH - 1] = 'R';
 					}
 					else
 					{
-						std::string noteToAdd = 'R' + vh;
-						if (!newTagArea)
-							noteToAdd += ',';
-						note.insert(startIndex + 5, noteToAdd);
-
+						if (CalCmd.empty())
+							CalCmd = ('R' + vh);
+						else
+							CalCmd += (",R" + vh);
 					}
 				}
 				else if (greenKey)
@@ -623,53 +578,34 @@ void ImGuiBoard::OnUIRender()
 						vh += ver[(int)MousePos.y];
 					}
 
-					int endIndex;
-					int startIndex = note.find("%cal");
-					bool newTagArea = false;
-
-					if (startIndex == std::string::npos)
+					int indexVH = CalCmd.find(vh);
+					if (indexVH != std::string::npos)
 					{
-						newTagArea = true;
-
-						note += "[%cal ]";
-						startIndex = note.find("%cal");
-					}
-
-					endIndex = note.find(']', startIndex);
-
-					int indexVH = note.find(vh, startIndex);
-					if (indexVH != std::string::npos && indexVH < endIndex)
-					{
-						if (note[indexVH - 1] == 'G')
+						if (CalCmd[indexVH - 1] == 'G')
 						{
 							bool first = false;
-							if (note[indexVH - 2] != ',')
+							if (indexVH == 1)
 								first = true;
 
 							if (!first)
-								note.erase(indexVH - 2, 6);
+								CalCmd.erase(indexVH - 2, 6);
 							else
 							{
-								bool last = false;
-								if (note[indexVH + 4] == ']')
-									last = true;
-
-								if (last)
-									note.erase(startIndex - 1, startIndex + 4 + 7);
+								if (CalCmd.size() == 1 + 2 + 2)
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2);
 								else
-									note.erase(indexVH - 1, 6);
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2 + 1);
 							}
 						}
 						else
-							note[indexVH - 1] = 'G';
+							CalCmd[indexVH - 1] = 'G';
 					}
 					else
 					{
-						std::string noteToAdd = 'G' + vh;
-						if (!newTagArea)
-							noteToAdd += ',';
-						note.insert(startIndex + 5, noteToAdd);
-
+						if (CalCmd.empty())
+							CalCmd = ('G' + vh);
+						else
+							CalCmd += (",G" + vh);
 					}
 				}
 				else if (blueKey)
@@ -693,53 +629,34 @@ void ImGuiBoard::OnUIRender()
 						vh += ver[(int)MousePos.y];
 					}
 
-					int endIndex;
-					int startIndex = note.find("%cal");
-					bool newTagArea = false;
-
-					if (startIndex == std::string::npos)
+					int indexVH = CalCmd.find(vh);
+					if (indexVH != std::string::npos)
 					{
-						newTagArea = true;
-
-						note += "[%cal ]";
-						startIndex = note.find("%cal");
-					}
-
-					endIndex = note.find(']', startIndex);
-
-					int indexVH = note.find(vh, startIndex);
-					if (indexVH != std::string::npos && indexVH < endIndex)
-					{
-						if (note[indexVH - 1] == 'Y')
+						if (CalCmd[indexVH - 1] == 'Y')
 						{
 							bool first = false;
-							if (note[indexVH - 2] != ',')
+							if (indexVH == 1)
 								first = true;
 
 							if (!first)
-								note.erase(indexVH - 2, 6);
+								CalCmd.erase(indexVH - 2, 6);
 							else
 							{
-								bool last = false;
-								if (note[indexVH + 4] == ']')
-									last = true;
-
-								if (last)
-									note.erase(startIndex - 1, startIndex + 4 + 7);
+								if (CalCmd.size() == 1 + 2 + 2)
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2);
 								else
-									note.erase(indexVH - 1, 6);
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2 + 1);
 							}
 						}
 						else
-							note[indexVH - 1] = 'Y';
+							CalCmd[indexVH - 1] = 'Y';
 					}
 					else
 					{
-						std::string noteToAdd = 'Y' + vh;
-						if (!newTagArea)
-							noteToAdd += ',';
-						note.insert(startIndex + 5, noteToAdd);
-
+						if (CalCmd.empty())
+							CalCmd = ('Y' + vh);
+						else
+							CalCmd += (",Y" + vh);
 					}
 				}
 			}
@@ -961,10 +878,13 @@ void ImGuiBoard::OnUIRender()
 		ImGui::OpenPopup("Editor");
 	}
 
+
 	NextMovePopup();
 	NewVariantPopup();
 	NewPiecePopup();
 	EditorPopup();
+
+	g_IsMoveChooseOpen = ImGui::IsPopupOpen("Move_Choose");
 
 	ImGui::End();
 
@@ -1335,7 +1255,6 @@ void ImGuiBoard::NextMovePopup()
 		}
 		ImGui::EndPopup();
 	}
-
 }
 
 void ImGuiBoard::NewVariantPopup()

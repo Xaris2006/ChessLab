@@ -88,7 +88,7 @@ namespace Chess
 
 		//path: ECO pgn file path
 		//std::string GetECO(const std::string& path) const;
-		std::string& GetNote(const MoveKey& moveKey);
+		Chess::PgnGame::Detail& GetNote(const MoveKey& moveKey);
 		//PropOfMovesPath GetMovesByData() const;
 
 		PgnGame::ChessMovesPath GetMovesByStr() const;

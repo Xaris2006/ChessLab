@@ -1,4 +1,4 @@
-#include "ContentBrowserPanel.h"
+﻿#include "ContentBrowserPanel.h"
 
 #include "Walnut/Application.h"
 #include "Walnut/UI/UI.h"
@@ -186,7 +186,7 @@ namespace Panels {
 			for (auto& directoryEntry : std::filesystem::directory_iterator(m_CurrentDirectory))
 			{
 				const auto& path = directoryEntry.path();
-				std::u8string filenameU8String = path.filename().u8string();
+				std::string filenameU8String = path.filename().u8string();
 				std::string filenameString = std::string(filenameU8String.begin(), filenameU8String.end());
 
 				if (!filter.PassFilter(filenameString.c_str()))
@@ -521,9 +521,11 @@ namespace Panels {
 
 		ImGui::PushStyleColor(ImGuiCol_Text, vcolor);
 		ImGui::PushFont(Walnut::Application::Get().GetFont("Bold"));
+		
+		std::string directoryString = directory.filename().u8string();
 
-		std::u8string directoryU8String = directory.filename().u8string();
-		std::string directoryString = std::string(directoryU8String.begin(), directoryU8String.end());
+		//std::string directoryU8String = directory.filename().u8string();
+		//std::string directoryString = std::string(directoryU8String.begin(), directoryU8String.end());
 
 		if (ImGui::TreeNodeEx(directoryString.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_OpenOnArrow))
 			openTree = true;
@@ -547,8 +549,9 @@ namespace Panels {
 				else if(directoryEntry.is_regular_file())
 				{
 					const auto& path = directoryEntry.path();
-					std::u8string filenameU8String = path.filename().u8string();
-					std::string filenameString = std::string(filenameU8String.begin(), filenameU8String.end());
+					std::string filenameString = path.filename().u8string();
+					//std::string filenameU8String = path.filename().u8string();
+					//std::string filenameString = std::string(filenameU8String.begin(), filenameU8String.end());
 
 					bool isPGN = (path.extension().u8string() == u8".pgn");
 
@@ -598,7 +601,7 @@ namespace Panels {
 			if (ImGui::Selectable("Rename"))
 			{
 				s_openRenamePopup = true;
-				s_inputNName = s_path.filename().string();
+				s_inputNName = s_path.filename().u8string();
 				s_oldpath = s_path;
 				ImGui::CloseCurrentPopup();
 			}
@@ -679,14 +682,14 @@ namespace Panels {
 			if (ImGui::Selectable("New File"))
 			{
 				s_openNewPopup = true;
-				s_inputNName = "NewFile.pgn";
+				s_inputNName = u8"NewFile.pgn";
 				s_oldpath = m_CurrentDirectory;
 				ImGui::CloseCurrentPopup();
 			}
 			if (ImGui::Selectable("New Directory"))
 			{
 				s_openNewPopup = true;
-				s_inputNName = "DirectoryName";
+				s_inputNName = u8"DirectoryName";
 				s_oldpath = m_CurrentDirectory;
 				ImGui::CloseCurrentPopup();
 			}
@@ -711,7 +714,7 @@ namespace Panels {
 		if (ImGui::BeginPopupModal("Rename Popup", NULL, ImGuiWindowFlags_AlwaysAutoResize))
 		{
 			ImGui::InputText("Name", &s_inputNName);
-
+			
 			ImGui::NewLine();
 
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.7f, 0.1f, 0.65f));
@@ -719,7 +722,7 @@ namespace Panels {
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.7f, 0.1f, 0.25f));
 			if (ImGui::Button("Rename"))
 			{
-				std::string fileNpath = s_oldpath.string().substr(0, s_oldpath.string().size() - s_oldpath.filename().string().size() - 1) + '\\' + s_inputNName;
+				std::string fileNpath = s_oldpath.u8string().substr(0, s_oldpath.u8string().size() - s_oldpath.filename().u8string().size() - 1) + '\\' + s_inputNName;
 				
 				std::error_code ec;
 				std::filesystem::rename(s_oldpath, fileNpath, ec);

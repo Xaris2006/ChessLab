@@ -76,11 +76,8 @@ namespace Chess
 		return { m_Board.GetPieceType(indexX, indexY), m_Board.GetPieceColor(indexX, indexY) };
 	}
 
-	std::string& GameManager::GetNote(const MoveKey& moveKey)
+	PgnGame::Detail& GameManager::GetNote(const MoveKey& moveKey)
 	{
-		if (moveKey.size() == 1 && moveKey[0] == -1)
-			return m_pgnGame->GetFirstNote();
-			
 		auto currentPath = &m_pgnGame->GetMovePathbyRef();
 
 		for (int i = 1; i < moveKey.size(); i += 2)
@@ -323,8 +320,22 @@ namespace Chess
 
 	void GameManager::EditVariation(const MoveKey& moveKey, VariationEdit editType)
 	{
-		auto oldKey = m_lastMoveKey;
-		GoInitialPosition();
+		std::vector<MoveData> oldMoves;
+		
+		while (m_lastMoveKey[0] != -1)
+		{
+			if (m_mapMoves.contains(m_lastMoveKey))
+				oldMoves.emplace_back(m_mapMoves[m_lastMoveKey]);
+			else
+			{
+				//something bad happened
+
+				return;
+			}
+
+			GoPreviusMove();
+		}
+
 		m_mapMoves.clear();
 
 		PgnGame::ChessMovesPath* currentPath = &m_pgnGame->GetMovePathbyRef();
@@ -341,7 +352,7 @@ namespace Chess
 			if (moveKey.size() == 1)//has parent
 				break;
 
-			std::unordered_map<int, std::string> detailsNew;
+			std::unordered_map<int, PgnGame::Detail> detailsNew;
 			std::vector<std::string> moveNew;
 			std::vector<PgnGame::ChessMovesPath> childrenNew;
 
@@ -372,6 +383,7 @@ namespace Chess
 					oldParentChildrenStay++;
 			}
 			
+			//copy parent moves
 			moveNew.emplace_back(currentPath->parent->move[oldParentStart]);
 			if (currentPath->parent->details.contains(oldParentStart))
 			{
@@ -388,6 +400,7 @@ namespace Chess
 				}
 			}
 
+			//delete old parent moves
 			if(oldParentNextMove != -1)
 				currentPath->parent->move.resize(oldParentNextMove);
 			currentPath->parent->move[oldParentStart] = currentPath->move[0];
@@ -395,6 +408,7 @@ namespace Chess
 			if (currentPath->details.contains(0))
 				currentPath->parent->details[oldParentStart] = currentPath->details[0];
 
+			//copy current moves to parent
 			for (int i = 1; i < currentPath->move.size(); ++i)
 			{
 				currentPath->parent->move.emplace_back(currentPath->move[i]);
@@ -402,20 +416,25 @@ namespace Chess
 					currentPath->parent->details[currentPath->parent->move.size() - 1] = currentPath->details[i];
 			}
 
+			//copy parent children
 			for (int i = currentPath->parent->children.size() - amountOfChildrenInside + oldParentChildrenStay; 
 					 i < currentPath->parent->children.size(); ++i)
 			{
 				childrenNew.emplace_back(currentPath->parent->children[i]);
 			}
 
+			//delete old parent children
 			currentPath->parent->children.resize(currentPath->parent->children.size() - amountOfChildrenInside + oldParentChildrenStay);
 
-			for (auto& c : currentPath->children)
-				currentPath->parent->children.emplace_back(c);
+			auto childrenToCopy = currentPath->children;
+			auto parent = currentPath->parent;
 
 			currentPath->children = childrenNew;
 			currentPath->details = detailsNew;
 			currentPath->move = moveNew;
+
+			for (auto& c : childrenToCopy)
+				parent->children.emplace_back(c);
 
 			m_pgnGame->GetMovePathbyRef().ReloadChildren();
 			m_pgnGame->GetMovePathbyRef().parent = nullptr;			
@@ -452,6 +471,15 @@ namespace Chess
 		}
 
 		//Go back to our original moveKey;
+
+		for (int i = oldMoves.size() - 1; i >= 0; --i)
+		{
+			if (MakeMove(oldMoves[i].move, oldMoves[i].piecePromote) != Board::SUCCESS)
+			{
+				//Something bad happened
+				return;
+			}
+		}
 	}
 
 	void GameManager::DeleteMove(const MoveKey& moveKey)
@@ -601,6 +629,15 @@ namespace Chess
 	void GameManager::ConvertStringToMoveData(const std::string& strmove, MoveData& move) const
 	{
 		int startIndex = strmove.find(' ') + 1;
+
+		for (int i = 0; i < strmove.size(); i++)
+		{
+			if (!((strmove[i] >= '0' && strmove[i] <= '9') || strmove[i] == '.' || strmove[i] == ' '))
+			{
+				startIndex = i;
+				break;
+			}
+		}
 
 		Piece typeToMove;
 		Piece typeToPromote = NONE;

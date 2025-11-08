@@ -20,7 +20,7 @@ namespace Panels {
 		bool& IsPanelOpen();
 
 	private:
-		void WriteMove(const Chess::PgnGame::ChessMovesPath& par, std::vector<int>& pathmove, float extrain = 0);
+		void WriteMove(const Chess::PgnGame::ChessMovesPath& par, Chess::GameManager::MoveKey& pathmove, Chess::GameManager::MoveKey prev_pathmove, float extrain = 0);
 
 
 	private:

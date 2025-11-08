@@ -12,6 +12,12 @@ namespace Chess
 	class PgnGame
 	{
 	public:
+		struct Detail
+		{
+			std::unordered_map<std::string, std::string> cmds;
+			std::string note;
+		};
+
 		struct ChessMovesPath
 		{
 			ChessMovesPath() = default;
@@ -28,7 +34,7 @@ namespace Chess
 
 			ChessMovesPath* parent = nullptr;
 			std::vector<ChessMovesPath> children;
-			std::unordered_map<int, std::string> details;
+			std::unordered_map<int, Detail> details;
 			std::vector<std::string> move;
 		};
 
