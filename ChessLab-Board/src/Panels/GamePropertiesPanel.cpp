@@ -12,11 +12,11 @@ namespace Panels
 
 		ImGui::Begin("Game Properties", &m_viewPanel);
 		
-		for (auto& name : ChessAPI::GetCurPgnLabelNames())
+		for (auto& name : ChessAPI::GetPgnGame().GetLabelNames())
 		{
 			ImGui::PushID(name.data());
 
-			ImGui::InputText(name.c_str(), &(ChessAPI::GetCurPgnLabelValue(name)));
+			ImGui::InputText(name.c_str(), &ChessAPI::GetPgnGame()[name]);
 
 			//not worknig well
 #if 0
@@ -48,7 +48,7 @@ namespace Panels
 		if (m_addinglabel)
 		{
 			ImGui::InputText("Label Name", &m_nlabelname);
-			auto names = ChessAPI::GetCurPgnLabelNames();
+			auto names = ChessAPI::GetPgnGame().GetLabelNames();
 
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.7f, 0.1f, 0.65f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1f, 0.7f, 0.1f, 0.45f));
@@ -56,7 +56,7 @@ namespace Panels
 			if (ImGui::Button("Add") && m_nlabelname != ""
 				&& std::find(names.begin(), names.end(), m_nlabelname) == names.end())
 			{
-				ChessAPI::GetCurPgnLabelValue(m_nlabelname);
+				ChessAPI::GetPgnGame()[m_nlabelname];
 				m_nlabelname = "";
 				m_addinglabel = false;
 			}

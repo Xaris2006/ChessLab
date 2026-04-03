@@ -44,11 +44,6 @@ namespace Chess
 		return output;
 	}
 
-	std::string& PgnGame::GetFirstNote()
-	{
-		return m_firstNote;
-	}
-
 	void PgnGame::AddReference()
 	{
 		m_Count++;
@@ -71,7 +66,6 @@ namespace Chess
 
 	void PgnGame::Clear()
 	{
-		m_firstNote = "";
 		//m_Count = 0;
 		m_DataRead = "";
 
@@ -82,31 +76,23 @@ namespace Chess
 		m_resualt = "*";
 	}
 
+	bool PgnGame::IsLabelExist(const std::string& name) const
+	{
+		return m_labels.contains(name);
+	}
+
 	void PgnGame::RemoveLabel(const std::string& name)
 	{
-		m_labels[name] = "";
+		//m_labels[name] = "";
 		m_labels.erase(name);
 	}
 
 	std::string& PgnGame::operator[](const std::string& label)
-	{
-		bool finded = false;
-		std::string* output = nullptr;
-		for (auto& [names, value] : m_labels)
-		{
-			if (names == label)
-			{
-				finded = true;
-				output = &m_labels[label];
-				break;
-			}
-		}
-		if (!finded)
-		{
+	{		
+		if (!m_labels.contains(label))
 			m_labels[label] = "?";
-			output = &m_labels[label];
-		}
-		return *output;
+
+		return m_labels[label];
 	}
 
 	std::string PgnGame::GetData() const
@@ -121,16 +107,13 @@ namespace Chess
 		}
 		output += '\n';
 
-		//if (!m_firstNote.empty())
-		//	output += ('{' + m_firstNote + "} ");
-
 		WriteMoves(output, m_chessmoves);
 		if (resultExist && m_labels.at("Result") != "?")
 			output += m_labels.at("Result");
 		else
 			output += '*';
 
-		output += '\n';
+		output += "\n\n";
 
 		return output;
 	}
@@ -140,33 +123,7 @@ namespace Chess
 		return m_DataRead;
 	}
 
-	std::istream& operator>>(std::istream& stream, PgnGame& f)
-	{
-		std::string data = "";
-		while (stream.good())
-		{
-			std::string input;
-			stream >> input;
-			data += (input + ' ');
-		}
-		f.Parse(data);
-
-		return stream;
-	}
-
-	void PgnGame::Parse(std::istream& f)
-	{
-		std::string data = "";
-		while (f.good())
-		{
-			std::string input;
-			f >> input;
-			data += (input + ' ');
-		}
-		Parse(data);
-	}
-
-	void PgnGame::Parse(std::string& data, bool onlyRead, bool readMoves)
+	void PgnGame::Parse(std::string_view data, bool onlyRead, bool readMoves)
 	{
 		Clear();
 
@@ -196,6 +153,9 @@ namespace Chess
 		
 		for (size_t i = 0; i < data.size(); i++)
 		{
+			if ((unsigned char)data[i] < 32 && data[i] != '\n')
+				continue;
+
 			if (labelArea)
 			{
 				if (data[i] == '\n')
@@ -224,21 +184,21 @@ namespace Chess
 						continue;
 					}
 
-					if (data[i] == ']' && labelstart && data[i - 1])
+					if (data[i] == ']' && labelstart)
 					{
 						labelstart = false;
 						m_labels[labelnamestr] = labelvaluestr;
 						continue;
 					}
 
-					if (data[i] == '"' && data[i - 1])
+					if (data[i] == '"')
 					{
 						labelvalue = true;
 						continue;
 					}
 				}
 
-				if (data[i] == '"' && labelvalue && data[i - 1])
+				if (data[i] == '"' && labelvalue)
 				{
 					labelvalue = false;
 					continue;
@@ -379,12 +339,12 @@ namespace Chess
 			{
 				if (data[i] == '(')
 				{
-					if (Parent->move[Parent->move.size() - 1].empty())
+					if (Parent->move.back().empty())
 						Parent->move.resize(Parent->move.size() - 1);
 
 					Parent->children.emplace_back(ChessMovesPath(Parent));
 					Parent->move.emplace_back("child");
-					Parent = &Parent->children[Parent->children.size() - 1];
+					Parent = &Parent->children.back();
 
 					Parent->details.reserve(20);
 					Parent->move.reserve(30);
@@ -394,16 +354,22 @@ namespace Chess
 
 				if (data[i] == ')')
 				{
-					if (Parent->move[Parent->move.size() - 1].empty())
-						Parent->move.resize(Parent->move.size() - 1);
+					if (Parent->move.back().empty())
+						Parent->move.pop_back();
 
-					int index1 = Parent->move[Parent->move.size() - 1].rfind('1');
-					int indexDash = Parent->move[Parent->move.size() - 1].find('-');
+					if (Parent->move.back().find('*') != std::string::npos)
+						Parent->move.pop_back();
 
-					if (index1 != std::string::npos && indexDash != std::string::npos && std::abs(index1 - indexDash) == 1)
+					if (Parent->move.back().find('-') != std::string::npos)
 					{
-						//detail??
-						Parent->move.resize(Parent->move.size() - 1);
+						size_t zero = Parent->move.back().find('0');
+						size_t one = Parent->move.back().find('1');
+						size_t slash = Parent->move.back().find('/');
+						if ((std::abs((double)one - zero) > 1 && std::abs((double)one - zero) < 10)
+							|| (slash != std::string::npos && one != std::string::npos))
+						{
+							Parent->move.pop_back();
+						}
 					}
 
 					Parent = Parent->parent;
@@ -418,11 +384,17 @@ namespace Chess
 				if (data[i] == '\n' && data[i - 1] == ' ' && data[i - 2] == '.')
 					continue;
 
-				if ((data[i] == ' ' || data[i] == '\n') && data[i - 1] != '.')
+				if ((data[i] == ' ' || data[i] == '\n') && (data[i - 1] != '.' && data[i - 1] != ' ' && data[i - 1] != '\r' && data[i - 1] != '\n'))
 				{
-					if (!Parent->move.empty() && Parent->move[Parent->move.size() - 1].empty())
+					if (!Parent->move.empty() && Parent->move.back().empty())
 					{
 						continue;
+					}
+
+					if (!Parent->move.empty())
+					{
+						if (Parent->move.back().back() == '.')
+							__debugbreak();
 					}
 
 					Parent->move.emplace_back("");
@@ -431,14 +403,17 @@ namespace Chess
 
 				if (data[i] == '.' && data[i - 1] == '.')
 				{
-					Parent->move[Parent->move.size() - 1] = "";
+					Parent->move.back() = "";
 					i += 2;
+					//1... move
 					continue;
 				}
 
-				if (data[i] == '\n')
+				if (data[i] == '\n' || data[i] == ' ')
 				{
-					Parent->move[Parent->move.size() - 1] += ' ';
+					if (!Parent->move.back().empty() && Parent->move.back().back() == '.')
+						Parent->move.back() += ' ';
+					
 					continue;
 				}
 
@@ -450,22 +425,29 @@ namespace Chess
 		if (Parent->move.empty())
 			return;
 
-		if (Parent->move[Parent->move.size() - 1].empty())
-			Parent->move.resize(Parent->move.size() - 1);
+		if (Parent->move.back().empty())
+			Parent->move.pop_back();
 
 		if (Parent->move.empty())
 			return;
 
-		if (Parent->move[Parent->move.size() - 1] == "*")
-			Parent->move.resize(Parent->move.size() - 1);
+		if (Parent->move.back().find('*') != std::string::npos)
+			Parent->move.pop_back();
 
 		if (Parent->move.empty())
 			return;
 
-		if (Parent->move[Parent->move.size() - 1].find('-') != std::string::npos && Parent->move[Parent->move.size() - 1].find('1') != std::string::npos)
+		if (Parent->move.back().find('-') != std::string::npos)
 		{
-			m_resualt = Parent->move[Parent->move.size() - 1];
-			Parent->move.resize(Parent->move.size() - 1);
+			size_t zero = Parent->move.back().find('0');
+			size_t one = Parent->move.back().find('1');
+			size_t slash = Parent->move.back().find('/');
+			if ((std::abs((double)one - zero) > 1 && std::abs((double)one - zero) < 10)
+				|| (slash != std::string::npos && one != std::string::npos))
+			{
+				m_resualt = Parent->move.back();
+				Parent->move.pop_back();
+			}
 		}
 
 		func_delete_BC_stuff(&m_chessmoves);
@@ -477,6 +459,8 @@ namespace Chess
 
 		if(!onlyRead)
 			m_DataRead = GetData();
+
+		//m_DataRead = data;
 
 		m_chessmoves.ReloadChildren();
 	}
@@ -560,5 +544,10 @@ namespace Chess
 			}
 		}
 		return true;
+	}
+
+	void PgnGame::SetCurrentAsInitial()
+	{
+		m_DataRead = GetData();
 	}
 }

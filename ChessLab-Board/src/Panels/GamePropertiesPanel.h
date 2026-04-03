@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 
-#include "ChessAPI.h"
+#include "../ChessAPI/ChessAPI.h"
 
 namespace Panels {
 

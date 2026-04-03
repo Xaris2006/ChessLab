@@ -4,10 +4,11 @@
 #include "Walnut/Image.h"
 #include "Walnut/UI/UI.h"
 
-#include <iostream>
 #include <array>
 #include <map>
 #include <vector>
+
+#include "ChessCore/Board.h"
 
 class ImGuiBoard
 {
@@ -82,6 +83,7 @@ private:
 	ImVec2 m_Center;
 	std::map<std::string, std::vector<int>> m_PossibleNextMoves;
 	std::string m_MainMove;
+	Chess::Board::Move m_PromoteMove;
 
 private:
 	bool m_ToOpenEditor = false;

@@ -1,7 +1,8 @@
 #pragma once
 
 #include "Board.h"
-#include "pgn/Pgn.h"
+
+#include "FileFormats/pgn/PgnGame.h"
 
 namespace Chess
 {
@@ -91,8 +92,10 @@ namespace Chess
 		Chess::PgnGame::Detail& GetNote(const MoveKey& moveKey);
 		//PropOfMovesPath GetMovesByData() const;
 
+		PgnGame::ChessMovesPath& GetCurrentPgnMovePath();
 		PgnGame::ChessMovesPath GetMovesByStr() const;
 		MoveKey GetLastMoveKey() const;
+		std::pair<Board::Move, Piece> GetLastMove() const;
 		
 		void GetAvailableMoves(std::vector<Board::Move>& moves) const;
 

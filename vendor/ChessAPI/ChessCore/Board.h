@@ -15,9 +15,9 @@ namespace Chess
 		struct Move
 		{
 			Move() = default;
-			Move(int otherIndex, MoveDifference otherMove) : index(otherIndex), move(otherMove)	{}
+			Move(uint8_t otherIndex, MoveDifference otherMove) : index(otherIndex), move(otherMove)	{}
 
-			int index = 0;
+			uint8_t index = 0;
 			MoveDifference move = 0;
 		};
 

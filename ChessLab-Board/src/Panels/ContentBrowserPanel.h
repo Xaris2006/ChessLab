@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ChessAPI.h"
+#include "../ChessAPI/ChessAPI.h"
 
 #include "Walnut/Image.h"
 

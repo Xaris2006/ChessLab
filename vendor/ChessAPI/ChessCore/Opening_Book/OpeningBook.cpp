@@ -1,22 +1,19 @@
 #include "OpeningBook.h"
 
-#include "../pgn/Pgn.h"
+#include "../FileFormats/pgn/PgnFile.h"
 #include "../GameManager.h"
 
 #include <fstream>
-
-
 
 namespace Chess
 {
 	void OpeningBook::CreateCOBByPGN(const std::string& pgnfilepath, int& status)
 	{
 		if (!IsFileValidFormat(pgnfilepath, ".pgn")) { return; }
-		PgnFile pgnfile;
-		std::ifstream infile(pgnfilepath, std::ios::binary);
-		infile >> pgnfile;
-		infile.close();
 		
+		PgnFile pgnfile;
+		pgnfile.OpenFile(pgnfilepath);
+				
 		if (!pgnfile.GetSize()) { return; }
 
 		status = 0;

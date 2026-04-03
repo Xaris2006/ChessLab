@@ -465,7 +465,6 @@ namespace Chess
 		{
 			int kingIndex = (int)std::log2(m_mapWhitePieces[KING].Data());
 			
-
 			int yLevel = kingIndex / 8;
 			int xLevel = kingIndex % 8;
 
@@ -473,11 +472,6 @@ namespace Chess
 			int left = xLevel;
 			int up = 7 - yLevel;
 			int down = yLevel;
-
-			bool ok_right = right >= 2;
-			bool ok_left = left >= 2;
-			bool ok_up = up >= 2;
-			bool ok_down = down >= 2;
 
 			BitBoard enemyQueenBishop = m_mapBlackPieces[QUEEN] + m_mapBlackPieces[BISHOP];
 			BitBoard enemyQueenRook = m_mapBlackPieces[QUEEN] + m_mapBlackPieces[ROOK];
@@ -575,28 +569,28 @@ namespace Chess
 			if ((m_mapBlackPieces[PAWN].At(kingIndex + 7) && left) || (m_mapBlackPieces[PAWN].At(kingIndex + 9) && right))
 				goto skip;
 
-			if (ok_up)
+			if (up >= 2)
 			{
 				if (left && m_mapBlackPieces[KNIGHT].At(kingIndex + KnightMoves[3]))
 					goto skip;
 				if (right && m_mapBlackPieces[KNIGHT].At(kingIndex + KnightMoves[2]))
 					goto skip;
 			}
-			if (ok_down)
+			if (down >= 2)
 			{
 				if (left && m_mapBlackPieces[KNIGHT].At(kingIndex - KnightMoves[2]))
 					goto skip;
 				if (right && m_mapBlackPieces[KNIGHT].At(kingIndex - KnightMoves[3]))
 					goto skip;
 			}
-			if (ok_left)
+			if (left >= 2)
 			{
 				if (down && m_mapBlackPieces[KNIGHT].At(kingIndex - KnightMoves[1]))
 					goto skip;
 				if (up && m_mapBlackPieces[KNIGHT].At(kingIndex + KnightMoves[0]))
 					goto skip;
 			}
-			if (ok_right)
+			if (right >= 2)
 			{
 				if (down && m_mapBlackPieces[KNIGHT].At(kingIndex - KnightMoves[0]))
 					goto skip;
@@ -615,11 +609,6 @@ namespace Chess
 			int left = xLevel;
 			int up = 7 - yLevel;
 			int down = yLevel;
-
-			bool ok_right = right >= 2;
-			bool ok_left = left >= 2;
-			bool ok_up = up >= 2;
-			bool ok_down = down >= 2;
 
 			BitBoard enemyQueenBishop = m_mapWhitePieces[QUEEN] + m_mapWhitePieces[BISHOP];
 			BitBoard enemyQueenRook = m_mapWhitePieces[QUEEN] + m_mapWhitePieces[ROOK];
@@ -717,28 +706,28 @@ namespace Chess
 			if ((m_mapWhitePieces[PAWN].At(kingIndex - 9) && left) || (m_mapWhitePieces[PAWN].At(kingIndex - 7) && right))
 				goto skip;
 
-			if (ok_up)
+			if (up >= 2)
 			{
 				if (left && m_mapWhitePieces[KNIGHT].At(kingIndex + KnightMoves[3]))
 					goto skip;
 				if (right && m_mapWhitePieces[KNIGHT].At(kingIndex + KnightMoves[2]))
 					goto skip;
 			}
-			if (ok_down)
+			if (down >= 2)
 			{
 				if (left && m_mapWhitePieces[KNIGHT].At(kingIndex - KnightMoves[2]))
 					goto skip;
 				if (right && m_mapWhitePieces[KNIGHT].At(kingIndex - KnightMoves[3]))
 					goto skip;
 			}
-			if (ok_left)
+			if (left >= 2)
 			{
 				if (down && m_mapWhitePieces[KNIGHT].At(kingIndex - KnightMoves[1]))
 					goto skip;
 				if (up && m_mapWhitePieces[KNIGHT].At(kingIndex + KnightMoves[0]))
 					goto skip;
 			}
-			if (ok_right)
+			if (right >= 2)
 			{
 				if (down && m_mapWhitePieces[KNIGHT].At(kingIndex - KnightMoves[0]))
 					goto skip;
@@ -789,7 +778,7 @@ namespace Chess
 		//Roke
 		if (type == KING && std::abs(move.move) == 2)
 		{
-			if (MakeMove({ (move.move > 0 ? (move.index + 3) : (move.index - 4)), (move.move > 0 ? -2 : 3) }) != SUCCESS)
+			if (MakeMove(Move((move.move > 0 ? (move.index + 3ui8) : (move.index - 4ui8)), (move.move > 0 ? -2 : 3))) != SUCCESS)
 				return MOVEERROR;//safe
 			m_PlayerToPlay = nextToPlay;
 			if (m_PlayerToPlay == BLACK)
@@ -1097,6 +1086,15 @@ namespace Chess
 				m_Virtual_Pieces.Set(direction, true);
 				m_Virtual_mapPieces[type].Set(direction, true);
 			}
+
+			//White AN PAN SAN
+			if (type == PAWN && direction == m_LastMovedPieceIndex)
+			{
+				m_Virtual_Pieces.Set(direction - 8, false);
+				m_Virtual_mapPieces[PAWN].Set(direction - 8, false);
+				m_Virtual_BlackPieces.Set(direction - 8, false);
+				m_Virtual_mapBlackPieces[PAWN].Set(direction - 8, false);
+			}
 		}
 		else
 		{
@@ -1122,6 +1120,15 @@ namespace Chess
 				m_Virtual_Pieces.Set(direction, true);
 				m_Virtual_mapPieces[type].Set(direction, true);
 			}
+
+			//Black AN PAN SAN
+			if (type == PAWN && direction == m_LastMovedPieceIndex)
+			{
+				m_Virtual_Pieces.Set(direction + 8, false);
+				m_Virtual_mapPieces[PAWN].Set(direction + 8, false);
+				m_Virtual_WhitePieces.Set(direction + 8, false);
+				m_Virtual_mapWhitePieces[PAWN].Set(direction + 8, false);
+			}
 		}
 
 		return SUCCESS;
@@ -1140,11 +1147,6 @@ namespace Chess
 			int left = xLevel;
 			int up = 7 - yLevel;
 			int down = yLevel;
-
-			bool ok_right = right >= 2;
-			bool ok_left = left >= 2;
-			bool ok_up = up >= 2;
-			bool ok_down = down >= 2;
 
 			BitBoard enemyQueenBishop = m_Virtual_mapBlackPieces[QUEEN] + m_Virtual_mapBlackPieces[BISHOP];
 			BitBoard enemyQueenRook = m_Virtual_mapBlackPieces[QUEEN] + m_Virtual_mapBlackPieces[ROOK];
@@ -1242,28 +1244,28 @@ namespace Chess
 			if ((m_Virtual_mapBlackPieces[PAWN].At(kingIndex + 7) && left) || (m_Virtual_mapBlackPieces[PAWN].At(kingIndex + 9) && right))
 				return CHECKED;
 
-			if (ok_up)
+			if (up >= 2)
 			{
 				if (left && m_Virtual_mapBlackPieces[KNIGHT].At(kingIndex + KnightMoves[3]))
 					return CHECKED;
 				if (right && m_Virtual_mapBlackPieces[KNIGHT].At(kingIndex + KnightMoves[2]))
 					return CHECKED;
 			}
-			if (ok_down)
+			if (down >= 2)
 			{
 				if (left && m_Virtual_mapBlackPieces[KNIGHT].At(kingIndex - KnightMoves[2]))
 					return CHECKED;
 				if (right && m_Virtual_mapBlackPieces[KNIGHT].At(kingIndex - KnightMoves[3]))
 					return CHECKED;
 			}
-			if (ok_left)
+			if (left >= 2)
 			{
 				if (down && m_Virtual_mapBlackPieces[KNIGHT].At(kingIndex - KnightMoves[1]))
 					return CHECKED;
 				if (up && m_Virtual_mapBlackPieces[KNIGHT].At(kingIndex + KnightMoves[0]))
 					return CHECKED;
 			}
-			if (ok_right)
+			if (right >= 2)
 			{
 				if (down && m_Virtual_mapBlackPieces[KNIGHT].At(kingIndex - KnightMoves[0]))
 					return CHECKED;
@@ -1271,27 +1273,27 @@ namespace Chess
 					return CHECKED;
 			}
 
-			if (ok_up)
+			if (up)
 			{
 				if (m_Virtual_mapBlackPieces[KING].At(kingIndex + KingMoves[2]))
 					return CHECKED;
-				if (ok_left && m_Virtual_mapBlackPieces[KING].At(kingIndex + KingMoves[1]))
+				if (left && m_Virtual_mapBlackPieces[KING].At(kingIndex + KingMoves[1]))
 					return CHECKED;
-				if (ok_right && m_Virtual_mapBlackPieces[KING].At(kingIndex + KingMoves[3]))
+				if (right && m_Virtual_mapBlackPieces[KING].At(kingIndex + KingMoves[3]))
 					return CHECKED;
 			}
-			if (ok_down)
+			if (down)
 			{
 				if (m_Virtual_mapBlackPieces[KING].At(kingIndex - KingMoves[2]))
 					return CHECKED;
-				if (ok_left && m_Virtual_mapBlackPieces[KING].At(kingIndex - KingMoves[3]))
+				if (left && m_Virtual_mapBlackPieces[KING].At(kingIndex - KingMoves[3]))
 					return CHECKED;
-				if (ok_right && m_Virtual_mapBlackPieces[KING].At(kingIndex - KingMoves[1]))
+				if (right && m_Virtual_mapBlackPieces[KING].At(kingIndex - KingMoves[1]))
 					return CHECKED;
 			}
-			if (ok_left && m_Virtual_mapBlackPieces[KING].At(kingIndex - KingMoves[0]))
+			if (left && m_Virtual_mapBlackPieces[KING].At(kingIndex - KingMoves[0]))
 				return CHECKED;
-			if (ok_right && m_Virtual_mapBlackPieces[KING].At(kingIndex + KingMoves[0]))
+			if (right && m_Virtual_mapBlackPieces[KING].At(kingIndex + KingMoves[0]))
 				return CHECKED;
 		}
 		else
@@ -1305,11 +1307,6 @@ namespace Chess
 			int left = xLevel;
 			int up = 7 - yLevel;
 			int down = yLevel;
-
-			bool ok_right = right >= 2;
-			bool ok_left = left >= 2;
-			bool ok_up = up >= 2;
-			bool ok_down = down >= 2;
 
 			BitBoard enemyQueenBishop = m_Virtual_mapWhitePieces[QUEEN] + m_Virtual_mapWhitePieces[BISHOP];
 			BitBoard enemyQueenRook = m_Virtual_mapWhitePieces[QUEEN] + m_Virtual_mapWhitePieces[ROOK];
@@ -1407,28 +1404,28 @@ namespace Chess
 			if ((m_Virtual_mapWhitePieces[PAWN].At(kingIndex - 9) && left) || (m_Virtual_mapWhitePieces[PAWN].At(kingIndex - 7) && right))
 				return CHECKED;
 
-			if (ok_up)
+			if (up >= 2)
 			{
 				if (left && m_Virtual_mapWhitePieces[KNIGHT].At(kingIndex + KnightMoves[3]))
 					return CHECKED;
 				if (right && m_Virtual_mapWhitePieces[KNIGHT].At(kingIndex + KnightMoves[2]))
 					return CHECKED;
 			}
-			if (ok_down)
+			if (down >= 2)
 			{
 				if (left && m_Virtual_mapWhitePieces[KNIGHT].At(kingIndex - KnightMoves[2]))
 					return CHECKED;
 				if (right && m_Virtual_mapWhitePieces[KNIGHT].At(kingIndex - KnightMoves[3]))
 					return CHECKED;
 			}
-			if (ok_left)
+			if (left >= 2)
 			{
 				if (down && m_Virtual_mapWhitePieces[KNIGHT].At(kingIndex - KnightMoves[1]))
 					return CHECKED;
 				if (up && m_Virtual_mapWhitePieces[KNIGHT].At(kingIndex + KnightMoves[0]))
 					return CHECKED;
 			}
-			if (ok_right)
+			if (right >= 2)
 			{
 				if (down && m_Virtual_mapWhitePieces[KNIGHT].At(kingIndex - KnightMoves[0]))
 					return CHECKED;
@@ -1436,27 +1433,27 @@ namespace Chess
 					return CHECKED;
 			}
 
-			if (ok_up)
+			if (up)
 			{
 				if (m_Virtual_mapWhitePieces[KING].At(kingIndex + KingMoves[2]))
 					return CHECKED;
-				if (ok_left && m_Virtual_mapWhitePieces[KING].At(kingIndex + KingMoves[1]))
+				if (left && m_Virtual_mapWhitePieces[KING].At(kingIndex + KingMoves[1]))
 					return CHECKED;
-				if (ok_right && m_Virtual_mapWhitePieces[KING].At(kingIndex + KingMoves[3]))
+				if (right && m_Virtual_mapWhitePieces[KING].At(kingIndex + KingMoves[3]))
 					return CHECKED;
 			}
-			if (ok_down)
+			if (down)
 			{
 				if (m_Virtual_mapWhitePieces[KING].At(kingIndex - KingMoves[2]))
 					return CHECKED;
-				if (ok_left && m_Virtual_mapWhitePieces[KING].At(kingIndex - KingMoves[3]))
+				if (left && m_Virtual_mapWhitePieces[KING].At(kingIndex - KingMoves[3]))
 					return CHECKED;
-				if (ok_right && m_Virtual_mapWhitePieces[KING].At(kingIndex - KingMoves[1]))
+				if (right && m_Virtual_mapWhitePieces[KING].At(kingIndex - KingMoves[1]))
 					return CHECKED;
 			}
-			if (ok_left && m_Virtual_mapWhitePieces[KING].At(kingIndex - KingMoves[0]))
+			if (left && m_Virtual_mapWhitePieces[KING].At(kingIndex - KingMoves[0]))
 				return CHECKED;
-			if (ok_right && m_Virtual_mapWhitePieces[KING].At(kingIndex + KingMoves[0]))
+			if (right && m_Virtual_mapWhitePieces[KING].At(kingIndex + KingMoves[0]))
 				return CHECKED;
 
 		}
@@ -1469,10 +1466,7 @@ namespace Chess
 		UpdateVitualValues();
 		VirtualMakeMove(move);
 
-		if (m_PlayerToPlay == WHITE)
-			return GetVirtualKingStatus(WHITE) == SECURE;
-		else
-			return GetVirtualKingStatus(BLACK) == SECURE;
+		return GetVirtualKingStatus(m_PlayerToPlay) == SECURE;
 	}
 
 	void Board::FindPawnMoves(std::vector<Move>& moves) const

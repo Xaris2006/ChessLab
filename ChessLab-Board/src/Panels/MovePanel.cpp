@@ -51,20 +51,20 @@ namespace Panels
 
 			ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.7, 0.7, 0.7, 1));
 
-			float size = ImGui::CalcTextSize(ChessAPI::GetCurPgnLabelValue("White").c_str()).y + ImGui::CalcTextSize(ChessAPI::GetCurPgnLabelValue("WhiteElo").c_str()).y + 10;
+			float size = ImGui::CalcTextSize(ChessAPI::GetPgnGame()["White"].c_str()).y + ImGui::CalcTextSize(ChessAPI::GetPgnGame()["WhiteElo"].c_str()).y + 10;
 			
 			if (ImGui::BeginChild("White", ImVec2(0, size)))
 			{
 				ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(21, 21, 21, 255));
-				if(ChessAPI::GetCurPgnLabelValue("White") == "?")
+				if(ChessAPI::GetPgnGame()["White"] == "?")
 					Walnut::UI::TextCentered("Unknown");
 				else
-					Walnut::UI::TextCentered(ChessAPI::GetCurPgnLabelValue("White").c_str());
+					Walnut::UI::TextCentered(ChessAPI::GetPgnGame()["White"].c_str());
 				
-				if (ChessAPI::GetCurPgnLabelValue("WhiteElo") == "?")
+				if (ChessAPI::GetPgnGame()["WhiteElo"] == "?")
 					Walnut::UI::TextCentered("");
 				else
-					Walnut::UI::TextCentered(ChessAPI::GetCurPgnLabelValue("WhiteElo").c_str());
+					Walnut::UI::TextCentered(ChessAPI::GetPgnGame()["WhiteElo"].c_str());
 
 				ImGui::PopStyleColor();
 			}
@@ -75,19 +75,19 @@ namespace Panels
 
 			ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.4, 0.4, 0.4, 1));
 
-			size = ImGui::CalcTextSize(ChessAPI::GetCurPgnLabelValue("Black").c_str()).y + ImGui::CalcTextSize(ChessAPI::GetCurPgnLabelValue("BlackElo").c_str()).y + 10;
+			size = ImGui::CalcTextSize(ChessAPI::GetPgnGame()["Black"].c_str()).y + ImGui::CalcTextSize(ChessAPI::GetPgnGame()["BlackElo"].c_str()).y + 10;
 			
 			if (ImGui::BeginChild("Black", ImVec2(0, size)))
 			{
-				if (ChessAPI::GetCurPgnLabelValue("Black") == "?")
+				if (ChessAPI::GetPgnGame()["Black"] == "?")
 					Walnut::UI::TextCentered("Unknown");
 				else
-					Walnut::UI::TextCentered(ChessAPI::GetCurPgnLabelValue("Black").c_str());
+					Walnut::UI::TextCentered(ChessAPI::GetPgnGame()["Black"].c_str());
 
-				if (ChessAPI::GetCurPgnLabelValue("BlackElo") == "?")
+				if (ChessAPI::GetPgnGame()["BlackElo"] == "?")
 					Walnut::UI::TextCentered("");
 				else
-					Walnut::UI::TextCentered(ChessAPI::GetCurPgnLabelValue("BlackElo").c_str());
+					Walnut::UI::TextCentered(ChessAPI::GetPgnGame()["BlackElo"].c_str());
 			}
 			
 			ImGui::EndChild();
@@ -95,13 +95,13 @@ namespace Panels
 			ImGui::PopStyleColor();
 			ImGui::PopFont();
 
-			ImGui::Text(("ECO: " + ChessAPI::GetCurPgnLabelValue("ECO")).c_str());
+			ImGui::Text(("ECO: " + ChessAPI::GetPgnGame()["ECO"]).c_str());
 			ImGui::SameLine();
-			ImGui::Text(("Result: " + ChessAPI::GetCurPgnLabelValue("Result")).c_str());
+			ImGui::Text(("Result: " + ChessAPI::GetPgnGame()["Result"]).c_str());
 		}
 		ImGui::NewLine();
 
-		ChessAPI::GetMovesPgnFormat(m_moves);
+		m_moves = ChessAPI::GetPgnGame().GetMovePathbyRef();
 
 		std::vector<int> pathmove;
 		pathmove.push_back(-1);
@@ -115,10 +115,10 @@ namespace Panels
 			{
 				ImGui::BeginChild("##DrawMoves", ImVec2(0, ImGui::GetContentRegionAvail().y - 8 * ImGui::GetStyle().ItemSpacing.y));
 
-				if (!ChessAPI::GetNote({ -1 }).note.empty())
+				if (!ChessAPI::GetActiveGame().GetNote({ -1 }).note.empty())
 				{
 					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.62f, 0.24f, 1.0f));
-					ImGui::TextWrapped(ChessAPI::GetNote({ -1 }).note.c_str());
+					ImGui::TextWrapped(ChessAPI::GetActiveGame().GetNote({ -1 }).note.c_str());
 					ImGui::PopStyleColor();
 
 					ImGui::NewLine();
@@ -132,7 +132,7 @@ namespace Panels
 			}
 			if (ImGui::BeginTabItem("Training"))
 			{
-				auto& curMovePath = ChessAPI::GetMoveIntFormat();
+				auto curMovePath = ChessAPI::GetActiveGame().GetLastMoveKey();
 				Chess::PgnGame::ChessMovesPath* ptrpgnMovePath = &m_moves;
 				for (int i = 1; i < curMovePath.size(); i += 2)
 				{
@@ -141,10 +141,10 @@ namespace Panels
 				if (curMovePath[curMovePath.size() - 1] >= 0)
 					ImGui::Text(ptrpgnMovePath->move[curMovePath[curMovePath.size() - 1]].c_str());
 
-				if (!ChessAPI::GetNote(curMovePath).note.empty())
+				if (!ChessAPI::GetActiveGame().GetNote(curMovePath).note.empty())
 				{
 					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.62f, 0.24f, 1.0f));
-					ImGui::TextWrapped(ChessAPI::GetNote(curMovePath).note.c_str());
+					ImGui::TextWrapped(ChessAPI::GetActiveGame().GetNote(curMovePath).note.c_str());
 					ImGui::PopStyleColor();
 				}
 
@@ -161,17 +161,17 @@ namespace Panels
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.48f, 0.87f, 0.0f));
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.48f, 0.87f, 0.0f));
 			
-				ImGui::Button(("ECO: " + ChessAPI::GetCurPgnLabelValue("ECO")).c_str());
-				ImGui::SameLine();
-				ImGui::Button("Blah blah blaah");
+				//ImGui::Button(("ECO: " + (*ChessAPI::GetPgnGame())["ECO")).c_str());
+				//ImGui::SameLine();
+				//ImGui::Button("Blah blah blaah");
 				
 				ImGui::PopStyleColor(4);
 			
-				ImGui::SameLine();
+				//ImGui::SameLine();
 
 				std::string childID;
 				{
-					auto currentPathMove = ChessAPI::GetMoveIntFormat();
+					auto currentPathMove = ChessAPI::GetActiveGame().GetLastMoveKey();
 
 					if (currentPathMove.size() > 1)
 					{
@@ -372,7 +372,7 @@ namespace Panels
 				if (i == par.move.size() - 1)
 					toAddSize += (ImGui::CalcTextSize("] ").x + style.FramePadding.x * 2.0f);
 
-				toAddSize += (ImGui::CalcTextSize(ChessAPI::GetNote(pathmove).note.c_str()).x + ImGui::CalcTextSize(par.move[i].c_str()).x + style.FramePadding.x * 4.0f);
+				toAddSize += (ImGui::CalcTextSize(ChessAPI::GetActiveGame().GetNote(pathmove).note.c_str()).x + ImGui::CalcTextSize(par.move[i].c_str()).x + style.FramePadding.x * 4.0f);
 
 				ImGui::SameLine();
 				
@@ -387,12 +387,12 @@ namespace Panels
 
 				float red = 0, green = 0, blue = 0, alfa = 0;
 				
-				if (g_IsMoveChooseOpen && prevMoveKey == ChessAPI::GetMoveIntFormat())
+				if (g_IsMoveChooseOpen && prevMoveKey == ChessAPI::GetActiveGame().GetLastMoveKey())
 				{
 					red = 0.6; green = 0.5; blue = 0.8; alfa = 0.5;
 				}
 
-				if (pathmove == ChessAPI::GetMoveIntFormat())
+				if (pathmove == ChessAPI::GetActiveGame().GetLastMoveKey())
 				{ 
 					red = 0.5; green = 0.8; blue = 0.6; alfa = 0.7; 
 				}
@@ -428,13 +428,13 @@ namespace Panels
 
 				if (ImGui::Button(par.move[i].c_str()))
 				{
-					ChessAPI::GoMoveByIntFormat(pathmove);
+					ChessAPI::GetActiveGame().GoToPositionByKey(pathmove);
 					ImGui::SetScrollHereY();
 				}
 
 				prevMoveKey = pathmove;
 
-				if (pathmove == ChessAPI::GetMoveIntFormat() && ChessAPI::IsBoardChanged() == true)
+				if (pathmove == ChessAPI::GetActiveGame().GetLastMoveKey())
 					ImGui::SetScrollHereY();
 
 				if (ImGui::IsItemHovered())
@@ -458,7 +458,7 @@ namespace Panels
 						s_IsPopupUsed = true;
 						s_PopupFunction = [pathmove]()
 							{
-								ChessAPI::DeleteMove(pathmove);
+								ChessAPI::GetActiveGame().DeleteMove(pathmove);
 							};
 					}
 
@@ -467,7 +467,10 @@ namespace Panels
 						s_IsPopupUsed = true;
 						s_PopupFunction = [pathmove]()
 							{
-								ChessAPI::DeleteVariation(pathmove);
+								auto pathcopy = pathmove;
+								pathcopy.back() = 0;
+
+								ChessAPI::GetActiveGame().DeleteMove(pathcopy);
 							};
 					}
 
@@ -478,7 +481,7 @@ namespace Panels
 						s_IsPopupUsed = true;
 						s_PopupFunction = [pathmove]()
 							{
-								ChessAPI::PromoteVariation(pathmove);
+								ChessAPI::GetActiveGame().EditVariation(pathmove, Chess::GameManager::SWAP);
 							};
 					}
 
@@ -487,12 +490,12 @@ namespace Panels
 					ImGui::EndPopup();
 				}
 
-				if (!ChessAPI::GetNote(pathmove).note.empty())
+				if (!ChessAPI::GetActiveGame().GetNote(pathmove).note.empty())
 				{
 					ImGui::SameLine();
 
 					ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.62f, 0.24f, 1.0f));
-					ImGui::TextWrapped(ChessAPI::GetNote(pathmove).note.c_str());
+					ImGui::TextWrapped(ChessAPI::GetActiveGame().GetNote(pathmove).note.c_str());
 					//ImGui::SameLine();
 					//ImGui::TextWrapped("%f", totalsize);
 					ImGui::PopStyleColor();

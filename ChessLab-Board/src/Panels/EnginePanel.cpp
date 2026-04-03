@@ -1,6 +1,6 @@
 #include "EnginePanel.h"
 
-#include "ChessAPI.h"
+#include "../ChessAPI/ChessAPI.h"
 #include "ChessCore/GameManager.h"
 #include "imgui.h"
 #include "../Source/Walnut/Application.h"
@@ -108,14 +108,13 @@ namespace Panels
 
 		auto& io = ImGui::GetIO();
 
-		auto curBoard = ChessAPI::GetFormatedPosition();
-		if (m_oldBoard != curBoard && m_running && !ChessAPI::IsWaitingForNewType()
-			&& s_timeScore.Elapsed() > 0.2)
+		auto curBoard = ChessAPI::GetActiveGame().GetFormatedFEN();
+		if (m_oldBoard != curBoard && m_running && s_timeScore.Elapsed() > 0.2)
 		{
 			m_oldBoard = curBoard;
 			CommandChessEngine("stop");
 
-			CommandChessEngine(std::string("position fen ") + ChessAPI::GetFEN());
+			CommandChessEngine(std::string("position fen ") + ChessAPI::GetActiveGame().GetFen());
 			CommandChessEngine("go infinite");
 		}
 
@@ -156,7 +155,7 @@ namespace Panels
 		if (!m_running && ImGui::ImageButton((ImTextureID)m_IconPlay->GetRendererID(), ImVec2(size, size), ImVec2(0, 0), ImVec2(1, 1), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), ImVec4(1.0f, 1.0f, 1.0f, 1.0f)))
 		{
 			m_running = true;
-			CommandChessEngine(std::string("position fen ") + ChessAPI::GetFEN());
+			CommandChessEngine(std::string("position fen ") + ChessAPI::GetActiveGame().GetFen());
 			CommandChessEngine("go infinite");
 		}
 		else if (m_running && ImGui::ImageButton((ImTextureID)m_IconStop->GetRendererID(), ImVec2(size, size), ImVec2(0, 0), ImVec2(1, 1), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), ImVec4(1.0f, 1.0f, 1.0f, 1.0f)))
@@ -246,7 +245,7 @@ namespace Panels
 			if (index && s_time.Elapsed() > 0.5)
 			{
 				for (int j = 0; j < index; j++)
-					ChessAPI::GoMoveByStr(EngineMoves[j]);
+					ChessAPI::GetActiveGame().MakeMove(EngineMoves[j]);
 				s_time.Reset();
 			}
 			
@@ -555,7 +554,6 @@ namespace Panels
 								if ((int)move.find('\r') + 1)
 									move.erase(move.find('\r'));
 
-								glm::vec2 pos(move[0] - 'a', move[1] - '1'), dir(move[2] - 'a', move[3] - '1');
 								int n_type = 0;
 								if (move.size() == 5)
 								{

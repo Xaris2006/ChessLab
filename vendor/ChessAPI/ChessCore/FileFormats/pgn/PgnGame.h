@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include <map>
 
 namespace Chess
 {
@@ -34,7 +33,7 @@ namespace Chess
 
 			ChessMovesPath* parent = nullptr;
 			std::vector<ChessMovesPath> children;
-			std::unordered_map<int, Detail> details;
+			std::unordered_map<size_t, Detail> details;
 			std::vector<std::string> move;
 		};
 
@@ -46,8 +45,8 @@ namespace Chess
 		ChessMovesPath& GetMovePathbyRef();
 		std::string& GetResault();
 		std::vector<std::string> GetLabelNames() const;
-		std::string& GetFirstNote();
 
+		bool IsLabelExist(const std::string& name) const;
 		void RemoveLabel(const std::string& name);
 
 		void AddReference();
@@ -62,11 +61,9 @@ namespace Chess
 
 		std::string GetDataRead() const;
 
-		friend std::istream& operator>>(std::istream& stream, PgnGame& f);
+		void SetCurrentAsInitial();
 
-		void Parse(std::istream& f);
-
-		void Parse(std::string& data, bool onlyRead = false, bool readMoves = true);
+		void Parse(std::string_view data, bool onlyRead = false, bool readMoves = true);
 
 	private:
 
@@ -76,10 +73,9 @@ namespace Chess
 
 	private:
 
-		std::map<std::string, std::string> m_labels;
+		std::unordered_map<std::string, std::string> m_labels;
 		ChessMovesPath m_chessmoves;
 		std::string m_resualt = "*";
-		std::string m_firstNote = "";
 		int m_Count = 0;
 
 		std::string m_DataRead;

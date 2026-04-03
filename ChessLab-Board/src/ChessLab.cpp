@@ -8,7 +8,10 @@
 
 #include "AppManagerChild.h"
 
-#include "ChessAPI.h"
+#include "ChessAPI/ChessAPI.h"
+#include "ChessCore/FileFormats/FileManager.h"
+#include "ChessCore/FileFormats/ChessFileManager.h"
+#include "ChessCore/FileFormats/cld/CldFile.h"
 
 #include "ImGuiBoard.h"
 #include "Panels/ContentBrowserPanel.h"
@@ -42,7 +45,8 @@ public:
 		glfwFocusWindow(Walnut::Application::Get().GetWindowHandle());
 
 		AppManagerChild::Init();
-		Chess::PgnManager::Init();
+		Chess::FileManager::Init();
+		Chess::ChessFileManager::Init();
 		ChessAPI::Init();
 		
 		m_ChessBoard.OnAttach();
@@ -70,11 +74,50 @@ public:
 		lsIni.close();
 
 		ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NavEnableKeyboard;
+
+		if (false)
+		{
+			Chess::CldFile file;
+			file.OpenFile("C:\\Users\\xarbe\\Documents\\appa\\appa.cld");
+
+			while (file.GetSearchesCount() != 0)
+				file.RemoveSearch(0);
+
+			auto searchData = file.AddSearch();
+			searchData->first.StartOption().And("WhiteElo", "1", 0).EndOption();
+			searchData->first.StartOption().And("WhiteElo", "?", 0).EndOption();
+			searchData->first.StartOption().And("BlackElo", "1", 0).EndOption();
+			searchData->first.StartOption().And("BlackElo", "?", 0).EndOption();
+			searchData->first.StartOption().And("WhiteTitle", "BOT").EndOption();
+			searchData->first.StartOption().And("BlackTitle", "BOT").EndOption();
+			file.StartSearch(0);
+
+			using namespace std::chrono_literals;
+
+			while (searchData->second.Persentage < 1)
+				std::this_thread::sleep_for(1s);
+
+			for (auto& re : searchData->second.PossitiveIndexes)
+			{
+				file.DeleteGame(re);
+			}
+
+			file.SaveFile("C:\\Users\\xarbe\\Documents\\appa\\appa.cld");
+
+			file.Clear();
+
+		}
+
+		if(false)
+		{
+			Chess::CldFile::RemoveDeletedGames("C:\\Users\\xarbe\\Documents\\appa\\appa.cld");
+		}
 	}
 
 	virtual void OnDetach() override
 	{
-		Chess::PgnManager::Shutdown();
+		Chess::ChessFileManager::Shutdown();
+		Chess::FileManager::Shutdown();
 		AppManagerChild::ShutDown();
 	}
 
@@ -117,7 +160,7 @@ public:
 			
 			if (ImGui::IsKeyPressed(ImGuiKey_B))
 			{
-				ImGui::SetClipboardText(ChessAPI::GetFEN().c_str());
+				ImGui::SetClipboardText(ChessAPI::GetActiveGame().GetFen().c_str());
 			}
 
 			if (ImGui::IsKeyPressed(ImGuiKey_R))
@@ -320,7 +363,7 @@ public:
 
 	void Open()
 	{
-		std::string filepath = Windows::Utils::OpenFile("Chess Database (*.pgn)\0*.pgn\0");
+		std::string filepath = Windows::Utils::OpenFile(L"PGN Database (*.pgn)\0*.pgn\0Chess Lab Database (*.cld)\0*.cld\0\0");
 		if (!filepath.empty())
 		{
 			bool anwser = AppManagerChild::IsChessFileAvail(filepath);
@@ -339,11 +382,10 @@ public:
 
 	void SaveAs()
 	{
-		std::string filepath = Windows::Utils::SaveFile("Chess Database (*.pgn)\0*.pgn\0");
+		std::string filepath = Windows::Utils::SaveFile(L"PGN Database (*.pgn)\0*.pgn\0Chess Lab Database (*.cld)\0*.cld\0\0");
 		if (!filepath.empty())
 		{
 			ChessAPI::OverWriteChessFile(filepath);
-			ChessAPI::OpenChessFile(filepath);
 			AppManagerChild::OwnChessFile(ChessAPI::GetPgnFilePath());
 		}
 	}
@@ -384,6 +426,40 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
 		{
 			AppManagerChild::OpenChessFileInOtherApp();
 		};
+
+	g_spec.AdditionalRightMenuIconPath.emplace_back("Resources\\Icons\\undo.png");
+	g_spec.AdditionalRightMenuFuncIconPressed.emplace_back([]()
+		{
+			ChessAPI::OpenChessGameInFile(ChessAPI::GetActiveGameIndex() - 1);
+		});
+	g_spec.AdditionalRightMenuIconPath.emplace_back("Resources\\Icons\\return.png");
+	g_spec.AdditionalRightMenuFuncIconPressed.emplace_back([]()
+		{
+			int oldActive = ChessAPI::GetActiveGameIndex();
+			ChessAPI::OpenChessGameInFile(ChessAPI::GetActiveGameIndex() - 1);
+
+			if (oldActive != ChessAPI::GetActiveGameIndex())
+				ChessAPI::CloseOpenGame(oldActive);
+		});
+	g_spec.AdditionalRightMenuIconPath.emplace_back("Resources\\Icons\\plus.png");
+	g_spec.AdditionalRightMenuFuncIconPressed.emplace_back([]()
+		{
+			ChessAPI::NewGameInFile();
+		});
+	g_spec.AdditionalRightMenuIconPath.emplace_back("Resources\\Icons\\Rreturn.png");
+	g_spec.AdditionalRightMenuFuncIconPressed.emplace_back([]()
+		{
+			int oldActive = ChessAPI::GetActiveGameIndex();
+			ChessAPI::OpenChessGameInFile(ChessAPI::GetActiveGameIndex() + 1);
+
+			if (oldActive != ChessAPI::GetActiveGameIndex())
+				ChessAPI::CloseOpenGame(oldActive);
+		});
+	g_spec.AdditionalRightMenuIconPath.emplace_back("Resources\\Icons\\Rundo.png");
+	g_spec.AdditionalRightMenuFuncIconPressed.emplace_back([]()
+		{
+			ChessAPI::OpenChessGameInFile(ChessAPI::GetActiveGameIndex() + 1);
+		});
 
 	//fix arg
 	s_arg.emplace_back(argv[0]);
@@ -452,7 +528,7 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
 
 			ImGui::Separator();
 
-			if (ImGui::MenuItem("Set current View Style as default"))
+			if (ImGui::MenuItem("Update View Style"))
 			{
 				std::ofstream lsIni("chesslab.ini");
 				lsIni << "Content_Browser" << ' ' << chessLayer->ContentBrowserPanelViewStatus() << '\n';
@@ -473,7 +549,7 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
 		{
 			if (ImGui::MenuItem("Copy Board", "Ctr+B"))
 			{
-				ImGui::SetClipboardText(ChessAPI::GetFEN().c_str());
+				ImGui::SetClipboardText(ChessAPI::GetActiveGame().GetFen().c_str());
 			}
 			if (ImGui::MenuItem("Flip Board", "Ctr+F"))
 			{
@@ -485,11 +561,11 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
 			}
 			if (ImGui::MenuItem("Go Next Move", "Right Arrow"))
 			{
-				ChessAPI::NextSavedMove();
+				ChessAPI::GetActiveGame().GoNextMove();
 			}
 			if (ImGui::MenuItem("Go Previous Move", "Left Arrow"))
 			{
-				ChessAPI::PreviousSavedMove();
+				ChessAPI::GetActiveGame().GoPreviusMove();
 			}
 			if (ImGui::MenuItem("Show Possible Moves", 0, &chessLayer->ShowPossibleMoves())) {}
 			if (ImGui::MenuItem("Show Tags", 0, &chessLayer->ShowTags())) {}
@@ -513,7 +589,7 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
 				}
 				if (ImGui::MenuItem("from Explorer..."))
 				{
-					std::string filepath = Windows::Utils::OpenFile("Chess Engine (*.exe)\0*.exe\0");
+					std::string filepath = Windows::Utils::OpenFile(L"Chess Engine (*.exe)\0*.exe\0");
 					if (!filepath.empty())
 						chessLayer->OpenChessEngine(filepath);
 				}

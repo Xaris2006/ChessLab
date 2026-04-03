@@ -7,9 +7,9 @@
 #include <iostream>
 #include <chrono>
 
-#include "ChessCore/pgn/PgnFile.h"
+#include "ChessCore/FileFormats/FileManager.h"
 
-static Chess::PgnFile::PgnPath_Hash s_Hasher;
+static Chess::FileManager::PathHash s_Hasher;
 
 namespace AppManagerChild
 {

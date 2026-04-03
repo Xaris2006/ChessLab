@@ -2,7 +2,7 @@
 
 #include "imgui.h"
 
-#include "ChessAPI.h"
+#include "../ChessAPI/ChessAPI.h"
 #include "../Windows/WindowsUtils.h"
 
 #include <filesystem>
@@ -65,7 +65,7 @@ namespace Panels
 			if (ImGui::Button("Load Chess Opening Book (.cob)"))
 			{
 				CloseCOBfile();
-				std::string path = Windows::Utils::OpenFile("Chess Opening Book (*.cob)\0*.cob\0");
+				std::string path = Windows::Utils::OpenFile(L"Chess Opening Book (*.cob)\0*.cob\0");
 				if (!path.empty())
 					OpenCOBfile(path);
 			}
@@ -92,7 +92,7 @@ namespace Panels
 			ImVec4 draw = ImVec4(0.3, 0.58, 0.97, 1);
 			ImVec4 black = ImVec4(0.79, 0.1, 0.1, 1);
 			std::string move;
-			auto posID = ChessAPI::GetFormatedPosition();
+			auto posID = ChessAPI::GetActiveGame().GetFormatedFEN();
 			const auto& moveptr = GetOpeningBookMoves(posID);
 
 			if (&moveptr && moveptr.size() && posID.size())
@@ -106,7 +106,7 @@ namespace Panels
 					ImGui::SetCursorPosY(cursorStartPosY + ImGui::GetTextLineHeight());
 					ImGui::CalcItemWidth();
 					if (ImGui::Button(moveob.strmove.c_str(), ImVec2(70, 0)))
-						ChessAPI::GoMoveByStr(moveob.strmove);
+						ChessAPI::GetActiveGame().MakeMove(moveob.strmove);
 					
 					ImGui::SameLine();
 					ImGui::SetCursorPosY(cursorStartPosY);

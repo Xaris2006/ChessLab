@@ -88,6 +88,21 @@ namespace Chess
 		return currentPath->details[moveKey[moveKey.size() - 1]];
 	}
 
+	PgnGame::ChessMovesPath& GameManager::GetCurrentPgnMovePath()
+	{
+		if (!m_pgnGame)
+			return *(PgnGame::ChessMovesPath*)nullptr;
+
+		PgnGame::ChessMovesPath* path = &m_pgnGame->GetMovePathbyRef();
+
+		for (int i = 1; i < m_lastMoveKey.size(); i += 2)
+		{
+			path = &path->children[m_lastMoveKey[i]];
+		}
+
+		return *path;
+	}
+
 	PgnGame::ChessMovesPath GameManager::GetMovesByStr() const
 	{
 		if(m_pgnGame)
@@ -98,6 +113,16 @@ namespace Chess
 	GameManager::MoveKey GameManager::GetLastMoveKey() const
 	{
 		return m_lastMoveKey;
+	}
+
+	std::pair<Board::Move, Piece> GameManager::GetLastMove() const
+	{
+		if (!m_mapMoves.contains(m_lastMoveKey))
+			return std::make_pair(Board::Move(), NONE);
+
+		const auto& moveD = m_mapMoves.at(m_lastMoveKey);
+
+		return std::make_pair(moveD.move, moveD.piecePromote);
 	}
 
 	void GameManager::GetAvailableMoves(std::vector<Board::Move>& moves) const
@@ -352,7 +377,7 @@ namespace Chess
 			if (moveKey.size() == 1)//has parent
 				break;
 
-			std::unordered_map<int, PgnGame::Detail> detailsNew;
+			std::unordered_map<size_t, PgnGame::Detail> detailsNew;
 			std::vector<std::string> moveNew;
 			std::vector<PgnGame::ChessMovesPath> childrenNew;
 
@@ -714,13 +739,13 @@ namespace Chess
 			if (strmove[strHelperIndex] >= 'a' && strmove[strHelperIndex] <= 'h')
 			{
 				helperIndexX = (int)s_strMoveIndexX.find(strmove[strHelperIndex]);
-				if (strMoveDirectionIndex - strHelperIndex > 1 && strmove[strHelperIndex + 1] != 'x')
+				if (strMoveDirectionIndex - strHelperIndex > 2 && strmove[strHelperIndex + 1] != 'x')
 					helperIndexY = (int)s_strMoveIndexY.find(strmove[strHelperIndex + 1]);
 			}
 			else
 			{
 				helperIndexY = (int)s_strMoveIndexY.find(strmove[strHelperIndex]);
-				if (strMoveDirectionIndex - strHelperIndex > 1 && strmove[strHelperIndex + 1] != 'x')
+				if (strMoveDirectionIndex - strHelperIndex > 2 && strmove[strHelperIndex + 1] != 'x')
 					helperIndexX = (int)s_strMoveIndexX.find(strmove[strHelperIndex + 1]);
 			}
 
@@ -832,7 +857,13 @@ namespace Chess
 			return;
 		}
 
-		if (currentPath->move[nextIndex].find(strmove) == 0)
+		bool smallRoke = move.pieceToMove == KING && move.move.move == 2;
+
+		if (currentPath->move[nextIndex].find(strmove) == 0 
+			&& (!smallRoke 
+				|| (smallRoke 
+					&& currentPath->move[nextIndex].find("0-0-0") == std::string::npos
+					&& currentPath->move[nextIndex].find("O-O-O") == std::string::npos)))
 		{
 			m_lastMoveKey[m_lastMoveKey.size() - 1] = nextIndex;
 
@@ -861,7 +892,11 @@ namespace Chess
 
 		for (int i = 0; i < childAmount; i++)
 		{
-			if (currentPath->children[childIndex + i].move[0].find(strmove) == 0)
+			if (currentPath->children[childIndex + i].move[0].find(strmove) == 0 
+				&& (!smallRoke
+					|| (smallRoke
+						&& currentPath->children[childIndex + i].move[0].find("0-0-0") == std::string::npos
+						&& currentPath->children[childIndex + i].move[0].find("O-O-O") == std::string::npos)))
 			{
 				m_lastMoveKey[m_lastMoveKey.size() - 1] = nextIndex + 1 + i;
 				m_lastMoveKey.emplace_back(childIndex + i);
