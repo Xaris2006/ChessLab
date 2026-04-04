@@ -625,7 +625,7 @@ namespace Chess
 
 			if (move->first >= 64)
 			{
-				uint8_t indexOfMove = move->first - 64;
+				size_t indexOfMove = move->first - 64;
 
 				if (i - index >= 70)
 					indexOfMove += (189 * 2);
