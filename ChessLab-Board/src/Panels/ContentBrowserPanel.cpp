@@ -10,6 +10,7 @@
 #include <fstream>
 
 extern bool g_AlreadyOpenedModalOpen;
+extern bool g_LoadingModalOpen;
 
 namespace Panels {
 
@@ -35,6 +36,12 @@ namespace Panels {
 
 		ImGui::Begin("Content Browser", &m_viewPanel);
 		
+		if (g_LoadingModalOpen)
+		{
+			ImGui::End();
+			return;
+		}
+
 		if (ImGui::IsWindowHovered() && !ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
 			ImGui::OpenPopup("Browser Popup");
 		if (ImGui::BeginPopup("Browser Popup"))

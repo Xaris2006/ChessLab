@@ -6,7 +6,7 @@
 
 namespace Chess
 {
-	void ConvertToPgn(const CldFile& cldFile, const std::filesystem::path& destination)
+	void ConvertToPgn(const CldFile& cldFile, const std::filesystem::path& destination, float* persentage)
 	{
 		if (destination.extension().string() != ".pgn")
 			return;
@@ -23,6 +23,9 @@ namespace Chess
 
 		for (size_t i = 0; i < cldFile.GetSize(); i++)
 		{
+			if (persentage)
+				*persentage = std::min(0.0f + float(i / (double)cldFile.GetSize()) * 0.99f, 0.99f);
+
 			pointerFile.write((char*)&index, 8);
 			dataToWrite = cldFile.At(i).GetData();
 			outfile.write(dataToWrite.c_str(), dataToWrite.size());
@@ -33,7 +36,7 @@ namespace Chess
 		pointerFile.close();
 	}
 
-	void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination)
+	void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination, float* persentage)
 	{
 		if (destination.extension().string() != ".cld")
 			return;
@@ -70,6 +73,9 @@ namespace Chess
 
 		for (size_t i = 0; i < pgnFile.GetSize(); i++)
 		{
+			if (persentage)
+				*persentage = std::min(0.0f + float(i / (double)pgnFile.GetSize()) * 0.6f, 0.6f);
+
 			cldGameToAdd.Clear();
 
 			pgnGame = pgnFile.At(i);
@@ -119,6 +125,9 @@ namespace Chess
 		helpOutfile.close();
 		gameIndexes.pop_back();
 
+		if (persentage)
+			*persentage = 0.6f;
+
 		std::vector<char> NameBuffer, ValueBuffer;
 
 		for (auto& str : labelNames)
@@ -158,6 +167,9 @@ namespace Chess
 		outfile.write(ValueBuffer.data(), ValueBuffer.size());
 		outfile.write((char*)gameIndexes.data(), gameIndexes.size() * 8);
 
+		if (persentage)
+			*persentage = 0.7f;
+
 		std::ifstream helpInfile(cachePath / "helper", std::ios::binary);
 
 		std::vector<char> bufferToCopy(40'000'000);
@@ -174,6 +186,9 @@ namespace Chess
 
 			helpInfile.read(bufferToCopy.data(), sizeToCopy);
 			outfile.write(bufferToCopy.data(), sizeToCopy);
+
+			if (persentage)
+				*persentage = std::min(0.7f + float(helpInfile.tellg() / (double)maxIndex) * 0.29f, 0.99f);
 
 			if (maxAmount <= 40'000'000ull)
 				break;

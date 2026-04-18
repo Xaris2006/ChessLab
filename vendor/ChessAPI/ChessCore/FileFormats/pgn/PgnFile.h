@@ -10,8 +10,8 @@ namespace Chess
 		PgnFile();
 		virtual ~PgnFile();
 
-		virtual void OpenFile(const std::filesystem::path& path) override;
-		virtual void SaveFile(const std::filesystem::path& path) override;
+		virtual void OpenFile(const std::filesystem::path& path, float* persentage = nullptr) override;
+		virtual void SaveFile(const std::filesystem::path& path, float* persentage = nullptr) override;
 
 		virtual FileManager::FileID GetID() const override;
 		virtual size_t GetSize() const override;
@@ -41,10 +41,10 @@ namespace Chess
 
 	public:
 		static void RemoveDeletedGames(const std::filesystem::path& path);
-		friend void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination);
+		friend void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination, float* persentage);
 
 	private:
-		virtual void LoadDataPointers() override;
+		virtual void LoadDataPointers(float* persentage = nullptr) override;
 
 		virtual void LoadSearchIndexes(const std::filesystem::path& cachePath) override;
 		virtual void SaveSearchIndexes(const std::filesystem::path& cachePath) override;
@@ -60,5 +60,5 @@ namespace Chess
 		std::vector<std::tuple<SearchID, std::string, std::shared_ptr<std::pair<SearchOptions, SearchResult>>>> m_Searches;
 	};
 
-	void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination);
+	void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination, float* persentage = nullptr);
 }

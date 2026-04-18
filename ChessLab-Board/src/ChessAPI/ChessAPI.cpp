@@ -112,7 +112,7 @@ namespace ChessAPI
 		}
 	}
 
-	void OpenChessFile(const std::filesystem::path& path)
+	void OpenChessFile(const std::filesystem::path& path, float* persentage)
 	{
 		s_Games.clear();
 		s_OpenGames.clear();
@@ -163,8 +163,8 @@ namespace ChessAPI
 			return;
 		}
 
-		s_ChessFile->OpenFile(s_FilePath);
-		
+		s_ChessFile->OpenFile(s_FilePath, persentage);
+
 		if (!s_ChessFile->GetSize())
 			s_ChessFile->CreateGame();
 
@@ -374,7 +374,7 @@ namespace ChessAPI
 		}
 	}
 
-	void OverWriteChessFile(const std::filesystem::path& filepath)
+	void OverWriteChessFile(const std::filesystem::path& filepath, float* persentage)
 	{
 		//save
 
@@ -383,7 +383,7 @@ namespace ChessAPI
 			if (s_FilePath == "")
 				return;
 
-			s_ChessFile->SaveFile(s_FilePath);
+			s_ChessFile->SaveFile(s_FilePath, persentage);
 			return;
 		}
 
@@ -398,11 +398,11 @@ namespace ChessAPI
 		{
 			if (s_FilePath.extension().string() == ".pgn")
 			{
-				s_ChessFile->SaveFile(filepath);
+				s_ChessFile->SaveFile(filepath, persentage);
 			}
 			else
 			{
-				Chess::ConvertToPgn(*(Chess::CldFile*)s_ChessFile, filepath);
+				Chess::ConvertToPgn(*(Chess::CldFile*)s_ChessFile, filepath, persentage);
 
 				delete s_ChessFile;
 				s_ChessFile = new Chess::PgnFile();
@@ -414,11 +414,11 @@ namespace ChessAPI
 		{
 			if (s_FilePath.extension().string() == ".cld")
 			{
-				s_ChessFile->SaveFile(filepath);
+				s_ChessFile->SaveFile(filepath, persentage);
 			}
 			else
 			{
-				Chess::ConvertToCld(*(Chess::PgnFile*)s_ChessFile, filepath);
+				Chess::ConvertToCld(*(Chess::PgnFile*)s_ChessFile, filepath, persentage);
 
 				delete s_ChessFile;
 				s_ChessFile = new Chess::CldFile();

@@ -3,9 +3,6 @@
 #include <string>
 #include <cmath>
 
-//m_lastMoveIndex shound be intenger
-//for roke should have four booleans
-
 namespace Chess
 {
 	Board::Board()

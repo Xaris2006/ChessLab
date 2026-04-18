@@ -6,7 +6,9 @@
 
 #include <functional>
 
-bool g_IsMoveChooseOpen = false;
+extern bool g_LoadingModalOpen;
+extern bool g_IsMoveChooseOpen;
+
 
 static bool s_IsVariationChecked = false;
 static Chess::GameManager::MoveKey s_VariationKey;
@@ -25,6 +27,12 @@ namespace Panels
 
 		ImGui::Begin("Moves", &m_viewPanel);
 		
+		if (g_LoadingModalOpen)
+		{
+			ImGui::End();
+			return;
+		}
+
 		//ImGui::Text(std::to_string(ChessAPI::GetActiveGame()+1).c_str());
 
 		ImGui::NewLine();

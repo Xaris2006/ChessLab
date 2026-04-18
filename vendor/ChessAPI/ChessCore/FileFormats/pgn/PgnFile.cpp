@@ -27,7 +27,7 @@ namespace Chess
 		ChessFileManager::Get().RemoveFileReference(m_ID);
 	}
 
-	void PgnFile::OpenFile(const std::filesystem::path& path)
+	void PgnFile::OpenFile(const std::filesystem::path& path, float* persentage)
 	{
 		Clear();
 
@@ -36,7 +36,7 @@ namespace Chess
 		m_ID = FileManager::Get().AddFile(path);
 		ChessFileManager::Get().AddFileReference(m_ID, m_DataPointers);
 
-		auto fileHash = HashFile(path);
+		auto fileHash = HashFile(path, persentage);
 
 		auto cachePath = FileManager::Get().GetCachePath(m_ID);
 
@@ -59,6 +59,9 @@ namespace Chess
 
 			if (!changed)
 			{
+				if (persentage)
+					*persentage = 0.4f;
+
 				{
 					std::ifstream infile(cachePath / "thisfile.ppgn", std::ios::binary);
 
@@ -78,6 +81,10 @@ namespace Chess
 
 					delete[] data;
 				}
+
+				if (persentage)
+					*persentage = 0.7f;
+
 				{
 					std::ifstream infile(cachePath / "thisfile.dpgn", std::ios::binary);
 					
@@ -98,13 +105,22 @@ namespace Chess
 					delete[] data;
 				}
 
+				if (persentage)
+					*persentage = 0.8f;
+
 				LoadSearchIndexes(cachePath);
+
+				if (persentage)
+					*persentage = 0.9f;
 
 				return;
 			}
 		}
 
-		LoadDataPointers();
+		if (persentage)
+			*persentage = 0.4f;
+
+		LoadDataPointers(persentage);
 
 		{
 			std::ofstream outfile(cachePath / "thisfile.ppgn", std::ios::binary | std::ios::trunc);
@@ -121,10 +137,13 @@ namespace Chess
 			outfile.close();
 		}
 
+		if (persentage)
+			*persentage = 0.9f;
+
 		SaveSearchIndexes(cachePath);
 	}
 
-	void PgnFile::SaveFile(const std::filesystem::path& path)
+	void PgnFile::SaveFile(const std::filesystem::path& path, float* persentage)
 	{
 		std::filesystem::path oldPath = "";
 
@@ -158,6 +177,9 @@ namespace Chess
 
 		SaveSearchIndexes(cachePath);
 
+		if (persentage)
+			*persentage = 0.1f;
+
 		std::vector<size_t> editedGames;
 		ChessFileManager::Get().GetEditedGames(m_ID, editedGames);
 
@@ -166,7 +188,7 @@ namespace Chess
 	
 		if (editedGames.empty())
 		{
-			auto fileHash = HashFile(FileManager::Get().GetFilePath(m_ID));
+			auto fileHash = HashFile(FileManager::Get().GetFilePath(m_ID), persentage);
 
 			{
 				std::ifstream source(FileManager::Get().GetFilePath(m_ID), std::ios::binary);
@@ -187,6 +209,9 @@ namespace Chess
 				outfile.write((char*)fileHash.data(), HASH_LENGTH);
 				outfile.close();
 			}
+
+			if (persentage)
+				*persentage = 0.9f;
 
 			return;
 		}
@@ -306,7 +331,7 @@ namespace Chess
 			outfile.close();
 		}
 		{
-			auto fileHash = HashFile(path);
+			auto fileHash = HashFile(path, persentage);
 
 			std::ofstream outfile(cachePath / "thisfile.hpgn", std::ios::binary);
 			outfile.write((char*)fileHash.data(), HASH_LENGTH);
@@ -314,7 +339,7 @@ namespace Chess
 		}
 	}
 
-	void PgnFile::LoadDataPointers()
+	void PgnFile::LoadDataPointers(float* persentage)
 	{
 		size_t maxBufferSize = 100'000'000ui64;
 		
@@ -327,6 +352,12 @@ namespace Chess
 		{
 			if (!m_DataPointers->empty())
 				lastPointer = (*m_DataPointers)[m_DataPointers->size() - 1];
+
+			if (persentage)
+			{
+				size_t fileSize = FileManager::Get().GetMaxFileSize(m_ID);
+				*persentage = std::min(0.4f + float((lastPointer + maxBufferSize) / (double)fileSize) * 0.5f, 0.9f);
+			}
 
 			FileManager::Get().ReadBuffer(m_ID, lastPointer + 1, maxBufferSize, (std::vector<uint8_t>&)data);
 
@@ -591,7 +622,7 @@ namespace Chess
 			destination.close();
 		}
 
-		auto fileHash = HashFile(path);
+		auto fileHash = HashFile(path, nullptr);
 
 		{
 			std::ofstream outfile(cachePath / "thisfile.ppgn", std::ios::binary);

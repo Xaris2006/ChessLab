@@ -2,8 +2,6 @@
 
 #include <filesystem>
 
-
-
 namespace AppManagerChild
 {
 	void Init();

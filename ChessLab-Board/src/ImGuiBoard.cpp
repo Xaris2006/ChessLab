@@ -11,10 +11,13 @@
 
 #include "../../Walnut/Source/Walnut/Application.h"
 
-extern bool g_IsMoveChooseOpen;
 extern bool g_AlreadyOpenedModalOpen;
 extern float g_ChessEngineValue;
 extern bool g_ChessEngineOpen;
+extern bool g_LoadingModalOpen;
+
+bool g_OpenEditor = false;
+bool g_IsMoveChooseOpen = false;
 
 static std::string s_fen;
 static bool cross = true;
@@ -119,6 +122,12 @@ void ImGuiBoard::OnAttach()
 void ImGuiBoard::OnUIRender()
 {
 	ImGui::Begin("Game", 0, ImGuiWindowFlags_NoScrollbar);
+
+	if (g_LoadingModalOpen)
+	{
+		ImGui::End();
+		return;
+	}
 
 	int tabRemove = -1;
 	auto& opened = ChessAPI::GetOpenGameIndexes();
@@ -879,6 +888,12 @@ void ImGuiBoard::OnUIRender()
 	EditorPopup();
 
 	g_IsMoveChooseOpen = ImGui::IsPopupOpen("Move_Choose");
+	
+	if (g_OpenEditor)
+	{
+		g_OpenEditor = false;
+		OpenEditor();
+	}
 
 	ImGui::End();
 
@@ -1533,7 +1548,7 @@ void ImGuiBoard::EditorPopup()
 			ImGui::SameLine();
 
 			{
-				float actualSize = ImGui::CalcTextSize(" New Position ").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+				float actualSize = ImGui::CalcTextSize("New Position").x + ImGui::GetStyle().FramePadding.x * 2.0f;
 				float avail = ImGui::GetContentRegionAvail().x;
 
 				float off = (avail - actualSize) * 1.0f;
@@ -1542,6 +1557,9 @@ void ImGuiBoard::EditorPopup()
 			}
 
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1, 0.7, 0.1, 0.65));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1, 0.7, 0.1, 0.50));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1, 0.7, 0.1, 0.35));
+
 			if (ImGui::Button("New Position"))
 			{
 				Chess::PgnGame gamePgn;
@@ -1567,14 +1585,14 @@ void ImGuiBoard::EditorPopup()
 					}
 				}
 			}
-			ImGui::PopStyleColor();
+			ImGui::PopStyleColor(3);
 
 			ImGui::RadioButton("Black", &player, 0);
 
 			ImGui::SameLine();
-
+			
 			{
-				float actualSize = ImGui::CalcTextSize(" Empty Board ").x + ImGui::GetStyle().FramePadding.x * 2.0f;
+				float actualSize = ImGui::CalcTextSize("Empty Board").x + ImGui::GetStyle().FramePadding.x * 2.0f;
 				float avail = ImGui::GetContentRegionAvail().x;
 
 				float off = (avail - actualSize) * 1.0f;
@@ -1583,6 +1601,8 @@ void ImGuiBoard::EditorPopup()
 			}
 
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7, 0.1, 0.1, 0.65));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7, 0.1, 0.1, 0.5));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7, 0.1, 0.1, 0.35));
 			if (ImGui::Button("Empty Board"))
 			{
 				for (int i = 0; i < 8; i++)
@@ -1593,7 +1613,7 @@ void ImGuiBoard::EditorPopup()
 					}
 				}
 			}
-			ImGui::PopStyleColor();
+			ImGui::PopStyleColor(3);
 
 			ImGui::Columns();
 
@@ -1737,6 +1757,8 @@ void ImGuiBoard::EditorPopup()
 			ImGui::Separator();
 
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1, 0.7, 0.1, 0.65));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1, 0.7, 0.1, 0.50));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1, 0.7, 0.1, 0.35));
 			if (ImGui::Button("OverWrite"))
 			{
 				std::string fen;
@@ -1748,6 +1770,7 @@ void ImGuiBoard::EditorPopup()
 					auto& PgnGame = ChessAPI::GetPgnGame();
 					PgnGame.Clear();
 					PgnGame["FEN"] = fen;
+					ChessAPI::GetActiveGame().InitPgnGame(PgnGame);
 
 					//ChessAPI::OverWriteChessFile("");
 
@@ -1772,6 +1795,7 @@ void ImGuiBoard::EditorPopup()
 					auto& PgnGame = ChessAPI::GetPgnGame();
 					PgnGame.Clear();
 					PgnGame["FEN"] = fen;
+					ChessAPI::GetActiveGame().InitPgnGame(PgnGame);
 
 					//ChessAPI::OverWriteChessFile("");
 
@@ -1802,26 +1826,30 @@ void ImGuiBoard::EditorPopup()
 					ImGui::OpenPopup("Error");
 				}
 			}
-			ImGui::PopStyleColor();
+			ImGui::PopStyleColor(3);
 
 			ImGui::SetNextWindowSize(ImVec2(mainViewport->Size.x * 0.12, mainViewport->Size.y * 0.15), ImGuiCond_Appearing);
 			ImGui::SetNextWindowPos(mainViewport->GetWorkCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-			if (ImGui::BeginPopupModal("Error", 0, ImGuiWindowFlags_NoResize))
+			if (ImGui::BeginPopupModal("Error", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize))
 			{
-				Walnut::UI::TextCentered("Invalid Board!");
+				Walnut::UI::TextCentered("    Invalid Board!    ");
 
 				ImGui::NewLine();
 
-				ImGui::PushID("in");
+				ImGui::PushID("errorIB");
 
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7, 0.1, 0.1, 0.65));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7, 0.1, 0.1, 0.5));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7, 0.1, 0.1, 0.35));
 				if (Walnut::UI::ButtonCentered("Close"))
 				{
 					ImGui::CloseCurrentPopup();
 				}
-				ImGui::PopStyleColor();
+				ImGui::PopStyleColor(3);
 
 				ImGui::PopID();
+
+				ImGui::SameLine();
 
 				ImGui::EndPopup();
 			}
@@ -1842,6 +1870,8 @@ void ImGuiBoard::EditorPopup()
 					ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
 
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1, 0.7, 0.1, 0.65));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1, 0.7, 0.1, 0.5));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1, 0.7, 0.1, 0.35));
 				if (ImGui::Button("Create"))
 				{
 					std::filesystem::path nPath = std::filesystem::path() / "chess_working_directory" / s_inputNName;
@@ -1868,14 +1898,16 @@ void ImGuiBoard::EditorPopup()
 					}
 
 				}
-				ImGui::PopStyleColor();
+				ImGui::PopStyleColor(3);
 
 				ImGui::SameLine();
 
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7, 0.1, 0.1, 0.65));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7, 0.1, 0.1, 0.5));
+				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7, 0.1, 0.1, 0.35));
 				if (ImGui::Button("Cansel"))
 					ImGui::CloseCurrentPopup();
-				ImGui::PopStyleColor();
+				ImGui::PopStyleColor(3);
 
 				ImGui::EndPopup();
 			}
@@ -1884,12 +1916,14 @@ void ImGuiBoard::EditorPopup()
 
 			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Cansel").x - ImGui::GetStyle().FramePadding.x * 2.0f);
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7, 0.1, 0.1, 0.65));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7, 0.1, 0.1, 0.5));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7, 0.1, 0.1, 0.35));
 			if (ImGui::Button("Cansel"))
 			{
 				ImGui::CloseCurrentPopup();
 				ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = false;
 			}
-			ImGui::PopStyleColor();
+			ImGui::PopStyleColor(3);
 			
 			ImGui::EndChild();
 		}

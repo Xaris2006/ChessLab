@@ -69,15 +69,6 @@ namespace Chess
 		MakeMoveStatus MakeMove(Move move, Piece piecePromotion = NONE);
 		bool IsMoveValid(Move move) const;
 
-		//Be Carefull with these
-		//-
-		void AddPiece(Piece type, Color color, int index);
-		void AddPiece(Piece type, Color color, int indexX, int indexY);
-
-		void RemovePiece(int index);
-		void RemovePiece(int indexX, int indexY);
-		//-
-
 		void SetBlackMovesCount(int BlackMovesCount) { m_BlackMovesCounter = BlackMovesCount; }
 		void SetFiftyMoveCount(int FiftyMoveCount) { m_FiftyMoveCounter = FiftyMoveCount; }
 		void SetLastMoveIndex(int LastMoveIndex) { m_LastMovedPieceIndex= LastMoveIndex; }
@@ -89,7 +80,18 @@ namespace Chess
 
 		void SwapPlayerToPlay() { m_PlayerToPlay = m_PlayerToPlay == WHITE ? BLACK : WHITE; }
 
+		//Be Carefull with these
+		//-
+		void AddPiece(Piece type, Color color, int index);
+		void AddPiece(Piece type, Color color, int indexX, int indexY);
+
+		void RemovePiece(int index);
+		void RemovePiece(int indexX, int indexY);
+		//-
+
 	private:
+		bool IsBoardValid() const;
+
 		void UpdateVitualValues() const;
 		MakeMoveStatus VirtualMakeMove(Move move) const;	
 
@@ -103,8 +105,6 @@ namespace Chess
 		void FindRookMoves(std::vector<Move>& moves) const;
 		void FindQueenMoves(std::vector<Move>& moves) const;
 		void FindKingMoves(std::vector<Move>& moves) const;
-
-		bool IsBoardValid() const;
 
 	private:
 		BitBoard				m_Pieces;

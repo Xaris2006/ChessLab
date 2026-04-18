@@ -13,6 +13,8 @@
 #include "ChessCore/FileFormats/ChessFileManager.h"
 #include "ChessCore/FileFormats/cld/CldFile.h"
 
+#include "ChessLabUtils.h"
+
 #include "ImGuiBoard.h"
 #include "Panels/ContentBrowserPanel.h"
 #include "Panels/DatabasePanel.h"
@@ -31,7 +33,9 @@
 std::string g_AppDirectory;
 std::filesystem::path g_cachedDirectory = "Resources\\cache";
 Walnut::ApplicationSpecification g_spec;
-bool g_AlreadyOpenedModalOpen = false;
+extern bool g_AlreadyOpenedModalOpen;
+extern bool g_LoadingModalOpen;
+extern float g_LoadingPersentage;
 
 static std::vector<std::string> s_arg;
 static bool s_Mode = false;
@@ -74,6 +78,7 @@ public:
 		lsIni.close();
 
 		ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NavEnableKeyboard;
+		ImGui::GetStyle().WindowRounding = 10.0f;
 
 		if (false)
 		{
@@ -132,20 +137,20 @@ public:
 				if (ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift))
 					AppManagerChild::OpenChessFileInOtherApp();
 				else
-					New();
+					ChessLab::Utils::New();
 			}
 
 			if (ImGui::IsKeyPressed(ImGuiKey_O))
 			{
-				Open();
+				ChessLab::Utils::Open();
 			}
 
 			if (ImGui::IsKeyPressed(ImGuiKey_S))
 			{
 				if (ImGui::IsKeyDown(ImGuiKey_LeftShift) || ImGui::IsKeyDown(ImGuiKey_RightShift))
-					SaveAs();
+					ChessLab::Utils::SaveAs();
 				else
-					Save();
+					ChessLab::Utils::Save();
 			}
 
 			if (ImGui::IsKeyPressed(ImGuiKey_F))
@@ -195,6 +200,7 @@ public:
 		
 		UI_DrawAboutModal();
 		AlreadyOpenedModal();
+		LoadingPopup();
 
 		//ImGui::ShowDemoWindow();
 		//ImGui::ShowMetricsWindow();
@@ -269,6 +275,69 @@ public:
 
 			ImGui::PopID();
 
+			ImGui::EndPopup();
+		}
+	}
+
+	void LoadingPopup()
+	{
+		if (!g_LoadingModalOpen)
+			return;
+
+		ImGui::OpenPopup("Loading Operation");
+
+		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+		g_LoadingModalOpen = ImGui::BeginPopupModal("Loading Operation", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize);
+
+		if (g_LoadingModalOpen)
+		{
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.62f, 0.24f, 1.0f));
+
+			Walnut::UI::TextCentered("Please wait patiently...");
+			
+			ImGui::PopStyleColor();
+
+			ImGui::NewLine();
+
+			auto ycursor = ImGui::GetCursorPosY();
+			auto xcursor = ImGui::GetCursorPosX();
+			float availx = ImGui::GetContentRegionAvail().x;
+						
+			ImGui::Button("##end", ImVec2(availx, 0));
+
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.353f, 0.314f, 0.0118f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.353f, 0.314f, 0.0118f, 1.0f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.353f, 0.314f, 0.0118f, 1.0f));
+
+			if (g_LoadingPersentage < 1)
+			{
+				ImGui::SetCursorPosY(ycursor);
+				ImGui::SetCursorPosX(xcursor);
+				if (g_LoadingPersentage > 0)
+					ImGui::Button("##bar", ImVec2(availx * g_LoadingPersentage, 0));
+			}
+			else
+			{
+				g_LoadingPersentage = 0;
+				g_LoadingModalOpen = false;
+				ImGui::CloseCurrentPopup();
+			}
+			
+			ImGui::PopStyleColor(3);
+
+			ImGui::SetCursorPosY(ycursor);
+			ImGui::SetCursorPosX(xcursor);
+
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.58f, 0.97f, 0.0f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.58f, 0.97f, 0.0f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.58f, 0.97f, 0.0f));
+
+			Walnut::UI::ButtonCentered((std::to_string((int)(g_LoadingPersentage * 100)) + '%').c_str(), { 60, ImGui::GetFrameHeight() });
+
+			ImGui::PopStyleColor(3);
+			
 			ImGui::EndPopup();
 		}
 	}
@@ -353,53 +422,6 @@ public:
 	{
 		m_AboutModalOpen = true;
 	}
-
-	void New()
-	{
-		ChessAPI::OpenChessFile("");
-
-		AppManagerChild::OwnChessFile("");
-	}
-
-	void Open()
-	{
-		std::string filepath = Windows::Utils::OpenFile(L"PGN Database (*.pgn)\0*.pgn\0Chess Lab Database (*.cld)\0*.cld\0\0");
-		if (!filepath.empty())
-		{
-			bool anwser = AppManagerChild::IsChessFileAvail(filepath);
-
-			if (anwser)
-			{
-				ChessAPI::OpenChessFile(filepath);
-				AppManagerChild::OwnChessFile(ChessAPI::GetPgnFilePath());
-			}
-			else
-			{
-				g_AlreadyOpenedModalOpen = true;
-			}
-		}
-	}
-
-	void SaveAs()
-	{
-		std::string filepath = Windows::Utils::SaveFile(L"PGN Database (*.pgn)\0*.pgn\0Chess Lab Database (*.cld)\0*.cld\0\0");
-		if (!filepath.empty())
-		{
-			ChessAPI::OverWriteChessFile(filepath);
-			AppManagerChild::OwnChessFile(ChessAPI::GetPgnFilePath());
-		}
-	}
-
-	void Save()
-	{
-		if (ChessAPI::GetPgnFileName() == "New Game")
-		{
-			SaveAs();
-		}
-		else
-			ChessAPI::OverWriteChessFile("");
-	}
-
 
 private:
 
@@ -489,7 +511,7 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
 		{
 			if (ImGui::MenuItem("New", "Ctr+N"))
 			{
-				chessLayer->New();
+				ChessLab::Utils::New();
 			}
 			if (ImGui::MenuItem("New Window", "Ctr+Shift+N"))
 			{
@@ -497,15 +519,15 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
 			}
 			if (ImGui::MenuItem("Open", "Ctr+O"))
 			{
-				chessLayer->Open();
+				ChessLab::Utils::Open();
 			}
 			if (ImGui::MenuItem("Save", "Ctr+S"))
 			{
-				chessLayer->Save();
+				ChessLab::Utils::Save();
 			}
 			if (ImGui::MenuItem("Save As", "Ctr+Shift+S"))
 			{
-				chessLayer->SaveAs();
+				ChessLab::Utils::SaveAs();
 			}
 			//if (ImGui::MenuItem("Remove Deleted and Save"))
 			//{

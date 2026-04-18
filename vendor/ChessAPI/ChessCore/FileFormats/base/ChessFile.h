@@ -15,8 +15,8 @@ namespace Chess
 	public:
 		virtual ~ChessFile() = default;
 
-		virtual void OpenFile(const std::filesystem::path& path) = 0;
-		virtual void SaveFile(const std::filesystem::path& path) = 0;
+		virtual void OpenFile(const std::filesystem::path& path, float* persentage = nullptr) = 0;
+		virtual void SaveFile(const std::filesystem::path& path, float* persentage = nullptr) = 0;
 
 		virtual FileManager::FileID GetID() const = 0;
 		virtual size_t GetSize() const = 0;
@@ -44,7 +44,7 @@ namespace Chess
 		virtual std::string* GetSearchName(size_t index) = 0;
 
 	private:
-		virtual void LoadDataPointers() = 0;
+		virtual void LoadDataPointers(float* persentage = nullptr) = 0;
 
 		virtual void LoadSearchIndexes(const std::filesystem::path& cachePath) = 0;
 		virtual void SaveSearchIndexes(const std::filesystem::path& cachePath) = 0;

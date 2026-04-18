@@ -23,8 +23,8 @@ namespace ChessAPI
 
 	int	GetBlockID(int BlockIndex);
 	
-	void OpenChessFile(const std::filesystem::path& path);
-	void OverWriteChessFile(const std::filesystem::path& filepath);
+	void OpenChessFile(const std::filesystem::path& path, float* persentage = nullptr);
+	void OverWriteChessFile(const std::filesystem::path& filepath, float* persentage = nullptr);
 	void OpenChessGameInFile(int index);
 	void NewGameInFile();
 }

@@ -15,6 +15,8 @@
 
 #include "../windowsMain.h"
 
+extern bool g_LoadingModalOpen;
+
 //for Bar
 float g_ChessEngineValue;
 bool g_ChessEngineOpen;
@@ -90,6 +92,12 @@ namespace Panels
 
 		ImGui::Begin("Chess Engine", &m_viewPanel);
 		
+		if (g_LoadingModalOpen)
+		{
+			ImGui::End();
+			return;
+		}
+
 		if (!m_viewPanel)
 			CloseEngine();
 

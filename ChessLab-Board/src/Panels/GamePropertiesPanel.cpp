@@ -3,6 +3,8 @@
 #include "imgui.h"
 #include "misc/cpp/imgui_stdlib.h"
 
+extern bool g_LoadingModalOpen;
+
 namespace Panels
 {
 	void GamePropertiesPanel::OnImGuiRender()
@@ -12,6 +14,12 @@ namespace Panels
 
 		ImGui::Begin("Game Properties", &m_viewPanel);
 		
+		if (g_LoadingModalOpen)
+		{
+			ImGui::End();
+			return;
+		}
+
 		for (auto& name : ChessAPI::GetPgnGame().GetLabelNames())
 		{
 			ImGui::PushID(name.data());

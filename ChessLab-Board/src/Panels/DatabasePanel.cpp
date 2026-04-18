@@ -3,6 +3,26 @@
 #include "imgui.h"
 #include "misc/cpp/imgui_stdlib.h"
 
+#include "Walnut/UI/UI.h"
+#include "Walnut/ImGui/ImGuiTheme.h"
+
+#include "../ChessLabUtils.h"
+
+extern bool g_LoadingModalOpen;
+extern bool g_OpenEditor;
+
+void DrawImage(const std::shared_ptr<Walnut::Image>& image,
+	ImVec4 tintNormal, ImVec4 tintHovered, ImVec4 tintPressed,
+	ImVec2 size)
+{
+	if (ImGui::IsItemActive())
+		ImGui::Image((ImTextureID)image->GetRendererID(), size, ImVec2(0, 0), ImVec2(1, 1), tintPressed);
+	else if (ImGui::IsItemHovered())
+		ImGui::Image((ImTextureID)image->GetRendererID(), size, ImVec2(0, 0), ImVec2(1, 1), tintHovered);
+	else
+		ImGui::Image((ImTextureID)image->GetRendererID(), size, ImVec2(0, 0), ImVec2(1, 1), tintNormal);
+}
+
 namespace Panels
 {
 	DatabasePanel::DatabasePanel()
@@ -47,6 +67,13 @@ namespace Panels
 		Chess::ChessFile& chessfile = ChessAPI::GetPgnFile();
 		
 		ImGui::Begin("Database");
+
+		if (g_LoadingModalOpen)
+		{
+			ImGui::End();
+			return;
+		}
+
 		ImGui::TextWrapped(ChessAPI::GetPgnFileName().c_str());
 		
 		m_searchTables.resize(chessfile.GetSearchesCount());
@@ -64,31 +91,75 @@ namespace Panels
 
 					if (s_oldSearchFocus != i)
 					{
-						std::string nameWhite = m_searchTables[i]->first.GetOptionValue("White");
-						std::string nameBlack = m_searchTables[i]->first.GetOptionValue("Black");
+						std::string nameWhite = m_searchTables[i]->first.GetOptionText("White").value;
+						std::string nameBlack = m_searchTables[i]->first.GetOptionText("Black").value;
 
-						m_eco_to_search = m_searchTables[i]->first.GetOptionValue("ECO");
-						m_date_to_search = m_searchTables[i]->first.GetOptionValue("Date");
+						m_eco_to_search = m_searchTables[i]->first.GetOptionText("ECO").value;
+						m_date_to_search = m_searchTables[i]->first.GetOptionText("Date").value;
 
-						m_elo_to_searchW = m_searchTables[i]->first.GetOptionValue("WhiteElo");
-						m_title_to_searchW = m_searchTables[i]->first.GetOptionValue("WhiteTitle");
-						m_fideId_to_searchW = m_searchTables[i]->first.GetOptionValue("WhiteFideId");
+						m_title_to_searchW = m_searchTables[i]->first.GetOptionText("WhiteTitle").value;
+						m_fideId_to_searchW = m_searchTables[i]->first.GetOptionText("WhiteFideId").value;
 
-						m_elo_to_searchB = m_searchTables[i]->first.GetOptionValue("BlackElo");
-						m_title_to_searchB = m_searchTables[i]->first.GetOptionValue("BlackTitle");
-						m_fideId_to_searchB = m_searchTables[i]->first.GetOptionValue("BlackFideId");
+						auto eloWhite = m_searchTables[i]->first.GetOptionRangeNumber("WhiteElo");
 
-						m_event_to_search = m_searchTables[i]->first.GetOptionValue("Event");
-						m_round_to_search = m_searchTables[i]->first.GetOptionValue("Round");
-						m_site_to_search = m_searchTables[i]->first.GetOptionValue("Site");
-						m_source_to_search = m_searchTables[i]->first.GetOptionValue("Source");
-						m_result_to_search = m_searchTables[i]->first.GetOptionValue("Result");
+						if (eloWhite.valueMin == 0 && eloWhite.valueMax == 0)
+						{
+							m_eloMin_to_searchW = 1000;
+							m_eloMax_to_searchW = 4000;
+						}
+						else
+						{
+							m_eloMin_to_searchW = eloWhite.valueMin;
+							m_eloMax_to_searchW = eloWhite.valueMax;
+						}
+
+
+						m_title_to_searchB = m_searchTables[i]->first.GetOptionText("BlackTitle").value;
+						m_fideId_to_searchB = m_searchTables[i]->first.GetOptionText("BlackFideId").value;
+
+						auto eloBlack = m_searchTables[i]->first.GetOptionRangeNumber("BlackElo");
+
+						if (eloBlack.valueMin == 0 && eloBlack.valueMax == 0)
+						{
+							m_eloMin_to_searchB = 1000;
+							m_eloMax_to_searchB = 4000;
+						}
+						else
+						{
+							m_eloMin_to_searchB = eloBlack.valueMin;
+							m_eloMax_to_searchB = eloBlack.valueMax;
+						}
+
+						m_event_to_search = m_searchTables[i]->first.GetOptionText("Event").value;
+						m_round_to_search = m_searchTables[i]->first.GetOptionText("Round").value;
+						m_site_to_search = m_searchTables[i]->first.GetOptionText("Site").value;
+						m_source_to_search = m_searchTables[i]->first.GetOptionText("Source").value;
+						m_result_to_search = m_searchTables[i]->first.GetOptionText("Result").value;
+
+						if (m_result_to_search == "1-0")
+						{
+							m_WhiteWin_Result = true;
+							m_BlackWin_Result = false;
+							m_Draw_Result = false;
+						}
+						else if (m_result_to_search == "0-1")
+						{
+							m_BlackWin_Result = true;
+							m_WhiteWin_Result = false;
+							m_Draw_Result = false;
+						}
+						else if (m_result_to_search == "1/2-1/2")
+						{
+							m_Draw_Result = true;
+							m_WhiteWin_Result = false;
+							m_BlackWin_Result = false;
+						}
 
 						m_AdvancedOptions = (!nameWhite.empty() && !nameBlack.empty() && nameWhite != nameBlack)
-							|| !m_elo_to_searchW.empty()
+							//|| !m_elo_to_searchW.empty()
 							|| !m_title_to_searchW.empty()
 							|| !m_fideId_to_searchW.empty()
-							|| !m_elo_to_searchB.empty()
+							//|| !m_elo_to_searchB.empty()
 							|| !m_title_to_searchB.empty()
 							|| !m_fideId_to_searchB.empty()
 							|| !m_event_to_search.empty()
@@ -139,20 +210,22 @@ namespace Panels
 						m_AdvancedOptions = false;
 
 						m_name_to_searchW.clear();
-						m_elo_to_searchW.clear();
 						m_title_to_searchW.clear();
 						m_fideId_to_searchW.clear();
+						m_eloMax_to_searchW = 4000;
+						m_eloMin_to_searchW = 1000;
 
 						m_name_to_searchB.clear();
-						m_elo_to_searchB.clear();
 						m_title_to_searchB.clear();
 						m_fideId_to_searchB.clear();
+						m_eloMax_to_searchB = 4000;
+						m_eloMin_to_searchB = 1000;
 
+						m_result_to_search.clear();
 						m_event_to_search.clear();
 						m_round_to_search.clear();
 						m_site_to_search.clear();
 						m_source_to_search.clear();
-						m_result_to_search.clear();
 					}
 
 					ImGui::PopStyleColor(3);
@@ -212,82 +285,167 @@ namespace Panels
 
 						ImGui::Checkbox("Black", &m_name_black);
 					}
-					else if (ImGui::TreeNodeEx("Options", ImGuiTreeNodeFlags_DefaultOpen))
+					else if (ImGui::TreeNodeEx("Options", ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed))
 					{
-						//white
+						if (ImGui::TreeNodeEx("White Player", ImGuiTreeNodeFlags_DefaultOpen))
+						{
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345678911131517").x);
+							ImGui::InputText("Name##w", &m_name_to_searchW);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345678911131517").x);
-						ImGui::InputText("White's Name", &m_name_to_searchW);
+							ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
 
-						ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize("1234567").x);
+							ImGui::DragInt("##eloWMinw", &m_eloMin_to_searchW);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize("1234567").x);
-						ImGui::InputText("White's Elo", &m_elo_to_searchW);
+							ImGui::SameLine();
 
-						ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+							ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.1f, 0.1f, 0.0f));
+							ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.0f));
+							ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.0f));
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345").x);
-						ImGui::InputText("White's title", &m_title_to_searchW);
+							ImGui::Button("-");
 
-						ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+							ImGui::PopStyleColor(3);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345678911").x);
-						ImGui::InputText("White's Fide ID", &m_fideId_to_searchW);
+							ImGui::SameLine();
 
-						//eco, date, result
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize("1234567").x);
+							ImGui::DragInt("Elo Range##w", &m_eloMax_to_searchW);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize(" --A00-- ").x);
-						ImGui::InputText("ECO", &m_eco_to_search);
+							ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
 
-						ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345").x);
+							ImGui::InputText("Title##w", &m_title_to_searchW);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize(" dd/mm/yyyy ").x);
-						ImGui::InputText("Date", &m_date_to_search);
+							ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
 
-						ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345678911").x);
+							ImGui::InputText("Fide ID##w", &m_fideId_to_searchW);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize("--1/2-1/2--").x);
-						ImGui::InputText("Result", &m_result_to_search);
 
-						//black
+							ImGui::TreePop();
+						}
+						if (ImGui::TreeNodeEx("Black Player", ImGuiTreeNodeFlags_DefaultOpen))
+						{
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345678911131517").x);
+							ImGui::InputText("Name##b", &m_name_to_searchB);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345678911131517").x);
-						ImGui::InputText("Black's Name", &m_name_to_searchB);
+							ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
 
-						ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize("1234567").x);
+							ImGui::DragInt("##eloWMinb", &m_eloMin_to_searchB);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize("1234567").x);
-						ImGui::InputText("Black's Elo", &m_elo_to_searchB);
+							ImGui::SameLine();
 
-						ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+							ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.1f, 0.1f, 0.0f));
+							ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.0f));
+							ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.0f));
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345").x);
-						ImGui::InputText("Black's title", &m_title_to_searchB);
+							ImGui::Button("-");
 
-						ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+							ImGui::PopStyleColor(3);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345678911").x);
-						ImGui::InputText("Black's Fide ID", &m_fideId_to_searchB);
+							ImGui::SameLine();
 
-						//other
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize("1234567").x);
+							ImGui::DragInt("Elo Range##b", &m_eloMax_to_searchB);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize(" --Event Name-- ").x);
-						ImGui::InputText("Event", &m_event_to_search);
+							ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
 
-						ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345").x);
+							ImGui::InputText("Title##b", &m_title_to_searchB);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize("123456").x);
-						ImGui::InputText("Round", &m_round_to_search);
+							ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
 
-						ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345678911").x);
+							ImGui::InputText("Fide ID##b", &m_fideId_to_searchB);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize(" --Site Name-- ").x);
-						ImGui::InputText("Site", &m_site_to_search);
+							ImGui::TreePop();
+						}
+						if (ImGui::TreeNodeEx("Game", ImGuiTreeNodeFlags_DefaultOpen))
+						{
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize(" --A00-- ").x);
+							ImGui::InputText("ECO", &m_eco_to_search);
 
-						ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+							ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
 
-						ImGui::SetNextItemWidth(ImGui::CalcTextSize(" --Source Name-- ").x);
-						ImGui::InputText("Source", &m_source_to_search);
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize(" dd/mm/yyyy ").x);
+							ImGui::InputText("Date", &m_date_to_search);
+
+							ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+
+							if (ImGui::RadioButton("1-0", m_WhiteWin_Result))
+							{
+								if (m_WhiteWin_Result)
+								{
+									m_result_to_search.clear();
+									m_WhiteWin_Result = false;
+								}
+								else
+								{
+									m_result_to_search = "1-0";
+									m_BlackWin_Result = false;
+									m_Draw_Result = false;
+									m_WhiteWin_Result = true;
+								}
+							}
+							ImGui::SameLine();
+							if (ImGui::RadioButton("0-1", m_BlackWin_Result))
+							{
+								if (m_BlackWin_Result)
+								{
+									m_result_to_search.clear();
+									m_BlackWin_Result = false;
+								}
+								else
+								{
+									m_result_to_search = "0-1";
+									m_WhiteWin_Result = false;
+									m_Draw_Result = false;
+									m_BlackWin_Result = true;
+								}
+							}
+							ImGui::SameLine();
+							if (ImGui::RadioButton("½-½", m_Draw_Result))
+							{
+								if (m_Draw_Result)
+								{
+									m_result_to_search.clear();
+									m_Draw_Result = false;
+								}
+								else
+								{
+									m_result_to_search = "1/2-1/2";
+									m_WhiteWin_Result = false;
+									m_BlackWin_Result = false;
+									m_Draw_Result = true;
+								}
+							}
+
+							ImGui::TreePop();
+						}
+						if (ImGui::TreeNodeEx("Tournament", ImGuiTreeNodeFlags_DefaultOpen))
+						{
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize(" --Event Name-- ").x);
+							ImGui::InputText("Event", &m_event_to_search);
+
+							ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize("123456").x);
+							ImGui::InputText("Round", &m_round_to_search);
+
+							ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize(" --Site Name-- ").x);
+							ImGui::InputText("Site", &m_site_to_search);
+
+							ImGui::SameLine(0, ImGui::CalcTextSize("123").x);
+
+							ImGui::SetNextItemWidth(ImGui::CalcTextSize(" --Source Name-- ").x);
+							ImGui::InputText("Source", &m_source_to_search);
+
+							ImGui::TreePop();
+						}
 
 						ImGui::TreePop();
 					}
@@ -326,11 +484,11 @@ namespace Panels
 						{
 							m_searchTables[i]->first.StartOption()
 								.And("White", m_name_to_searchW)
-								.And("WhiteElo", m_elo_to_searchW)
+								.And("WhiteElo", m_eloMin_to_searchW, m_eloMax_to_searchW)
 								.And("WhiteTitle", m_title_to_searchW)
 								.And("WhiteFideId", m_fideId_to_searchW)
 								.And("Black", m_name_to_searchB)
-								.And("BlackElo", m_elo_to_searchB)
+								.And("BlackElo", m_eloMin_to_searchB, m_eloMax_to_searchB)
 								.And("BlackTitle", m_title_to_searchB)
 								.And("BlackFideId", m_fideId_to_searchB)
 								.And("Result", m_result_to_search)
@@ -355,45 +513,6 @@ namespace Panels
 
 					ImGui::SameLine();
 
-					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.1f, 0.1f, 0.65f));
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
-
-					if (ImGui::Button("Clear"))
-					{
-						chessfile.StopSearch(i);
-						m_searchTables[i]->first.Clear();
-
-						m_name_to_search.clear();
-
-						m_eco_to_search.clear();
-						m_date_to_search.clear();
-
-						if (m_AdvancedOptions)
-						{
-							m_name_to_searchW.clear();
-							m_elo_to_searchW.clear();
-							m_title_to_searchW.clear();
-							m_fideId_to_searchW.clear();
-
-							m_name_to_searchB.clear();
-							m_elo_to_searchB.clear();
-							m_title_to_searchB.clear();
-							m_fideId_to_searchB.clear();
-
-							m_result_to_search.clear();
-							m_event_to_search.clear();
-							m_round_to_search.clear();
-							m_site_to_search.clear();
-							m_source_to_search.clear();
-						}
-					}
-
-					ImGui::PopStyleColor(3);
-
-					ImGui::SameLine();
-					//ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x / 4);
-
 					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.58f, 0.97f, 0.6f));
 					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.58f, 0.97f, 0.6f));
 					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.3f, 0.58f, 0.97f, 0.6f));
@@ -410,6 +529,10 @@ namespace Panels
 					float availx = ImGui::GetContentRegionAvail().x / 2;
 					ImGui::Button("##end", ImVec2(availx, 0));
 
+					ImGui::SameLine(0, 20);
+
+					ImGui::Text("%d Games Found", m_searchTables[i]->second.PossitiveIndexes.size());
+
 					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.353f, 0.314f, 0.0118f, 1.0f));
 					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.353f, 0.314f, 0.0118f, 1.0f));
 					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.353f, 0.314f, 0.0118f, 1.0f));
@@ -425,7 +548,84 @@ namespace Panels
 					ImGui::PopStyleColor(3);
 
 					ImGui::Separator();
-					ImGui::NewLine();
+
+					ImGui::BeginDisabled(chessfile.GetSearch(i)->second.Persentage > 0 && chessfile.GetSearch(i)->second.Persentage < 1);
+
+					ImGui::BeginDisabled(std::ranges::find(m_searchTables[i]->second.PossitiveIndexes, ChessAPI::GetActiveGameIndex()) == m_searchTables[i]->second.PossitiveIndexes.end());
+
+					const ImVec4 RMbuttonColN = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.0f));
+					const ImVec4 RMbuttonColH = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.2f));
+					const ImVec4 RMbuttonColP = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::Theme::textDarker);
+					const float RMbuttonWidth = size * 0.9f;
+					const float RMbuttonHeight = size * 0.9f;
+
+					bool IsDeleted = chessfile.IsGameDeleted(ChessAPI::GetActiveGameIndex());
+					ImVec2 oldCursorPos;
+
+					if (!IsDeleted)
+					{
+						oldCursorPos = ImGui::GetCursorPos();
+						if (ImGui::InvisibleButton("delete", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+							chessfile.DeleteGame(ChessAPI::GetActiveGameIndex());
+						ImGui::SetCursorPos(oldCursorPos);
+
+						DrawImage(m_IconDelete, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+						
+						if (ImGui::IsItemHovered())
+							ImGui::SetTooltip("Delete");
+					}
+					else
+					{
+						oldCursorPos = ImGui::GetCursorPos();
+						if (ImGui::InvisibleButton("restore", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+							chessfile.RecoverGame(ChessAPI::GetActiveGameIndex());
+						ImGui::SetCursorPos(oldCursorPos);
+
+						DrawImage(m_IconRestore, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+						if (ImGui::IsItemHovered())
+							ImGui::SetTooltip("Recover");
+					}
+
+					ImGui::EndDisabled();
+
+					ImGui::SameLine(0, RMbuttonWidth * 1.5);
+					
+					{
+						oldCursorPos = ImGui::GetCursorPos();
+						if (ImGui::InvisibleButton("deleteAll", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+						{
+							for (auto index : m_searchTables[i]->second.PossitiveIndexes)
+								if (!chessfile.IsGameDeleted(index))
+									chessfile.DeleteGame(index);
+						}
+						ImGui::SetCursorPos(oldCursorPos);
+
+						DrawImage(m_IconDeleteAll, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+						if (ImGui::IsItemHovered())
+							ImGui::SetTooltip("Delete All");
+					}
+
+					ImGui::SameLine();
+
+					{
+						oldCursorPos = ImGui::GetCursorPos();
+						if (ImGui::InvisibleButton("restoreAll", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+						{
+							for (auto index : m_searchTables[i]->second.PossitiveIndexes)
+								if (chessfile.IsGameDeleted(index))
+									chessfile.RecoverGame(index);
+						}
+						ImGui::SetCursorPos(oldCursorPos);
+
+						DrawImage(m_IconRestoreAll, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+						if (ImGui::IsItemHovered())
+							ImGui::SetTooltip("Restore All");
+					}					
+
+					ImGui::EndDisabled();
 					ImGui::Separator();
 
 					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4());
@@ -518,30 +718,169 @@ namespace Panels
 
 			if (ImGui::BeginTabItem("Main", 0, ImGuiTabItemFlags_Leading | (nfile ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None)))
 			{
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.48f, 0.87f, 0.65f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.48f, 0.87f, 0.45f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.48f, 0.87f, 0.25f));
+				float size = ImGui::GetFrameHeight();
+				const ImVec4 RMbuttonColN = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.0f));
+				const ImVec4 RMbuttonColH = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.2f));
+				const ImVec4 RMbuttonColP = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::Theme::textDarker);
+				const float RMbuttonWidth = size * 0.9f;
+				const float RMbuttonHeight = size * 0.9f;
+				ImVec2 oldCursorPos;
 
-				if (ImGui::Button("New Game"))
 				{
-					ChessAPI::NewGameInFile();
+					oldCursorPos = ImGui::GetCursorPos();
+					if (ImGui::InvisibleButton("New Game", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+						ChessAPI::NewGameInFile();
+					ImGui::SetCursorPos(oldCursorPos);
+
+					DrawImage(m_IconAdd, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("New Game");
 				}
+
 				ImGui::SameLine();
+
+				{
+					oldCursorPos = ImGui::GetCursorPos();
+					if (ImGui::InvisibleButton("Save", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+					{
+						ChessLab::Utils::Save();
+					}
+					ImGui::SetCursorPos(oldCursorPos);
+
+					DrawImage(m_IconSave, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Save");
+				}
+
+				ImGui::SameLine();
+
+				{
+					oldCursorPos = ImGui::GetCursorPos();
+					if (ImGui::InvisibleButton("Save As", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+					{
+						ChessLab::Utils::SaveAs();
+					}
+					ImGui::SetCursorPos(oldCursorPos);
+
+					DrawImage(m_IconSaveAs, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Save As");
+				}
+
+				ImGui::SameLine(0, RMbuttonWidth * 1.5);
 
 				bool IsDeleted = chessfile.IsGameDeleted(ChessAPI::GetActiveGameIndex());
 
 				if (IsDeleted)
 				{
-					if (ImGui::Button("Recover Game"))
+					oldCursorPos = ImGui::GetCursorPos();
+					if (ImGui::InvisibleButton("restore", ImVec2(RMbuttonWidth, RMbuttonHeight)))
 						chessfile.RecoverGame(ChessAPI::GetActiveGameIndex());
+					ImGui::SetCursorPos(oldCursorPos);
+
+					DrawImage(m_IconRestore, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Recover");
 				}
 				else
 				{
-					if (ImGui::Button("Delete Game"))
+					oldCursorPos = ImGui::GetCursorPos();
+					if (ImGui::InvisibleButton("delete", ImVec2(RMbuttonWidth, RMbuttonHeight)))
 						chessfile.DeleteGame(ChessAPI::GetActiveGameIndex());
+					ImGui::SetCursorPos(oldCursorPos);
+
+					DrawImage(m_IconDelete, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Delete");
 				}
 
-				ImGui::PopStyleColor(3);
+				ImGui::SameLine();
+				
+				{
+					oldCursorPos = ImGui::GetCursorPos();
+					if (ImGui::InvisibleButton("deleteAll", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+					{
+						for (size_t index = 0; index < chessfile.GetSize(); index++)
+							chessfile.DeleteGame(index);
+					}
+					ImGui::SetCursorPos(oldCursorPos);
+
+					DrawImage(m_IconDeleteAll, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Delete All");
+				}
+
+				ImGui::SameLine();
+
+				{
+					oldCursorPos = ImGui::GetCursorPos();
+					if (ImGui::InvisibleButton("restoreAll", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+					{
+						for (size_t index = 0; index < chessfile.GetSize(); index++)
+							chessfile.RecoverGame(index);
+					}
+					ImGui::SetCursorPos(oldCursorPos);
+
+					DrawImage(m_IconRestoreAll, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Restore All");
+				}
+
+				ImGui::SameLine(0, RMbuttonWidth * 1.5);
+
+				{
+					oldCursorPos = ImGui::GetCursorPos();
+					if (ImGui::InvisibleButton("Copy Game", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+					{
+						ImGui::SetClipboardText(ChessAPI::GetActiveGame().GetPgnGame().GetData().c_str());
+					}
+					ImGui::SetCursorPos(oldCursorPos);
+
+					DrawImage(m_IconCopyGame, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Copy Game");
+				}
+
+				ImGui::SameLine();
+
+				{
+					oldCursorPos = ImGui::GetCursorPos();
+					if (ImGui::InvisibleButton("Paste Game", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+					{
+						ChessAPI::NewGameInFile();
+						ChessAPI::GetPgnGame().Parse(ImGui::GetClipboardText());
+					}
+					ImGui::SetCursorPos(oldCursorPos);
+
+					DrawImage(m_IconPasteGame, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Paste Game");
+				}
+
+				ImGui::SameLine(0, RMbuttonWidth * 1.5);
+
+				{
+					oldCursorPos = ImGui::GetCursorPos();
+					if (ImGui::InvisibleButton("Editor", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+					{
+						g_OpenEditor = true;
+					}
+					ImGui::SetCursorPos(oldCursorPos);
+
+					DrawImage(m_IconEditor, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Editor");
+				}
 
 				ImGui::Separator();
 
@@ -628,6 +967,9 @@ namespace Panels
 
 			if (ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
 				chessfile.AddSearch();
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Add Search");
 
 			ImGui::EndTabBar();
 		}

@@ -35,7 +35,7 @@ namespace Chess
 		ChessFileManager::Get().RemoveFileReference(m_ID);
 	}
 
-	void CldFile::OpenFile(const std::filesystem::path& path)
+	void CldFile::OpenFile(const std::filesystem::path& path, float* persentage)
 	{
 		if (path.extension().string() != ".cld")
 			return;
@@ -57,10 +57,16 @@ namespace Chess
 		m_typeName = std::make_shared<uint8_t>(1);
 		m_typeValue = std::make_shared<uint8_t>(4);
 
+		if (persentage)
+			*persentage = 0.1f;
+
 		m_ID = FileManager::Get().AddFile(path);
 		ChessFileManager::Get().AddCldFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue);
 
-		LoadDataPointers();
+		LoadDataPointers(persentage);
+
+		if (persentage)
+			*persentage = 0.8f;
 
 		auto cachePath = FileManager::Get().GetCachePath(m_ID);
 
@@ -74,10 +80,13 @@ namespace Chess
 				m_DeletedGames.insert(index);
 		}
 
+		if (persentage)
+			*persentage = 0.9f;
+
 		LoadSearchIndexes(cachePath);
 	}
 
-	void CldFile::SaveFile(const std::filesystem::path& path)
+	void CldFile::SaveFile(const std::filesystem::path& path, float* persentage)
 	{
 		std::filesystem::path oldPath = "";
 
@@ -111,6 +120,9 @@ namespace Chess
 
 		SaveSearchIndexes(cachePath);
 
+		if (persentage)
+			*persentage = 0.1f;
+
 		std::vector<size_t> editedGames;
 		ChessFileManager::Get().GetEditedGames(m_ID, editedGames);
 
@@ -140,6 +152,11 @@ namespace Chess
 
 		for (size_t i = 0; i < editedGames.size(); i++)
 		{
+			if (persentage)
+			{
+				*persentage = std::min(0.1f + float(i / (double)editedGames.size()) * 0.1f, 0.2f);
+			}
+
 			PgnGame& eGame = ChessFileManager::Get().GetGame(m_ID, editedGames[i]);
 			auto labels = eGame.GetLabelNames();
 
@@ -199,6 +216,9 @@ namespace Chess
 			bufferValueNew.emplace_back(0);
 		}
 
+		if (persentage)
+			*persentage = 0.3f;
+
 		std::shared_ptr<std::vector<size_t>> NDataPointers = std::make_shared<std::vector<size_t>>();
 		NDataPointers->reserve(GetSize());
 
@@ -237,6 +257,9 @@ namespace Chess
 			destination.write((char*)buffer.data(), buffer.size());
 			if (bufferValueNew.size() > 0)
 				destination.write((char*)bufferValueNew.data(), bufferValueNew.size());
+
+			if (persentage)
+				*persentage = 0.4f;
 
 			m_LabelValuesPointer = indexValue;
 			m_GamePointersPointer = indexGamePointers;
@@ -281,6 +304,11 @@ namespace Chess
 
 			for (size_t i = 0; i < editedGames.size(); i++)
 			{
+				if (persentage)
+				{
+					*persentage = std::min(0.4f + float(i / (double)editedGames.size()) * 0.4f, 0.8f);
+				}
+
 				if (editedGames[i] > lastIndex && editedGames[i] < m_GamePointers->size())
 					loadFileByChunk((*m_GamePointers)[editedGames[i]], editedGames[i]);
 
@@ -327,6 +355,9 @@ namespace Chess
 			source.close();
 		}
 
+		if (persentage)
+			*persentage = 0.9f;
+
 		{
 			std::ifstream source(cachePath / "helper", std::ios::binary);
 			std::ifstream sourceGames(cachePath / "helperGames", std::ios::binary);
@@ -355,7 +386,7 @@ namespace Chess
 		}
 	}
 
-	void CldFile::LoadDataPointers()
+	void CldFile::LoadDataPointers(float* persentage)
 	{
 		//$$CLD(3B)$version(1B)$settings(1B)$idtable(1B)$typeIndexNAME(1B)$typeIndexVALUE(1B)$IndexNAME(8B)$IndexVALUE(8B)$IndexGAME(8B)$NumberOfGames(8B)$$
 
@@ -397,6 +428,9 @@ namespace Chess
 			}
 		}
 
+		if (persentage)
+			*persentage = 0.2f;
+
 		{
 			std::vector<uint8_t> bufferValues;
 			FileManager::Get().ReadBuffer(m_ID, m_LabelValuesPointer, m_GamePointersPointer - m_LabelValuesPointer, bufferValues);
@@ -414,6 +448,9 @@ namespace Chess
 				value += (char)bufferValues[i];
 			}
 		}
+
+		if (persentage)
+			*persentage = 0.6f;
 
 		FileManager::Get().ReadBuffer(m_ID, m_GamePointersPointer, numberOfGames * 8, (*m_GamePointers));
 	}

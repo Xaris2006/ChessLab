@@ -1,5 +1,21 @@
 #include "SearchWork.h"
 
+#include <optional>
+#include <charconv>
+
+static std::optional<double> getNumber(const std::string& s) {
+	if (s.empty()) 
+		return {};
+
+	int value;
+	auto result = std::from_chars(s.data(), s.data() + s.size(), value);
+
+	if (result.ec == std::errc() && result.ptr == s.data() + s.size())
+		return value;
+
+	return {};
+}
+
 namespace Chess
 {
 	bool SearchOptions::IsGameValid(PgnGame& game)
@@ -10,10 +26,62 @@ namespace Chess
 
 			for (auto& [name, value] : option)
 			{
-				if (game[name].find(value.first) == value.second)
+				if (!game.IsLabelExist(name))
 				{
 					successed = false;
 					break;
+				}
+
+				if (auto textValueP = std::get_if<TextOption>(&value))
+				{
+					if (textValueP->pos == std::string::npos)
+					{
+						if (game[name].find(textValueP->value) == std::string::npos)
+						{
+							successed = false;
+							break;
+						}
+					}
+					else
+					{
+						if (game[name].find(textValueP->value) != textValueP->pos)
+						{
+							successed = false;
+							break;
+						}
+					}					
+				}
+				else if (auto numberValueP = std::get_if<NumberOption>(&value))
+				{
+					if (auto number = getNumber(game[name]))
+					{
+						if (*number != numberValueP->value)
+						{
+							successed = false;
+							break;
+						}
+					}
+					else
+					{
+						successed = false;
+						break;
+					}
+				}
+				else if (auto rangeNumberValueP = std::get_if<RangeNumberOption>(&value))
+				{
+					if (auto number = getNumber(game[name]))
+					{
+						if (*number < rangeNumberValueP->valueMin || *number > rangeNumberValueP->valueMax)
+						{
+							successed = false;
+							break;
+						}
+					}
+					else
+					{
+						successed = false;
+						break;
+					}
 				}
 			}
 
@@ -59,7 +127,29 @@ namespace Chess
 			return *this;
 
 		auto& lastOption = m_PgnOptions.back();
-		lastOption[name] = { value, pos };
+		lastOption[name] = TextOption{ value, pos };
+
+		return *this;
+	}
+
+	SearchOptions& SearchOptions::And(const std::string& name, int value)
+	{
+		if (m_PgnOptions.empty() || name.empty())
+			return *this;
+
+		auto& lastOption = m_PgnOptions.back();
+		lastOption[name] = NumberOption{ value };
+
+		return *this;
+	}
+
+	SearchOptions& SearchOptions::And(const std::string& name, int valueMin, int valueMax)
+	{
+		if (m_PgnOptions.empty() || name.empty() || valueMin > valueMax)
+			return *this;
+
+		auto& lastOption = m_PgnOptions.back();
+		lastOption[name] = RangeNumberOption{ valueMin, valueMax };
 
 		return *this;
 	}
@@ -84,7 +174,6 @@ namespace Chess
 			for (auto& [name, value] : option)
 			{
 				size_t nameIndex = -1;
-				size_t valueIndex = -1;
 				
 				for (size_t i = 0; i < labelNames->size(); i++)
 				{
@@ -101,27 +190,49 @@ namespace Chess
 					break;
 				}
 
-				for (size_t i = 0; i < labelValues->size(); i++)
+				if (auto textValueP = std::get_if<TextOption>(&value))
 				{
-					if (value.second == std::string::npos)
+					if (textValueP->pos == std::string::npos)
 					{
-						if ((*labelValues)[i].find(value.first) != std::string::npos)
+						for (size_t i = 0; i < labelValues->size(); i++)
 						{
-							valueIndex = i;
-							m_CldOptions.back()[nameIndex].insert(i);
+							if ((*labelValues)[i].find(textValueP->value) != std::string::npos)
+								m_CldOptions.back()[nameIndex].insert(i);
 						}
 					}
 					else
 					{
-						if ((*labelValues)[i].find(value.first) == value.second)
+						for (size_t i = 0; i < labelValues->size(); i++)
 						{
-							valueIndex = i;
-							m_CldOptions.back()[nameIndex].insert(i);
+							if ((*labelValues)[i].find(textValueP->value) == textValueP->pos)
+								m_CldOptions.back()[nameIndex].insert(i);
+						}
+					}
+				}
+				else if (auto numberValueP = std::get_if<NumberOption>(&value))
+				{
+					for (size_t i = 0; i < labelValues->size(); i++)
+					{
+						if (auto number = getNumber((*labelValues)[i]))
+						{
+							if (*number == numberValueP->value)
+								m_CldOptions.back()[nameIndex].insert(i);
+						}
+					}
+				}
+				else if (auto rangeNumberValueP = std::get_if<RangeNumberOption>(&value))
+				{
+					for (size_t i = 0; i < labelValues->size(); i++)
+					{
+						if (auto number = getNumber((*labelValues)[i]))
+						{
+							if (*number >= rangeNumberValueP->valueMin && *number <= rangeNumberValueP->valueMax)
+								m_CldOptions.back()[nameIndex].insert(i);
 						}
 					}
 				}
 
-				if (valueIndex == -1)
+				if (m_CldOptions.back()[nameIndex].empty())
 				{
 					m_CldOptions.pop_back();
 					break;
@@ -135,25 +246,74 @@ namespace Chess
 		m_PgnOptions.clear();
 
 		bool nameArea = true;
+		bool textArea = false;
+		bool numberArea = false;
+		bool rangeNumberArea = false;
+
 		std::string str, lastName;
 
 		for (int i = 0; i < data.size(); i++)
 		{
-			if (data[i] == 0)
+			if (!nameArea && !textArea && !numberArea && !rangeNumberArea)
 			{
-				if (nameArea)
+				if (data[i] == 1)
+					textArea = true;
+				else if (data[i] == 2)
+					numberArea = true;
+				else if (data[i] == 3)
+					rangeNumberArea = true;
+
+				continue;
+			}
+
+			if (textArea)
+			{
+				if (data[i] == 0)
 				{
-					lastName = str;
-					nameArea = false;
+					size_t pos;
+					memcpy(&pos, &data[i + 1], sizeof(size_t));
+
+					m_PgnOptions.back()[lastName] = TextOption{ str, pos };
+					str.clear();
+					textArea = false;
+					nameArea = true;
+					i += 8;
 				}
 				else
-				{
-					m_PgnOptions.back()[lastName].first = str;
-					m_PgnOptions.back()[lastName].second = std::string::npos;
+					str += data[i];
+				
+				continue;
+			}
+			else if (numberArea)
+			{
+				int indeger;
+				memcpy(&indeger, &data[i], sizeof(int));
+				
+				m_PgnOptions.back()[lastName] = NumberOption{ indeger };
+				numberArea = false;
+				nameArea = true;
+				i += 3;
 
-					nameArea = true;
-				}
+				continue;
+			}
+			else if (rangeNumberArea)
+			{
+				int indegerMin, indegerMax;
+				memcpy(&indegerMin, &data[i], sizeof(int));
+				memcpy(&indegerMax, &data[i + 4], sizeof(int));
 
+				m_PgnOptions.back()[lastName] = RangeNumberOption{ indegerMin, indegerMax };
+				rangeNumberArea = false;
+				nameArea = true;
+				i += 7;
+
+				continue;
+			}
+
+			if (data[i] == 0 && nameArea)
+			{
+				lastName = str;
+				nameArea = false;
 				str.clear();
 				
 				continue;
@@ -186,25 +346,76 @@ namespace Chess
 
 				data.emplace_back(0);
 
-				for (int i = 0; i < value.first.size(); i++)
+				if (auto textValueP = std::get_if<TextOption>(&value))
 				{
-					data.emplace_back(value.first[i]);
-				}
+					data.emplace_back(1);
 
-				data.emplace_back(0);
+					for (int i = 0; i < textValueP->value.size(); i++)
+					{
+						data.emplace_back(textValueP->value[i]);
+					}
+
+					data.emplace_back(0);
+
+					data.reserve(data.size() + 8);
+					data.insert(data.end(), (uint8_t*)&textValueP->pos, (uint8_t*)&textValueP->pos + sizeof(size_t));
+				}
+				else if (auto numberValueP = std::get_if<NumberOption>(&value))
+				{
+					data.emplace_back(2);
+
+					data.reserve(data.size() + 4);
+					data.insert(data.end(), (uint8_t*)&numberValueP->value, (uint8_t*)&numberValueP->value + sizeof(int));
+				}
+				else if (auto rangeNumberValueP = std::get_if<RangeNumberOption>(&value))
+				{
+					data.emplace_back(3);
+
+					data.reserve(data.size() + 8);
+					data.insert(data.end(), (uint8_t*)&rangeNumberValueP->valueMin, (uint8_t*)&rangeNumberValueP->valueMin + sizeof(int));
+					data.insert(data.end(), (uint8_t*)&rangeNumberValueP->valueMax, (uint8_t*)&rangeNumberValueP->valueMax + sizeof(int));
+				}
 			}
 		}
 	}
 
-	std::string SearchOptions::GetOptionValue(const std::string& name) const
+	SearchOptions::TextOption SearchOptions::GetOptionText(const std::string& name) const
 	{
 		for (auto& option : m_PgnOptions)
 		{
 			if (option.contains(name))
-				return option.at(name).first;
+			{
+				if (auto textValueP = std::get_if<TextOption>(&option.at(name)))
+					return *textValueP;
+			}
 		}
 
-		return "";
+		return { "", std::string::npos };
 	}
 
+	SearchOptions::NumberOption SearchOptions::GetOptionNumber(const std::string& name) const
+	{
+		for (auto& option : m_PgnOptions)
+		{
+			if (option.contains(name))
+			{
+				if (auto numberValueP = std::get_if<NumberOption>(&option.at(name)))
+					return *numberValueP;
+			}
+		}
+		return { 0 };
+	}
+
+	SearchOptions::RangeNumberOption SearchOptions::GetOptionRangeNumber(const std::string& name) const
+	{
+		for (auto& option : m_PgnOptions)
+		{
+			if (option.contains(name))
+			{
+				if (auto rangeNumberValueP = std::get_if<RangeNumberOption>(&option.at(name)))
+					return *rangeNumberValueP;
+			}
+		}
+		return { 0, 0 };
+	}
 }
