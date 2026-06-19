@@ -13,8 +13,7 @@ namespace Panels {
 	class OpeningBookPanel
 	{
 	public:
-		OpeningBookPanel() = default;
-		~OpeningBookPanel();
+		void OnDetach();
 
 		void OnImGuiRender();
 		

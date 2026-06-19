@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <vector>
 #include <mutex>
+#include <shared_mutex>
 #include <thread>
 #include <atomic>
 #include <unordered_map>
@@ -74,7 +75,7 @@ namespace Chess
 
 	private:
 		std::unordered_map<FileID, std::filesystem::path> m_File;
-		std::unordered_map<FileID, std::unique_ptr<std::mutex>> m_FileMutex;
+		std::unordered_map<FileID, std::unique_ptr<std::shared_mutex>> m_FileMutex;
 	};
 
 }

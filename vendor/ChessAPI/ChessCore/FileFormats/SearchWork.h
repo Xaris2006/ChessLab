@@ -33,6 +33,12 @@ namespace Chess
 			int valueMax;
 		};
 
+		struct BoardOption
+		{
+			std::string fen;
+			uint64_t hash;
+		};
+
 	public:
 		bool IsGameValid(PgnGame& game);
 		bool IsGameValid(CldGame& game);
@@ -41,10 +47,14 @@ namespace Chess
 		SearchOptions& And(const std::string& name, const std::string& value, size_t pos = std::string::npos);
 		SearchOptions& And(const std::string& name, int value);
 		SearchOptions& And(const std::string& name, int valueMin, int valueMax);
+		SearchOptions& And(const std::string& fen);
 		void EndOption();
 
+		bool IsLabelUsed() const { return m_LabelUsed; }
+		bool IsMovesUsed() const { return m_MovesUsed; }
+
 		void InitCldSearch(std::shared_ptr<std::vector<std::string>> labelNames, std::shared_ptr<std::vector<std::string>> labelValues);
-		void Clear() { m_PgnOptions.clear(); m_CldOptions.clear(); }
+		void Clear() { m_PgnOptions.clear(); m_CldOptions.clear(); m_LabelUsed = false; m_MovesUsed = false; }
 
 		void SetOptionByData(const std::vector<uint8_t>& data);
 		void GetOptionData(std::vector<uint8_t>& data) const;
@@ -52,10 +62,14 @@ namespace Chess
 		TextOption GetOptionText(const std::string& name) const;
 		NumberOption GetOptionNumber(const std::string& name) const;
 		RangeNumberOption GetOptionRangeNumber(const std::string& name) const;
+		BoardOption GetOptionBoard() const;
 			
 	private:
-		std::vector<std::unordered_map<std::string, std::variant<TextOption, NumberOption, RangeNumberOption>>> m_PgnOptions;
+		std::vector<std::unordered_map<std::string, std::variant<TextOption, NumberOption, RangeNumberOption, BoardOption>>> m_PgnOptions;
 		std::vector<std::unordered_map<size_t, std::unordered_set<size_t>>> m_CldOptions;
+
+		bool m_LabelUsed = false;
+		bool m_MovesUsed = false;
 	};
 
 	//only Read

@@ -21,10 +21,18 @@ namespace Chess
 		pgnGame.AddReference();
 		m_pgnGame = &pgnGame;
 
-		bool ret = m_Board.NewPosition((*m_pgnGame)["FEN"]);
+		bool fenLabelExist = m_pgnGame->IsLabelExist("FEN");
+		bool ret = true;
 
-		if (!ret)
-			(*m_pgnGame)["FEN"] = m_Board.GetFen();
+		if (fenLabelExist)
+		{
+			ret = m_Board.NewPosition((*m_pgnGame)["FEN"]);
+
+			if (!ret)
+				(*m_pgnGame)["FEN"] = m_Board.GetFen();
+		}
+		else
+			ret  = m_Board.NewPosition();
 
 		m_mapMoves.clear();
 		m_lastMoveKey.clear();
@@ -141,13 +149,13 @@ namespace Chess
 			return Board::MOVEERROR;
 
 		MoveData moveD;
-		ConvertMoveToMoveData(move, moveD, promotedType);
+		ConvertCoreMoveToMoveData(move, moveD, promotedType);
 
 		if(moveD.pieceToMove == NONE)
 			return Board::MOVEERROR;
 
 		std::string strmove;
-		ConvertMoveDataToString(moveD, strmove);
+		ConvertMoveDataToPGNMove(moveD, strmove);
 
 		auto ret = m_Board.MakeMove(move, promotedType);
 
@@ -163,7 +171,7 @@ namespace Chess
 			return Board::MOVEERROR;
 
 		MoveData moveD;
-		ConvertStringToMoveData(move, moveD);
+		ConvertPGNMoveToMoveData(move, moveD);
 
 		if (!m_Board.IsMoveValid(moveD.move) || moveD.pieceToMove == NONE)
 			return Board::MOVEERROR;
@@ -205,7 +213,7 @@ namespace Chess
 		if (!m_mapMoves.contains(m_lastMoveKey))
 		{
 			MoveData moveD;
-			ConvertStringToMoveData(currentPath->move[nextIndex], moveD);
+			ConvertPGNMoveToMoveData(currentPath->move[nextIndex], moveD);
 			
 			if (m_Board.MakeMove(moveD.move, moveD.piecePromote) != Board::SUCCESS)
 			{
@@ -553,120 +561,16 @@ namespace Chess
 		m_mapMoves.clear();
 	}
 
-	std::string GameManager::ConvertUCIStringToString(const std::string& uciMove) const
+	void GameManager::ConvertMoveDataToPGNMove(const MoveData& move, std::string& strmove) const
 	{
-		std::string output = "";
-		MoveData moveD;
-		Board::Move move;
-		Piece piecePromote = NONE;
-
-		move.index = s_strMoveIndexX.find(uciMove[0]) + 8 * s_strMoveIndexY.find(uciMove[1]);
-		move.move = s_strMoveIndexX.find(uciMove[2]) + 8 * s_strMoveIndexY.find(uciMove[3]) - move.index;
-		
-		if (uciMove.size() > 4)
-			piecePromote = (Piece)s_strMoveTypesSmall.find(uciMove[4]);
-
-		ConvertMoveToMoveData(move, moveD, piecePromote);
-		ConvertMoveDataToString(moveD, output);
-
-		return output;
+		strmove = m_Board.ConvertCoreMoveToPGNMove(move.move, move.piecePromote);
 	}
 
-	void GameManager::ConvertMoveDataToString(const MoveData& move, std::string& strmove) const
+	void GameManager::ConvertPGNMoveToMoveData(const std::string& strmove, MoveData& move) const
 	{
-		if (move.pieceToMove == NONE)
-		{
-			strmove = "";
-			return;
-		}
+		m_Board.ConvertPGNMoveToCoreMove(move.move, move.piecePromote, strmove);
 
-		if (m_Board.GetPlayerToPlayColor() == WHITE) 
-			strmove += (std::to_string(m_Board.GetBlackMovesCount()) + ". ");
-		if (move.pieceToMove == KING && std::abs(move.move.move) == 2.0f)
-		{
-			//roke
-			if (move.move.move > 0)
-				strmove += "O-O";
-			else
-				strmove += "O-O-O";
-		}
-		else
-		{
-			if (move.pieceToMove != PAWN)
-				strmove += s_strMoveTypes[(int)move.pieceToMove];
-			if (move.pieceToMove == PAWN && move.pieceOnDirection != NONE)
-				strmove += s_strMoveIndexX[move.move.index % 8];
-
-			std::vector<int> possibleIndex;
-			std::vector<Board::Move> possibleMoves;
-			m_Board.GetAvailableMoves(possibleMoves, move.pieceToMove);
-
-			for (auto& m : possibleMoves)
-			{
-				if ((m.index + m.move) == (move.move.index + move.move.move) && m.index != move.move.index)
-					possibleIndex.emplace_back(m.index);
-			}
-
-			bool showIndexX = false, showIndexY = false;
-
-			if (!possibleIndex.empty() && move.pieceToMove != PAWN)
-			{
-				for (auto& pi : possibleIndex)
-				{
-					if (pi % 8 == move.move.index % 8)
-						showIndexY = true;
-					if (pi / 8 == move.move.index / 8)
-						showIndexX = true;
-				}
-
-				if (!showIndexX && !showIndexY)
-					showIndexX = true;
-			}
-
-			if (showIndexX)
-				strmove += s_strMoveIndexX[move.move.index % 8];
-			if (showIndexY)
-				strmove += s_strMoveIndexY[move.move.index / 8];
-			
-			if (move.pieceOnDirection != NONE) 
-				strmove += 'x';
-			
-			strmove += s_strMoveIndexX[(move.move.index + move.move.move) % 8];
-			strmove += s_strMoveIndexY[(move.move.index + move.move.move) / 8];
-		}
-		if (move.piecePromote != NONE)
-		{
-			strmove += '=';
-			strmove += s_strMoveTypes[(int)move.piecePromote];
-		}
-
-		Board boardCopy = m_Board;
-		boardCopy.MakeMove(move.move, move.piecePromote);
-
-		auto kingSecurity = boardCopy.GetKingStatus();
-
-		if (kingSecurity == Board::CHECKED)
-			strmove += '+';
-		else if(kingSecurity == Board::MATED)
-			strmove += '#';
-	}
-
-	void GameManager::ConvertStringToMoveData(const std::string& strmove, MoveData& move) const
-	{
-		int startIndex = strmove.find(' ') + 1;
-
-		for (int i = 0; i < strmove.size(); i++)
-		{
-			if (!((strmove[i] >= '0' && strmove[i] <= '9') || strmove[i] == '.' || strmove[i] == ' '))
-			{
-				startIndex = i;
-				break;
-			}
-		}
-
-		Piece typeToMove;
-		Piece typeToPromote = NONE;
-
+	
 		move.FiftyMoveCounter = m_Board.GetFiftyMoveCount();
 		move.lastMoveIndex = m_Board.GetLastMoveIndex();
 
@@ -675,126 +579,11 @@ namespace Chess
 		move.k = m_Board.GetkRoke();
 		move.q = m_Board.GetqRoke();
 
-		if (strmove[startIndex] == '0' || strmove[startIndex] == 'O')
-		{
-			/*Roke*/
-			if (strmove.find("0-0-0") != std::string::npos || strmove.find("O-O-O") != std::string::npos)
-				move.move.move = -2;
-			else
-				move.move.move = 2;
-
-			if (m_Board.GetPlayerToPlayColor() == WHITE)
-				move.move.index = 4;
-			else
-				move.move.index = 60;
-
-			move.pieceToMove = KING;
-			move.pieceOnDirection = NONE;
-			move.piecePromote = NONE;
-
-			return;
-		}
-		else if (strmove[startIndex] >= 'a')
-			typeToMove = PAWN;
-		else
-			typeToMove = (Piece)s_strMoveTypes.find(strmove[startIndex]);
-
-		int strMoveDirectionIndex = startIndex;
-
-		while (strmove[strMoveDirectionIndex] > '8' || (strmove[strMoveDirectionIndex - 1] >= 'A'
-			&& strmove.size() - (strMoveDirectionIndex + 1) && strmove[strMoveDirectionIndex + 1] >= 'a'
-			&& typeToMove != PAWN))
-		{
-			strMoveDirectionIndex += 1;
-		}
-
-		int directionIndex = (int)s_strMoveIndexX.find(strmove[strMoveDirectionIndex - 1]) + (int)s_strMoveIndexY.find(strmove[strMoveDirectionIndex]) * 8;
-		if (strmove.size() - (strMoveDirectionIndex) > 1 && strmove[strMoveDirectionIndex + 1] == '=' 
-			&& s_strMoveTypes.find(strmove[strMoveDirectionIndex + 2]) != std::string::npos)
-		{
-			typeToPromote = (Piece)s_strMoveTypes.find(strmove[strMoveDirectionIndex + 2]);
-		}
-
-		move.pieceToMove = typeToMove;
-		move.pieceOnDirection = m_Board.GetPieceType(directionIndex);
-		move.piecePromote = typeToPromote;
-
-		//check for the posible pieces 
-		std::vector<Board::Move> possibleIndexMoves;
-		std::vector<Board::Move> possibleMoves;
-		m_Board.GetAvailableMoves(possibleMoves, typeToMove);
-
-		for (auto& m : possibleMoves)
-		{
-			if (m.index + m.move == directionIndex)
-				possibleIndexMoves.emplace_back(m);
-		}
-
-		if (possibleIndexMoves.size() != 1)
-		{
-			int strHelperIndex = ((typeToMove == PAWN ? 0 : 1) + startIndex);
-			int helperIndexX = -1;
-			int helperIndexY = -1;
-
-			if (strmove[strHelperIndex] >= 'a' && strmove[strHelperIndex] <= 'h')
-			{
-				helperIndexX = (int)s_strMoveIndexX.find(strmove[strHelperIndex]);
-				if (strMoveDirectionIndex - strHelperIndex > 2 && strmove[strHelperIndex + 1] != 'x')
-					helperIndexY = (int)s_strMoveIndexY.find(strmove[strHelperIndex + 1]);
-			}
-			else
-			{
-				helperIndexY = (int)s_strMoveIndexY.find(strmove[strHelperIndex]);
-				if (strMoveDirectionIndex - strHelperIndex > 2 && strmove[strHelperIndex + 1] != 'x')
-					helperIndexX = (int)s_strMoveIndexX.find(strmove[strHelperIndex + 1]);
-			}
-
-			bool xok = false, yok = false;
-
-			for (auto& m : possibleIndexMoves)
-			{
-				xok = false;
-				yok = false;
-
-				if (helperIndexX != -1)
-				{
-					if (m.index % 8 == helperIndexX)
-						xok = true;
-					else
-						continue;
-				}
-				else
-					xok = true;
-				
-				if (helperIndexY != -1)
-				{
-					if (m.index / 8 == helperIndexY)
-						yok = true;
-					else
-						continue;
-				}
-				else
-					yok = true;
-
-				if (xok && yok)
-				{
-					move.move = m;
-					return;
-				}
-			}
-		}
-
-		if (possibleIndexMoves.empty())
-		{
-			//something bad happened
-			move.pieceToMove = NONE;
-			return;
-		}
-
-		move.move = possibleIndexMoves[0];
+		move.pieceToMove = m_Board.GetPieceType(move.move.index);
+		move.pieceOnDirection = m_Board.GetPieceType(move.move.index + move.move.move);
 	}
 
-	void GameManager::ConvertMoveToMoveData(const Board::Move& move, MoveData& moveData, Piece promotedType) const
+	void GameManager::ConvertCoreMoveToMoveData(const Board::Move& move, MoveData& moveData, Piece promotedType) const
 	{
 		moveData.pieceToMove = m_Board.GetPieceType(move.index);
 		moveData.pieceOnDirection = m_Board.GetPieceType(move.index + move.move);

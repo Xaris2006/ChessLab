@@ -4,6 +4,11 @@
 #include "ChessCore/FileFormats/pgn/PgnFile.h"
 #include "ChessCore/FileFormats/cld/CldFile.h"
 
+#include "ChessCore/FileFormats/cld/CldGame.h"
+
+#include "../ChessLabUtils.h"
+#include "../AppManagerChild.h"
+
 #include <fstream>
 
 static Chess::ChessFile* s_ChessFile;
@@ -29,6 +34,17 @@ namespace ChessAPI
 		s_OpenGames.emplace_back(0);
 
 		s_Games[0].InitPgnGame(s_ChessFile->operator[](0));
+		
+		auto args = ChessLab::Utils::GetArguments();
+
+		if (args.size() > 1)
+		{
+			if (Chess::IsFileValidFormat(args[1], ".pgn") || Chess::IsFileValidFormat(args[1], ".cld"))
+			{
+				ChessAPI::OpenChessFile(args[1]);
+				AppManagerChild::OwnChessFile(ChessAPI::GetChessFilePath());
+			}
+		}
 	}
 
 	int GetActiveGameIndex()
@@ -44,6 +60,31 @@ namespace ChessAPI
 	bool IsGameOpen(size_t index)
 	{
 		return s_Games.contains(index);
+	}
+
+	void OpenChessGameInFile(int index)
+	{
+		if (index >= s_ChessFile->GetSize() || index < 0)
+			return;
+
+		s_ActiveGame = index;
+
+		if (!s_Games.contains(s_ActiveGame))
+		{
+			s_OpenGames.emplace_back(index);
+
+			s_Games[s_ActiveGame].InitPgnGame(s_ChessFile->operator[](s_ActiveGame));
+		}
+	}
+
+	void NewGameInFile()
+	{
+		s_ChessFile->CreateGame();
+		s_ActiveGame = s_ChessFile->GetSize() - 1;
+		s_OpenGames.emplace_back(s_ActiveGame);
+		s_Games[s_ActiveGame].Clear();
+
+		s_Games[s_ActiveGame].InitPgnGame(s_ChessFile->operator[](s_ActiveGame));
 	}
 
 	void CloseOpenGame(int index)
@@ -66,7 +107,7 @@ namespace ChessAPI
 		}
 	}
 
-	Chess::ChessFile& GetPgnFile()
+	Chess::ChessFile& GetChessFile()
 	{
 		return *s_ChessFile;
 	}
@@ -78,11 +119,11 @@ namespace ChessAPI
 	{
 		return s_Games[s_ActiveGame];
 	}
-	std::string& GetPgnFileName()
+	std::string& GetChessFileName()
 	{
 		return s_FileName;
 	}
-	std::filesystem::path& GetPgnFilePath()
+	std::filesystem::path& GetChessFilePath()
 	{
 		return s_FilePath;
 	}
@@ -140,6 +181,7 @@ namespace ChessAPI
 		s_FileName = path.filename().string();
 		std::string extension = path.extension().string();
 
+		//find a way to avoid removing and removing again the chess file, just waist of time
 		delete s_ChessFile;
 
 		if (extension == ".pgn")
@@ -310,7 +352,7 @@ namespace ChessAPI
 					orderedL.emplace_back(move);
 			}
 
-			std::ofstream outfileT("table.clt", std::ios::binary | std::ios::trunc);
+			std::ofstream outfileT("tableCoreS.clt", std::ios::binary | std::ios::trunc);
 
 			std::cout << "\n ----- [ E ] ----- \n";
 
@@ -418,7 +460,7 @@ namespace ChessAPI
 			}
 			else
 			{
-				Chess::ConvertToCld(*(Chess::PgnFile*)s_ChessFile, filepath, persentage);
+				Chess::ConvertToCld(*(Chess::PgnFile*)s_ChessFile, filepath, Chess::MoveEncoding::CORE, persentage);
 
 				delete s_ChessFile;
 				s_ChessFile = new Chess::CldFile();
@@ -438,39 +480,5 @@ namespace ChessAPI
 
 		s_Games[0].Clear();
 		s_Games[0].InitPgnGame(s_ChessFile->operator[](0));
-	}
-
-	void OpenChessGameInFile(int index)
-	{
-		if (index >= s_ChessFile->GetSize() || index < 0)
-			return;
-
-		s_ActiveGame = index;
-
-		bool alreadyOpen = false;
-		for (int i = 0; i < s_OpenGames.size(); i++)
-		{
-			if (s_OpenGames[i] == index)
-			{
-				alreadyOpen = true;
-				break;
-			}
-		}
-		if (!alreadyOpen)
-		{
-			s_OpenGames.emplace_back(index);
-
-			s_Games[s_ActiveGame].InitPgnGame(s_ChessFile->operator[](s_ActiveGame));
-		}
-	}
-
-	void NewGameInFile()
-	{
-		s_ChessFile->CreateGame();
-		s_ActiveGame = s_ChessFile->GetSize() - 1;
-		s_OpenGames.emplace_back(s_ActiveGame);
-		s_Games[s_ActiveGame].Clear();
-
-		s_Games[s_ActiveGame].InitPgnGame(s_ChessFile->operator[](s_ActiveGame));
 	}
 }

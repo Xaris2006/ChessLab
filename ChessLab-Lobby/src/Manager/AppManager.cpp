@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <filesystem>
 
-#include "ChessCore/pgn/Pgn.h"
+#include "ChessCore/FileFormats/FileManager.h"
 
 static std::mutex addMutex;
 extern bool g_AlreadyOpenedModalOpen;
@@ -21,7 +21,7 @@ namespace Manager
 		s_AppManager->m_CheckingThread = new std::thread(
 			[]()
 			{
-				Chess::PgnFile::PgnPath_Hash hasher;
+				Chess::FileManager::PathHash hasher;
 
 				while (true)
 				{
@@ -226,7 +226,7 @@ namespace Manager
 	bool AppManager::IsAppOpen(const std::filesystem::path& path) const
 	{
 		bool founded = false;
-		Chess::PgnFile::PgnPath_Hash hasher;
+		Chess::FileManager::PathHash hasher;
 
 
 		for (auto& [key, value] : m_OpenedPaths)

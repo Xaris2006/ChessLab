@@ -17,7 +17,7 @@ static int s_toolDownloading = 0;
 
 namespace Panels
 {
-	ToolsPanel::ToolsPanel()
+	void ToolsPanel::OnAttach()
 	{
 		m_RefreshIcon = std::make_shared<Walnut::Image>("ChessLabApp\\Resources\\Icons\\sync.png");
 
@@ -50,8 +50,8 @@ namespace Panels
 
 			for (auto& iconPath : m_DownloadableToolIconsToLoad)
 			{
-				std::u8string iconPathU8String = iconPath.u8string();
-				std::string iconPathString = std::string(iconPathU8String.begin(), iconPathU8String.end());
+				//std::u8string iconPathU8String = iconPath.u8string();
+				std::string iconPathString = iconPath.u8string();//std::string(iconPathU8String.begin(), iconPathU8String.end());
 
 				m_DownloadableToolIcons.emplace_back(std::make_shared<Walnut::Image>(iconPathString));
 			}
@@ -723,8 +723,8 @@ namespace Panels
 			delete[] data;
 			
 			auto iconPath = (path / m_ToolLabelNameToValue[filenameString + "Icon"]);
-			std::u8string iconPathU8String = iconPath.u8string();
-			std::string iconPathString = std::string(iconPathU8String.begin(), iconPathU8String.end());
+			//std::string iconPathU8String = iconPath.u8string();
+			std::string iconPathString = iconPath.u8string();//std::string(iconPathU8String.begin(), iconPathU8String.end());
 
 			m_ToolIcons.emplace_back(std::make_shared<Walnut::Image>(iconPathString));
 			Manager::ToolManager::Get().AddTool(path / (filenameString + ".exe"), filenameString);

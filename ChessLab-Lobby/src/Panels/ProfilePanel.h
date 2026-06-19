@@ -9,7 +9,7 @@ namespace Panels
 	class ProfilePanel
 	{
 	public:
-		ProfilePanel();
+		void OnAttach();
 
 		void OnImGuiRender();
 

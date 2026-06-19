@@ -5,6 +5,8 @@
 #include "imgui.h"
 #include "../Source/Walnut/Application.h"
 
+#include "../Panels.h"
+
 #include <mutex>
 #include <thread>
 #include <string>
@@ -14,12 +16,6 @@
 #include "../../Walnut/Source/Walnut/Timer.h"
 
 #include "../windowsMain.h"
-
-extern bool g_LoadingModalOpen;
-
-//for Bar
-float g_ChessEngineValue;
-bool g_ChessEngineOpen;
 
 static std::mutex s_messageMutex;
 static std::mutex s_moveDataMutex;
@@ -48,12 +44,15 @@ static int FindLastOf(const std::string& source, const std::string& target)
 
 namespace Panels
 {
-	EnginePanel::EnginePanel()
+	void EnginePanel::OnAttach()
 	{
+		m_IconPlay = std::make_shared<Walnut::Image>("Resources/Icons/PlayButton.png");
+		m_IconStop = std::make_shared<Walnut::Image>("Resources/Icons/StopButton.png");
+
 		Reset();
 	}
 
-	EnginePanel::~EnginePanel()
+	void EnginePanel::OnDetach()
 	{
 		CloseEngine();
 	}
@@ -61,7 +60,9 @@ namespace Panels
 	void EnginePanel::OnImGuiRender()
 	{
 		if (ImGui::IsKeyDown(ImGuiKey_LeftArrow) || ImGui::IsKeyDown(ImGuiKey_RightArrow))// || ImGui::IsMouseDown(ImGuiMouseButton_Left))
+		{
 			s_timeScore.Reset();
+		}
 
 		{
 			m_AvailEngines.clear();
@@ -92,7 +93,7 @@ namespace Panels
 
 		ImGui::Begin("Chess Engine", &m_viewPanel);
 		
-		if (g_LoadingModalOpen)
+		if (Panels::IsLoadingPopupOpen())
 		{
 			ImGui::End();
 			return;
@@ -105,14 +106,9 @@ namespace Panels
 
 		ImGui::Separator();
 
-		static bool barCheckBox = false;
-		barCheckBox = g_ChessEngineOpen;
-
-		ImGui::Checkbox("Evaluation Bar", &barCheckBox);
+		ImGui::Checkbox("Evaluation Bar", &m_IsBarOpen);
 
 		ImGui::Separator();
-
-		g_ChessEngineOpen = barCheckBox;
 
 		auto& io = ImGui::GetIO();
 
@@ -152,7 +148,7 @@ namespace Panels
 		else
 			ImGui::Button(std::format("{0}", m_Score[0]).c_str(), ImVec2(buSize, 0));
 		
-		g_ChessEngineValue = (std::abs(m_Score[0]) == 1000.0f ? m_Score[0] * -1 : m_Score[0]);
+		m_BarValue = (std::abs(m_Score[0]) == 1000.0f ? m_Score[0] * -1 : m_Score[0]);
 
 		ImGui::PopFont();
 		ImGui::PopStyleColor(4);
@@ -209,7 +205,13 @@ namespace Panels
 
 		ImGui::Text("Knps: %d", GetNodesPerSecond() / 1000);
 
+		bool showMove = false;
+		int indexToShow = 0;
+		std::vector<std::string> EngineMovesToShow;
+
 		ImGui::BeginChild("Moves", ImVec2(0, 0), true);
+		auto oldSpacing = ImGui::GetStyle().ItemSpacing.x;
+		ImGui::GetStyle().ItemSpacing.x = 0;
 
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
 		for (int i = 0; i < m_lines; i++)
@@ -247,9 +249,17 @@ namespace Panels
 				if (ImGui::Button(EngineMoves[j].c_str()))
 					index = j + 1;
 
+				if (ImGui::IsItemHovered())
+				{
+					showMove = true;
+					indexToShow = j + 1;
+					EngineMovesToShow = EngineMoves;
+					
+				}
+
 				ImGui::PopID();
 			}
-
+			
 			if (index && s_time.Elapsed() > 0.5)
 			{
 				for (int j = 0; j < index; j++)
@@ -261,7 +271,43 @@ namespace Panels
 		}
 		ImGui::PopStyleColor();
 
+		ImGui::GetStyle().ItemSpacing.x = oldSpacing;
 		ImGui::EndChild();
+
+		if (showMove && s_time.Elapsed() > 0.5)
+		{
+			m_ShowEngineBoard = true;
+
+			Chess::Board showBoard;
+			showBoard.NewPosition(ChessAPI::GetActiveGame().GetFen());
+
+			for (int j = 0; j < indexToShow; j++)
+			{
+				Chess::Board::Move move;
+				Chess::Piece promotedType;
+
+				showBoard.ConvertPGNMoveToCoreMove(move, promotedType, EngineMovesToShow[j]);
+				showBoard.MakeMove(move, promotedType);
+			}
+
+			for (int x = 0; x < 8; x++)
+			{
+				for (int y = 0; y < 8; y++)
+				{
+					auto type = showBoard.GetPieceType(x + 8 * y);
+					auto color = showBoard.GetPieceColor(x + 8 * y);
+
+					int ret = (int)type + (color == Chess::WHITE ? 0 : 1) * 6 + 1;
+
+					if (type != Chess::NONE)
+						m_EngineBlocks[x][y] = ret;
+					else
+						m_EngineBlocks[x][y] = 0;
+				}
+			}
+		}
+		else if (m_ShowEngineBoard)
+			m_ShowEngineBoard = false;
 
 		ImGui::End();
 	}
@@ -308,7 +354,7 @@ namespace Panels
 		Reset();
 
 		m_running = true;
-		g_ChessEngineOpen = true;
+		m_IsBarOpen = true;
 
 		m_processThread = new std::thread(
 			[this, programpath]()
@@ -353,11 +399,8 @@ namespace Panels
 				std::vector<std::string> StockMoveStreams;
 
 				std::string overall;
-				Chess::PgnGame pgngame;
-				Chess::GameManager game;
-				game.InitPgnGame(pgngame);
-
-				std::string cur_fen;// = game.GetFen();
+				std::string cur_fen;
+				Chess::Board curBoard;
 
 				while (true)
 				{
@@ -537,10 +580,7 @@ namespace Panels
 								helperVector[MoveIntex] += overall[j];
 							}
 
-							pgngame.Clear();
-							pgngame["FEN"] = cur_fen;
-
-							if (!game.InitPgnGame(pgngame))
+							if (!curBoard.NewPosition(cur_fen))
 							{
 								s_moveDataMutex.lock();
 
@@ -571,11 +611,12 @@ namespace Panels
 										n_type = 0;
 								}
 
-								move = game.ConvertUCIStringToString(move);
+								Chess::Board::Move coreMove;
+								Chess::Piece promotedType;
+								curBoard.ConvertUCIMoveToCoreMove(coreMove, promotedType, move);
+								move = curBoard.ConvertCoreMoveToPGNMove(coreMove, promotedType);
 			
-								//std::cout << game.GetFen() << '\n';
-
-								if (game.MakeMove(move) == Chess::Board::MOVEERROR)
+								if (curBoard.MakeMove(coreMove, promotedType) == Chess::Board::MOVEERROR)
 								{
 									helperVector.resize(indexhere);
 									break;
@@ -583,7 +624,7 @@ namespace Panels
 
 								indexhere++;
 							}
-							game.GoInitialPosition();
+							curBoard.NewPosition(cur_fen);
 							
 							s_moveDataMutex.lock();
 							
@@ -603,7 +644,7 @@ namespace Panels
 		if (!IsEngineOpen())
 			return;
 
-		g_ChessEngineOpen = false;
+		m_IsBarOpen = false;
 		m_EndThread = true;
 		m_processThread->join();
 		delete m_processThread;

@@ -86,7 +86,7 @@ void PlotCandlestick(const char* label_id, const double* xs, const double* opens
 
 namespace Panels
 {
-	ProfilePanel::ProfilePanel()
+	void ProfilePanel::OnAttach()
 	{
 		m_ProfileIcon = std::make_shared<Walnut::Image>("ChessLabApp\\Resources\\ChessLab\\lsOn.png");
 	}

@@ -1,8 +1,7 @@
 #include "FileManager.h"
 
 #include <fstream>
-
-extern std::filesystem::path g_cachedDirectory;
+#include "../external.h"
 
 static Chess::FileManager* s_Instance = nullptr;
 static std::mutex s_InstanceMutex;
@@ -42,11 +41,11 @@ namespace Chess
 			return FileID();
 		
 		FileID id = FileID();
-
-		m_FileMutex[id] = std::make_unique<std::mutex>();
+		m_FileMutex[id] = std::make_unique<std::shared_mutex>();
 
 		std::scoped_lock lock(*m_FileMutex[id].get());
 		m_File[id] = cpath;
+		
 		return id;
 	}
 
@@ -92,7 +91,7 @@ namespace Chess
 		{
 			PathHash hasher;
 			auto hash = hasher(m_File.at(id));
-			auto cachePath = g_cachedDirectory / std::to_string(hash);
+			auto cachePath = GetCacheDirectory() / std::to_string(hash);
 
 			bool firstTime = !std::filesystem::exists(cachePath);
 
@@ -116,7 +115,7 @@ namespace Chess
 		if (!m_FileMutex.contains(id))
 			return false;
 
-		std::scoped_lock lock(*m_FileMutex.at(id).get());
+		std::shared_lock lock(*m_FileMutex.at(id).get());
 		
 		if(!m_File.contains(id))
 			return false;
@@ -146,7 +145,7 @@ namespace Chess
 		if (!m_FileMutex.contains(id))
 			return false;
 
-		std::scoped_lock lock(*m_FileMutex.at(id).get());
+		std::shared_lock lock(*m_FileMutex.at(id).get());
 
 		if (!m_File.contains(id))
 			return false;

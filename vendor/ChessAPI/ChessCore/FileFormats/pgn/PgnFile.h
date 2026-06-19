@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../base/ChessFile.h"
+#include "../base/Encoding.h"
 
 namespace Chess
 {
@@ -25,6 +26,7 @@ namespace Chess
 		virtual void CreateGame(size_t index = -1) override; //index = -1 -> placed at the end
 		virtual void DeleteGame(size_t index) override;
 		virtual void RecoverGame(size_t index) override;
+		virtual void RemoveFromEdited(size_t index) override;
 		virtual void MoveGame(size_t position, size_t direction) override;
 
 		virtual bool IsGameDeleted(size_t index) const override;
@@ -41,7 +43,7 @@ namespace Chess
 
 	public:
 		static void RemoveDeletedGames(const std::filesystem::path& path);
-		friend void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination, float* persentage);
+		friend void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination, MoveEncoding encoding, float* persentage);
 
 	private:
 		virtual void LoadDataPointers(float* persentage = nullptr) override;
@@ -60,5 +62,5 @@ namespace Chess
 		std::vector<std::tuple<SearchID, std::string, std::shared_ptr<std::pair<SearchOptions, SearchResult>>>> m_Searches;
 	};
 
-	void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination, float* persentage = nullptr);
+	void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination, MoveEncoding encoding, float* persentage = nullptr);
 }

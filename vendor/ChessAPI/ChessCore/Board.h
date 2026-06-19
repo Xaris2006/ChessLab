@@ -41,6 +41,7 @@ namespace Chess
 
 		std::string GetFen() const;
 		std::vector<uint8_t>  GetFormatedFen() const;
+		uint64_t GetHash(bool recalculate = false) const;
 		
 		bool NewPosition(const std::string& fenStr = "default");
 		bool NewPosition(const std::vector<uint8_t>& ffen);
@@ -57,8 +58,11 @@ namespace Chess
 		bool GetkRoke() const { return m_k; }
 		bool GetqRoke() const { return m_q; }
 
+		int GetAmountOfPieces() const;
+		int GetAmountOfPieces(Piece type) const;
 		Piece GetPieceType(int index) const;
 		Piece GetPieceType(int indexX, int indexY) const;
+		BitBoard GetBitBoard(Piece type, Color color) const;
 
 		Color GetPieceColor(int index) const;
 		Color GetPieceColor(int indexX, int indexY) const;
@@ -71,14 +75,14 @@ namespace Chess
 
 		void SetBlackMovesCount(int BlackMovesCount) { m_BlackMovesCounter = BlackMovesCount; }
 		void SetFiftyMoveCount(int FiftyMoveCount) { m_FiftyMoveCounter = FiftyMoveCount; }
-		void SetLastMoveIndex(int LastMoveIndex) { m_LastMovedPieceIndex= LastMoveIndex; }
+		void SetLastMoveIndex(int LastMoveIndex);
 			 
-		void SetKRoke(bool K) { m_K = K; }
-		void SetQRoke(bool Q) { m_Q = Q; }
-		void SetkRoke(bool k) { m_k = k; }
-		void SetqRoke(bool q) { m_q = q; }
+		void SetKRoke(bool K);
+		void SetQRoke(bool Q);
+		void SetkRoke(bool k);
+		void SetqRoke(bool q);
 
-		void SwapPlayerToPlay() { m_PlayerToPlay = m_PlayerToPlay == WHITE ? BLACK : WHITE; }
+		void SwapPlayerToPlay();
 
 		//Be Carefull with these
 		//-
@@ -88,6 +92,26 @@ namespace Chess
 		void RemovePiece(int index);
 		void RemovePiece(int indexX, int indexY);
 		//-
+
+		std::string ConvertUCIMoveToPGNMove(const std::string& uciMove) const;
+		std::string ConvertPGNMoveToUCIMove(const std::string& pgnMove) const;
+
+		std::string ConvertCLDMoveToUCIMove(uint16_t cldMove) const;
+		uint16_t ConvertUCIMoveToCLDMove(const std::string& uciMove) const;
+
+		//we dont need board var to convert this formats
+		static std::string ConvertCLDMoveToPGNMove(uint16_t cldMove);
+		static std::string ConvertCLDMoveToPGNMove(std::pair<uint8_t, uint8_t> cldMove);
+		//we dont need board var to convert this formats
+		static std::pair<uint8_t, uint8_t> ConvertPGNMoveToCLDMove(const std::string& pgnMove);
+		
+		std::string ConvertCoreMoveToUCIMove(const Board::Move& move, Piece promotedType = NONE) const;
+		std::string ConvertCoreMoveToPGNMove(const Board::Move& move, Piece promotedType = NONE) const;
+		uint16_t ConvertCoreMoveToCLDMove(const Board::Move& move, Piece promotedType = NONE) const;
+
+		void ConvertUCIMoveToCoreMove(Board::Move& move, Piece& promotedType, const std::string& uciMove) const;
+		void ConvertPGNMoveToCoreMove(Board::Move& move, Piece& promotedType, const std::string& pgnMove) const;
+		void ConvertCLDMoveToCoreMove(Board::Move& move, Piece& promotedType, uint16_t cldMove) const;
 
 	private:
 		bool IsBoardValid() const;
@@ -107,8 +131,8 @@ namespace Chess
 		void FindKingMoves(std::vector<Move>& moves) const;
 
 	private:
-		BitBoard				m_Pieces;
-		std::array<BitBoard, 6> m_mapPieces;
+		//BitBoard				m_Pieces;
+		//std::array<BitBoard, 6> m_mapPieces;
 		BitBoard				m_WhitePieces;
 		std::array<BitBoard, 6> m_mapWhitePieces;
 		BitBoard				m_BlackPieces;
@@ -122,6 +146,10 @@ namespace Chess
 
 		int m_FiftyMoveCounter = 0;
 		int m_BlackMovesCounter = 1;
+
+		uint64_t m_Hash = 0;
+
+		std::array<Piece, 64> m_BoardPieces;
 
 		//virtual:
 

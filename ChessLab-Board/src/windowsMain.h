@@ -14,9 +14,6 @@
 
 class Process
 {
-
-#if 1
-
 #define BUFSIZE 4096 
 public:
     Process(std::wstring processNamepath, std::wstring cmdarg /*HANDLE ChildStd_OUT_Rd = nullptr, HANDLE ChildStd_OUT_Wr = nullptr*/)
@@ -134,10 +131,16 @@ public:
 
     std::string Read()
     {
-        DWORD dwRead;
+        DWORD dwRead, dwAvail;
         CHAR chBuf[BUFSIZE];
         BOOL bSuccess = FALSE;
         std::string output;
+
+        if (!PeekNamedPipe(m_ChildStd_OUT_Rd, NULL, 0, &dwRead, &dwAvail, NULL))
+            printf("Check read Process");
+
+        if (dwAvail == 0)
+			return output;
 
         do
         {
@@ -158,6 +161,4 @@ private:
     HANDLE m_ChildStd_IN_Wr = NULL;
     HANDLE m_ChildStd_OUT_Rd = NULL;
     HANDLE m_Process = NULL;
-
-#endif // PLATFORM_WINDOWS_64
 };

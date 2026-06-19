@@ -29,6 +29,7 @@ namespace Chess
 		virtual void CreateGame(size_t index = -1) = 0; //index = -1 -> placed at the end
 		virtual void DeleteGame(size_t index) = 0;
 		virtual void RecoverGame(size_t index) = 0;
+		virtual void RemoveFromEdited(size_t index) = 0;
 		virtual void MoveGame(size_t position, size_t direction) = 0;
 
 		virtual bool IsGameDeleted(size_t index) const = 0;

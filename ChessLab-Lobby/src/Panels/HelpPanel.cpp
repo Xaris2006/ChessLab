@@ -7,7 +7,7 @@
 
 namespace Panels
 {
-	HelpPanel::HelpPanel()
+	void HelpPanel::OnAttach()
 	{
 
 	}

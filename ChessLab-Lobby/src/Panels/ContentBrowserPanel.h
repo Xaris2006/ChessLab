@@ -11,7 +11,7 @@ namespace Panels
 	class ContentBrowserPanel
 	{
 	public:
-		ContentBrowserPanel();
+		void OnAttach();
 
 		void OnImGuiRender();
 	private:
@@ -34,13 +34,14 @@ namespace Panels
 		std::shared_ptr<Walnut::Image> m_DirectoryIcon;
 		std::shared_ptr<Walnut::Image> m_FileIcon;
 		std::shared_ptr<Walnut::Image> m_FileIconPGN;
+		std::shared_ptr<Walnut::Image> m_FileIconCLD;
 		std::shared_ptr<Walnut::Image> m_FileIconCOB;
 		std::shared_ptr<Walnut::Image> m_BackArrow;
 
 		std::vector<std::filesystem::path> m_filesToBeMerged;
 		std::string m_mergedName;
 
-		bool m_showPGNOnly = false;
+		bool m_showChessFilesOnly = false;
 	};
 
 }

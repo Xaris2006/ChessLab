@@ -1,23 +1,17 @@
-#include "ImGuiBoard.h"
+#include "BoardPanel.h"
 
-#include "ChessAPI/ChessAPI.h"
+#include "../ChessAPI/ChessAPI.h"
 #include "ChessCore/GameManager.h"
 #include "ChessCore/FileFormats/pgn/PgnFile.h"
 
-#include "AppManagerChild.h"
+#include "../AppManagerChild.h"
 
 #include "imgui_internal.h"
 #include "misc/cpp/imgui_stdlib.h"
 
 #include "../../Walnut/Source/Walnut/Application.h"
 
-extern bool g_AlreadyOpenedModalOpen;
-extern float g_ChessEngineValue;
-extern bool g_ChessEngineOpen;
-extern bool g_LoadingModalOpen;
-
-bool g_OpenEditor = false;
-bool g_IsMoveChooseOpen = false;
+#include "../Panels.h"
 
 static std::string s_fen;
 static bool cross = true;
@@ -69,7 +63,10 @@ static void DrawRedDotAt(const ImVec2& SetPosition, float radius = 5.0f)
 	draw_list->AddCircleFilled(ImVec2(SetPosition.x + ImGui::GetWindowPos().x, SetPosition.y + ImGui::GetWindowPos().y), radius, IM_COL32(255, 0, 0, 255));
 }
 
-void ImGuiBoard::OnAttach()
+namespace Panels
+{
+
+void BoardPanel::OnAttach()
 {
 	m_board[0] = std::make_shared<Walnut::Image>("Resources\\Board\\board.png");
 	m_board[1] = std::make_shared<Walnut::Image>("Resources\\Board\\boardRev.png");
@@ -119,11 +116,11 @@ void ImGuiBoard::OnAttach()
 	m_PromoteMove.move = 0;
 }
 
-void ImGuiBoard::OnUIRender()
+void BoardPanel::OnImGuiRender()
 {
 	ImGui::Begin("Game", 0, ImGuiWindowFlags_NoScrollbar);
 
-	if (g_LoadingModalOpen)
+	if (IsLoadingPopupOpen())
 	{
 		ImGui::End();
 		return;
@@ -151,9 +148,18 @@ void ImGuiBoard::OnUIRender()
 			if (opened.size() == 1)
 				crossAddress = nullptr;
 
+			auto flagUnsaved = ImGuiTabItemFlags_None;
+			auto flagActive = ImGuiTabItemFlags_None;
+
+			if (ChessAPI::GetChessFile().IsGameEdited(opened[n]))
+				flagUnsaved = ImGuiTabItemFlags_UnsavedDocument;
+
+			if (activeTab)
+				flagActive = ImGuiTabItemFlags_SetSelected;
+
 			//rewrite
-			if (ImGui::BeginTabItem((std::to_string(opened[n] + 1) + ": " + ChessAPI::GetPgnFile()[opened[n]]["White"] + " - " + ChessAPI::GetPgnFile()[opened[n]]["Black"]).c_str(),
-				crossAddress, (activeTab ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None)))
+			if (ImGui::BeginTabItem((std::to_string(opened[n] + 1) + ": " + ChessAPI::GetChessFile()[opened[n]]["White"] + " - " + ChessAPI::GetChessFile()[opened[n]]["Black"]).c_str(),
+				crossAddress, flagActive | flagUnsaved))
 			{
 				activeTab = true;
 				ImGui::EndTabItem();
@@ -684,18 +690,18 @@ void ImGuiBoard::OnUIRender()
 				if (anwser)
 				{
 					ChessAPI::OpenChessFile(strpath);
-					AppManagerChild::OwnChessFile(ChessAPI::GetPgnFilePath());
+					AppManagerChild::OwnChessFile(ChessAPI::GetChessFilePath());
 				}
 				else
 				{
-					g_AlreadyOpenedModalOpen = true;
+					Panels::OpenAlreadyOpenedPopup();
 				}
 			}
 		}
 		ImGui::EndDragDropTarget();
 	}
 
-	if (g_ChessEngineOpen)
+	if (Panels::GetEnginePanel().IsBarOpen())
 		RenderBar();
 
 	if(ShowTags)
@@ -881,17 +887,16 @@ void ImGuiBoard::OnUIRender()
 		ImGui::OpenPopup("Editor");
 	}
 
-
 	NextMovePopup();
 	NewVariantPopup();
 	NewPiecePopup();
 	EditorPopup();
 
-	g_IsMoveChooseOpen = ImGui::IsPopupOpen("Move_Choose");
+	m_IsMoveChooseOpen = ImGui::IsPopupOpen("Move_Choose");
 	
-	if (g_OpenEditor)
+	if (m_OpenEditor)
 	{
-		g_OpenEditor = false;
+		m_OpenEditor = false;
 		OpenEditor();
 	}
 
@@ -899,7 +904,7 @@ void ImGuiBoard::OnUIRender()
 
 }
 
-void ImGuiBoard::RenderPlayerColorBox()
+void BoardPanel::RenderPlayerColorBox()
 {
 	ImVec2 bsize = { m_size / 10, m_size / 10 };
 	float blockSize = m_size / 9;
@@ -918,7 +923,7 @@ void ImGuiBoard::RenderPlayerColorBox()
 		ImGui::Image((ImTextureID)m_BlackBox->GetRendererID(), { bsize.x * sizef, bsize.y * sizef });
 }
 
-void ImGuiBoard::RenderBoard()
+void BoardPanel::RenderBoard()
 {
 	auto& board = m_board[m_reverse];
 
@@ -926,7 +931,7 @@ void ImGuiBoard::RenderBoard()
 	ImGui::Image((ImTextureID)board->GetRendererID(), { m_size, m_size });
 }
 
-void ImGuiBoard::RenderPieces()
+void BoardPanel::RenderPieces()
 {
 	ImVec2 bsize = { m_size / 10.0f, m_size / 10.0f };
 
@@ -945,7 +950,7 @@ void ImGuiBoard::RenderPieces()
 				if (m_block[i][j])
 				{
 					ImGui::SetCursorPos(ImVec2(xposition - bsize.x / 2.0f + m_startCursor.x, yposition - bsize.y / 2.0f + m_startCursor.y));
-					ImGui::Image((ImTextureID)m_pieces[m_block[i][j] - 1]->GetRendererID(), bsize);
+					ImGui::Image((ImTextureID)m_pieces[m_block[i][j] - 1]->GetRendererID(), bsize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, Panels::GetEnginePanel().ShowEngineBoard() ? 0.5f : 1.0f));
 				}
 
 				if (i == m_oldNumX && j == m_oldNumY && m_CapturedPieceIndex)
@@ -971,7 +976,7 @@ void ImGuiBoard::RenderPieces()
 				if (m_block[i][j])
 				{
 					ImGui::SetCursorPos(ImVec2(xposition - bsize.x / 2 + m_startCursor.x, yposition - bsize.y / 2 + m_startCursor.y));
-					ImGui::Image((ImTextureID)m_pieces[m_block[i][j] - 1]->GetRendererID(), bsize);
+					ImGui::Image((ImTextureID)m_pieces[m_block[i][j] - 1]->GetRendererID(), bsize, ImVec2(0, 0), ImVec2(1, 1), ImVec4(1, 1, 1, Panels::GetEnginePanel().ShowEngineBoard() ? 0.5f : 1.0f));
 				}
 
 				if (i == m_oldNumX && j == m_oldNumY && m_CapturedPieceIndex)
@@ -990,7 +995,7 @@ void ImGuiBoard::RenderPieces()
 	}
 }
 
-void ImGuiBoard::RenderTags()
+void BoardPanel::RenderTags()
 {
 	ImVec2 bsize = { m_size / 10, m_size / 10 };
 
@@ -1022,7 +1027,7 @@ void ImGuiBoard::RenderTags()
 	}
 }
 
-void ImGuiBoard::RenderArrows()
+void BoardPanel::RenderArrows()
 {
 	ImVec2 bsize = { m_size / 10, m_size / 10 };
 	float BoxSize = 100.5f / 900.0f * m_size;
@@ -1073,7 +1078,7 @@ void ImGuiBoard::RenderArrows()
 	}
 }
 
-void ImGuiBoard::RenderCirclesAtPossibleMoves()
+void BoardPanel::RenderCirclesAtPossibleMoves()
 {
 	ImVec2 bsize = { m_size / 10, m_size / 10 };
 	float BoxSize = 100.5f / 900.0f * m_size;
@@ -1112,7 +1117,7 @@ void ImGuiBoard::RenderCirclesAtPossibleMoves()
 	}
 }
 
-void ImGuiBoard::RenderBar()
+void BoardPanel::RenderBar()
 {
 	float barSize = m_size / 1.3f;
 	float boxSize = barSize / 10.0f;
@@ -1123,7 +1128,7 @@ void ImGuiBoard::RenderBar()
 
 	static float barValue = zero;
 
-	barValue += ((zero + std::max(-5.0f, std::min(g_ChessEngineValue, 5.0f)) * plusOne - barValue) / ImGui::GetIO().Framerate);
+	barValue += ((zero + std::max(-5.0f, std::min(Panels::GetEnginePanel().GetBarValue(), 5.0f)) * plusOne - barValue) / ImGui::GetIO().Framerate);
 
 	ImVec2 bottomRight = ImVec2(ImGui::GetWindowPos().x + m_startCursor.x - m_size / (14.0f * 2.0f),
 		ImGui::GetWindowPos().y + m_startCursor.y + barSize + barSize * 0.076f);
@@ -1144,7 +1149,7 @@ void ImGuiBoard::RenderBar()
 	ImGui::Image((ImTextureID)m_bar->GetRendererID(), { barSize, barSize });
 }
 
-ImVec2 ImGuiBoard::FindMousePos()
+ImVec2 BoardPanel::FindMousePos()
 {
 	float blockSize = m_size / 9;
 
@@ -1164,8 +1169,14 @@ ImVec2 ImGuiBoard::FindMousePos()
 	return ImVec2(7 - numX, numY);
 }
 
-void ImGuiBoard::UpdateBoardValues()
+void BoardPanel::UpdateBoardValues()
 {
+	if (Panels::GetEnginePanel().ShowEngineBoard())
+	{
+		m_block = Panels::GetEnginePanel().GetEngineBlocks();
+		return;
+	}
+
 	for (int i = 0; i < 8; i++)
 	{
 		for (int j = 0; j < 8; j++)
@@ -1173,7 +1184,7 @@ void ImGuiBoard::UpdateBoardValues()
 	}
 }
 
-void ImGuiBoard::NextMovePopup()
+void BoardPanel::NextMovePopup()
 {
 	ImGui::SetNextWindowPos(m_Center, ImGuiCond_Appearing, ImVec2(1, 1));
 	if (ImGui::BeginPopupModal("Move_Choose", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar))
@@ -1259,7 +1270,7 @@ void ImGuiBoard::NextMovePopup()
 	}
 }
 
-void ImGuiBoard::NewVariantPopup()
+void BoardPanel::NewVariantPopup()
 {
 	ImGui::SetNextWindowPos(m_Center, ImGuiCond_Appearing, ImVec2(1, 1));
 	if (ImGui::BeginPopupModal("New_Variant", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar))
@@ -1343,7 +1354,7 @@ void ImGuiBoard::NewVariantPopup()
 	}
 }
 
-void ImGuiBoard::NewPiecePopup()
+void BoardPanel::NewPiecePopup()
 {
 	if (ImGui::BeginPopup("New_Piece", ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize))
 	{
@@ -1373,7 +1384,7 @@ void ImGuiBoard::NewPiecePopup()
 	}
 }
 
-void ImGuiBoard::EditorPopup()
+void BoardPanel::EditorPopup()
 {
 	auto mainViewport = ImGui::GetMainViewport();
 	
@@ -1730,18 +1741,30 @@ void ImGuiBoard::EditorPopup()
 
 			if (ImGui::Button("Copy"))
 			{
-				ImGui::SetClipboardText(currentFEN.c_str());
+				ImGui::SetClipboardText(("CLF" + currentFEN).c_str());
 			}
 
 			ImGui::SameLine();
 
 			if (ImGui::Button("Paste"))
 			{
-				currentFEN = ImGui::GetClipboardText();
+				auto clipboardText = ImGui::GetClipboardText();
+
+				if (!clipboardText)
+					ImGui::OpenPopup("Error");
+
+				currentFEN = clipboardText;
+
+				if (currentFEN.size() < 4 || currentFEN.substr(0, 3) != "CLF")
+				{
+					ImGui::OpenPopup("Error");
+				}
+
+				std::string newfen = currentFEN.substr(3);
 				Chess::Board edBoard;
 
-				if (edBoard.NewPosition(currentFEN))
-					OpenEditor(currentFEN);
+				if (edBoard.NewPosition(newfen))
+					OpenEditor(newfen);
 				else
 					ImGui::OpenPopup("Error");
 			}
@@ -1893,8 +1916,8 @@ void ImGuiBoard::EditorPopup()
 					}
 					else
 					{
-						g_AlreadyOpenedModalOpen = true;
 						ImGui::ClosePopupToLevel(0, true);
+						Panels::OpenAlreadyOpenedPopup();
 					}
 
 				}
@@ -1932,12 +1955,12 @@ void ImGuiBoard::EditorPopup()
 	}
 }
 
-void ImGuiBoard::FlipBoard()
+void BoardPanel::FlipBoard()
 {
 	m_reverse = !m_reverse;
 }
 
-void ImGuiBoard::OpenEditor()
+void BoardPanel::OpenEditor()
 {
 	m_ToOpenEditor = true;
 
@@ -1948,7 +1971,7 @@ void ImGuiBoard::OpenEditor()
 	}
 }
 
-void ImGuiBoard::OpenEditor(const std::string& newFEN)
+void BoardPanel::OpenEditor(const std::string& newFEN)
 {
 	m_ToOpenEditor = true;
 
@@ -1969,4 +1992,5 @@ void ImGuiBoard::OpenEditor(const std::string& newFEN)
 			m_Editorblock[i][j] = (id.type != Chess::NONE ? ret : 0);
 		}
 	}
+}
 }

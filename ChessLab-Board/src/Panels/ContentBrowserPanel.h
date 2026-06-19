@@ -12,7 +12,7 @@ namespace Panels
 	class ContentBrowserPanel
 	{
 	public:
-		ContentBrowserPanel();
+		void OnAttach();
 
 		void OnImGuiRender();
 

@@ -1,9 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <string>
-
-#include "Walnut/Image.h"
 
 #include "../ChessAPI/ChessAPI.h"
 
@@ -12,8 +9,6 @@ namespace Panels {
 	class MovePanel
 	{
 	public:
-		MovePanel() = default;
-
 		void OnImGuiRender();
 
 		bool& IsPanelOpen();

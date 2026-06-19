@@ -29,6 +29,7 @@ namespace Chess
 
 	void PgnFile::OpenFile(const std::filesystem::path& path, float* persentage)
 	{
+		//remove clear
 		Clear();
 
 		ChessFileManager::Get().RemoveFileReference(m_ID);
@@ -465,6 +466,11 @@ namespace Chess
 	{
 		if (m_DeletedGames.contains(index))
 			m_DeletedGames.erase(index);
+	}
+	
+	void PgnFile::RemoveFromEdited(size_t index)
+	{
+		ChessFileManager::Get().RemoveFromEditedGames(m_ID, index);
 	}
 
 	void PgnFile::MoveGame(size_t position, size_t direction)

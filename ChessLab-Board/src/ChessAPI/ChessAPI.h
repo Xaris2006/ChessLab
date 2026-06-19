@@ -13,18 +13,19 @@ namespace ChessAPI
 	int GetActiveGameIndex();
 	std::vector<int>& GetOpenGameIndexes();
 	bool IsGameOpen(size_t index);
+	
+	void NewGameInFile();
+	void OpenChessGameInFile(int index);
 	void CloseOpenGame(int index);
 
-	Chess::ChessFile& GetPgnFile();
+	Chess::ChessFile& GetChessFile();
 	Chess::PgnGame& GetPgnGame();
 	Chess::GameManager& GetActiveGame();
-	std::filesystem::path& GetPgnFilePath();
-	std::string& GetPgnFileName();
+	std::filesystem::path& GetChessFilePath();
+	std::string& GetChessFileName();
 
 	int	GetBlockID(int BlockIndex);
 	
 	void OpenChessFile(const std::filesystem::path& path, float* persentage = nullptr);
 	void OverWriteChessFile(const std::filesystem::path& filepath, float* persentage = nullptr);
-	void OpenChessGameInFile(int index);
-	void NewGameInFile();
 }

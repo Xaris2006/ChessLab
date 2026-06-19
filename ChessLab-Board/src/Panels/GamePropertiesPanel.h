@@ -3,15 +3,11 @@
 #include <vector>
 #include <string>
 
-#include "../ChessAPI/ChessAPI.h"
-
 namespace Panels {
 
 	class GamePropertiesPanel
 	{
 	public:
-		GamePropertiesPanel() = default;
-
 		void OnImGuiRender();
 		void Reset();
 

@@ -32,13 +32,15 @@ namespace Chess
 			std::shared_ptr<std::vector<std::string>> labelNames,
 			std::shared_ptr<std::vector<std::string>> labelValues,
 			std::shared_ptr<uint8_t> typeName,
-			std::shared_ptr<uint8_t> typeValue);
+			std::shared_ptr<uint8_t> typeValue, 
+			std::shared_ptr<uint8_t> settings);
 
 		void RemoveFileReference(FileManager::FileID fileID);
 		
 		PgnGame& GetGame(FileManager::FileID fileID, size_t index);
-		void GetGames(FileManager::FileID fileID, size_t index, size_t size, std::vector<PgnGame*> games);
+		void GetGames(FileManager::FileID fileID, size_t index, size_t size, std::vector<PgnGame*>& games);
 		
+		void RemoveFromEditedGames(FileManager::FileID fileID, size_t index);
 		void GetEditedGames(FileManager::FileID fileID, std::vector<size_t>& indexes) const;
 		bool IsGameEdited(FileManager::FileID fileID, size_t index) const;
 
@@ -46,8 +48,8 @@ namespace Chess
 		void StartSearch(SearchID id, FileManager::FileID fileID, std::shared_ptr<std::pair<SearchOptions, SearchResult>> seachPtr);
 
 	public:
-		static void ConvertCldMovePathToPgnMovePath(PgnGame::ChessMovesPath& pgnMovePath, const CldGame::CldMovesPath& cldMovePath, int moveIndex = 0);
-		static void ConvertPgnMovePathToCldMovePath(CldGame::CldMovesPath& cldMovePath, const PgnGame::ChessMovesPath& pgnMovePath);
+		static void ConvertCldMovePathToPgnMovePath(PgnGame::ChessMovesPath& pgnMovePath, const CldGame::CldMovesPath& cldMovePath, MoveEncoding encoding, int moveIndex = 0);
+		static void ConvertPgnMovePathToCldMovePath(CldGame::CldMovesPath& cldMovePath, const PgnGame::ChessMovesPath& pgnMovePath, MoveEncoding encoding);
 
 	private:
 		struct UUIDIndexHash
@@ -73,9 +75,11 @@ namespace Chess
 			std::shared_ptr<std::vector<std::string>> labelValues;
 			std::shared_ptr<uint8_t> typeName;
 			std::shared_ptr<uint8_t> typeValue;
+			std::shared_ptr<uint8_t> settings;
 		};
 
 	private:
+		//make it shared ptr pgngames
 		std::unordered_map<std::pair<FileManager::FileID, size_t>, PgnGame, UUIDIndexHash> m_Games;
 		std::unordered_map<std::pair<FileManager::FileID, size_t>, std::chrono::high_resolution_clock::time_point, UUIDIndexHash> m_GamesTimer;
 		std::unordered_map<FileManager::FileID, std::vector<size_t>> m_EditedGames;

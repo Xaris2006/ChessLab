@@ -6,23 +6,21 @@
 
 #include <imgui.h>
 #include "misc/cpp/imgui_stdlib.h"
+#include "../Panels.h"
 
 #include <fstream>
 
-extern bool g_AlreadyOpenedModalOpen;
-extern bool g_LoadingModalOpen;
-
 namespace Panels {
-
-	//extern bool p_SavedFile;
 
 	static std::filesystem::path s_oldpath;
 	static std::string s_inputNName;
 	static bool s_openPopup = false;
 
-	ContentBrowserPanel::ContentBrowserPanel()
-		: m_BaseDirectory("MyDocuments"), m_CurrentDirectory(m_BaseDirectory)
+	void ContentBrowserPanel::OnAttach()
 	{
+		m_BaseDirectory = "MyDocuments";
+		m_CurrentDirectory = m_BaseDirectory;
+
 		m_DirectoryIcon = std::make_shared<Walnut::Image>("Resources/Icons/ContentBrowser/DirectoryIcon.png");
 		m_FileIcon = std::make_shared<Walnut::Image>("Resources/Icons/ContentBrowser/FileIcon.png");
 		m_FileIconPGN = std::make_shared < Walnut::Image>("Resources/Icons/ContentBrowser/FileIconPGN.png");
@@ -36,7 +34,7 @@ namespace Panels {
 
 		ImGui::Begin("Content Browser", &m_viewPanel);
 		
-		if (g_LoadingModalOpen)
+		if (Panels::IsLoadingPopupOpen())
 		{
 			ImGui::End();
 			return;
@@ -176,11 +174,11 @@ namespace Panels {
 					if (anwser)
 					{
 						ChessAPI::OpenChessFile(path.string());
-						AppManagerChild::OwnChessFile(ChessAPI::GetPgnFilePath());
+						AppManagerChild::OwnChessFile(ChessAPI::GetChessFilePath());
 					}
 					else
 					{
-						g_AlreadyOpenedModalOpen = true;
+						Panels::OpenAlreadyOpenedPopup();
 					}
 				}
 			}
@@ -200,11 +198,11 @@ namespace Panels {
 						if (anwser)
 						{
 							ChessAPI::OpenChessFile(path.string());
-							AppManagerChild::OwnChessFile(ChessAPI::GetPgnFilePath());
+							AppManagerChild::OwnChessFile(ChessAPI::GetChessFilePath());
 						}
 						else
 						{
-							g_AlreadyOpenedModalOpen = true;
+							Panels::OpenAlreadyOpenedPopup();
 						}
 					}
 
@@ -222,7 +220,7 @@ namespace Panels {
 						}
 						else
 						{
-							g_AlreadyOpenedModalOpen = true;
+							Panels::OpenAlreadyOpenedPopup();
 						}
 					}
 

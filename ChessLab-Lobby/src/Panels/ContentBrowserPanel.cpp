@@ -8,9 +8,10 @@
 #include <imgui.h>
 #include "misc/cpp/imgui_stdlib.h"
 
-#include "ChessCore/pgn/Pgn.h"
+#include "ChessCore/FileFormats/Pgn/PgnFile.h"
+#include "ChessCore/FileFormats/Cld/CldFile.h"
 
-#include <atlstr.h>
+//#include <atlstr.h>
 #include <shlobj.h>
 
 namespace Panels {
@@ -25,12 +26,14 @@ namespace Panels {
 	static bool s_openRenamePopup = false;
 	static bool s_openNewPopup = false;
 
-	ContentBrowserPanel::ContentBrowserPanel()
-		: m_BaseDirectory(std::filesystem::current_path() / "ChessLabApp\\MyDocuments"), m_CurrentDirectory(m_BaseDirectory)
+	void ContentBrowserPanel::OnAttach()
 	{
+		m_BaseDirectory = std::filesystem::current_path() / "ChessLabApp\\MyDocuments";
+		m_CurrentDirectory = m_BaseDirectory;
 		m_DirectoryIcon = std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/DirectoryIcon.png");
 		m_FileIcon		= std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/FileIcon.png");
 		m_FileIconPGN   = std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/FileIconPGN.png");
+		m_FileIconCLD   = std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/FileIconCLD.png");
 		m_FileIconCOB	= std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/FileIconCOB.png");
 		m_BackArrow		= std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/previous.png");
 
@@ -109,8 +112,9 @@ namespace Panels {
 			{
 				m_CurrentDirectory = m_CurrentDirectory.parent_path();
 			}
-			ImGui::SameLine(0, ImGui::CalcTextSize(" <-  ").x);
 			ImGui::PopStyleColor();
+
+			ImGui::SameLine(0, ImGui::CalcTextSize(" <-  ").x);
 
 			if (ImGui::Button(semiPath.root_name().string().c_str()))
 			{
@@ -197,10 +201,12 @@ namespace Panels {
 					icon = m_DirectoryIcon;
 				else if (directoryEntry.path().extension().u8string() == u8".pgn")
 					icon = m_FileIconPGN;
+				else if (directoryEntry.path().extension().u8string() == u8".cld")
+					icon = m_FileIconCLD;
 				else if (directoryEntry.path().extension().u8string() == u8".cob")
 					icon = m_FileIconCOB;
 
-				if (m_showPGNOnly && !directoryEntry.is_directory() && !(directoryEntry.path().extension().u8string() == u8".pgn"))
+				if (m_showChessFilesOnly && !directoryEntry.is_directory() && !(directoryEntry.path().extension().u8string() == u8".pgn" || directoryEntry.path().extension().u8string() == u8".cld"))
 					continue;
 				
 				ImGui::PushID(filenameString.c_str());
@@ -209,9 +215,8 @@ namespace Panels {
 				ImGui::ImageButton((ImTextureID)icon->GetRendererID(), { thumbnailSize, thumbnailSize });
 				ImGui::PopStyleColor();
 
-				if (directoryEntry.is_regular_file() && path.extension().u8string() == u8".pgn")
+				if (directoryEntry.is_regular_file() && (path.extension().u8string() == u8".pgn" || path.extension().u8string() == u8".cld"))
 				{
-
 					if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 					{
 						Manager::AppManager::Get().CreateApp(path);
@@ -282,14 +287,14 @@ namespace Panels {
 
 			ImGui::SetCursorPosY(ImGui::GetContentRegionMax().y - 6 * ImGui::GetStyle().ItemSpacing.y);
 
-			ImGui::SliderFloat("Thumbnail Size", &thumbnailSize, 128, 256, "%.0f");
+			ImGui::SliderFloat("Thumbnail Size", &thumbnailSize, 64, 256, "%.0f");
 			//ImGui::SliderFloat("Padding", &padding, 0, 32);
 
 			ImGui::SameLine();
 
-			ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize("BOX HERE Show Pgn Files Only").x);
+			ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize("BOX HERE Show Chess Files Only").x);
 
-			ImGui::Checkbox("Show Pgn Files Only", &m_showPGNOnly);
+			ImGui::Checkbox("Show Chess Files Only", &m_showChessFilesOnly);
 
 		DirectoryChange:
 			ImGui::EndTable();
@@ -553,14 +558,14 @@ namespace Panels {
 					//std::string filenameU8String = path.filename().u8string();
 					//std::string filenameString = std::string(filenameU8String.begin(), filenameU8String.end());
 
-					bool isPGN = (path.extension().u8string() == u8".pgn");
+					bool isChessFile = (path.extension().u8string() == u8".pgn" || path.extension().u8string() == u8".cld");
 
 					ImGui::TreeNodeEx(filenameString.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen);
 					if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 					{
-						if (!isPGN)
+						if (!isChessFile)
 						{
-							printf("Could not load {0} - not a chess file", filenameString);
+							//printf("Could not load {0} - not a chess file", filenameString);
 						}
 						else
 						{
@@ -568,7 +573,7 @@ namespace Panels {
 						}
 					}
 					
-					if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && isPGN)
+					if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && isChessFile)
 					{
 						s_openFilePopup = true;
 						s_path = directoryEntry.path();
@@ -583,12 +588,21 @@ namespace Panels {
 	{
 		if (ImGui::BeginPopup("File Popup"))
 		{
+			ImGui::PushStyleColor(ImGuiCol_Text, { 0.38, 0.67, 0, 1 });
+			ImGui::PushFont(Walnut::Application::Get().GetFont("Bold"));
+			Walnut::UI::TextCentered(s_path.filename().u8string().c_str());
+			ImGui::PopFont();
+			ImGui::PopStyleColor();
+
+			ImGui::Separator();
+			ImGui::Separator();
+
 			if (ImGui::Selectable("Open"))
 			{
 				//Bug when open file it does not reset the other panels
-				if (s_path.extension().string() != ".pgn")
+				if (s_path.extension().string() != ".pgn" && s_path.extension().string() != ".cld")
 				{
-					printf("Could not load {0} - not a chess file", s_path.filename().u8string());
+					//printf("Could not load {0} - not a chess file", s_path.filename().u8string());
 				}
 				else
 				{
@@ -652,7 +666,6 @@ namespace Panels {
 				ImGui::CloseCurrentPopup();
 			}
 			
-
 			if (ImGui::Selectable("Remove Deleted Games"))
 			{
 				Chess::PgnFile::RemoveDeletedGames(s_path);
@@ -660,6 +673,51 @@ namespace Panels {
 				ImGui::CloseCurrentPopup();
 			}
 
+			ImGui::Separator();
+
+			ImGui::BeginDisabled(s_path.extension() == ".cld");
+
+			if (ImGui::BeginMenu("Convert To Cld"))
+			{
+				if (ImGui::Selectable("Cld Move Format"))
+				{
+					Chess::PgnFile PgnFile;
+					PgnFile.OpenFile(s_path);
+
+					s_path.replace_extension(".cld");
+
+					Chess::ConvertToCld(PgnFile, s_path, Chess::CLD);
+					ImGui::CloseCurrentPopup();
+				}
+				if (ImGui::Selectable("Core Move Format"))
+				{
+					Chess::PgnFile PgnFile;
+					PgnFile.OpenFile(s_path);
+
+					s_path.replace_extension(".cld");
+
+					Chess::ConvertToCld(PgnFile, s_path, Chess::CORE);
+					ImGui::CloseCurrentPopup();
+				}
+				ImGui::EndMenu();
+			}
+
+			ImGui::EndDisabled();
+			ImGui::BeginDisabled(s_path.extension() == ".pgn");
+
+			if (ImGui::Selectable("Convert To Pgn"))
+			{
+				Chess::CldFile CldFile;
+				CldFile.OpenFile(s_path);
+
+				s_path.replace_extension(".pgn");
+
+				Chess::ConvertToPgn(CldFile, s_path);
+				
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndDisabled();
 			ImGui::EndDisabled();
 
 			ImGui::Separator();

@@ -25,6 +25,7 @@ namespace Chess
 		virtual void CreateGame(size_t index = -1) override; //index = -1 -> placed at the end
 		virtual void DeleteGame(size_t index) override;
 		virtual void RecoverGame(size_t index) override;
+		virtual void RemoveFromEdited(size_t index) override;
 		virtual void MoveGame(size_t position, size_t direction) override;
 
 		virtual bool IsGameDeleted(size_t index) const override;
@@ -61,6 +62,7 @@ namespace Chess
 		std::shared_ptr<std::vector<size_t>> m_GamePointers;
 		std::shared_ptr<uint8_t> m_typeName;
 		std::shared_ptr<uint8_t> m_typeValue;
+		std::shared_ptr<uint8_t> m_Settings;
 
 		size_t m_LabelNamesPointer = 0;
 		size_t m_LabelValuesPointer = 0;

@@ -72,7 +72,7 @@ namespace AppManagerChild
 
 #endif // !WL_DIST
 
-		std::cerr << "App: " << std::this_thread::get_id() << " \n";// << " - *File Path:" << ChessAPI::GetPgnFilePath() << ":Path \n";
+		std::cerr << "App: " << std::this_thread::get_id() << " \n";// << " - *File Path:" << ChessAPI::GetChessFilePath() << ":Path \n";
 	}
 
 	bool IsChessFileAvail(const std::filesystem::path& path)

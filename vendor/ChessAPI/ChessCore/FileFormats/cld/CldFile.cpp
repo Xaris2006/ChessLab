@@ -21,7 +21,8 @@ namespace Chess
 		m_LabelValues = std::make_shared<std::vector<std::string>>();
 		m_typeName = std::make_shared<uint8_t>(1);
 		m_typeValue = std::make_shared<uint8_t>(4);
-		ChessFileManager::Get().AddCldFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue);
+		m_Settings = std::make_shared<uint8_t>(0);
+		ChessFileManager::Get().AddCldFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue, m_Settings);
 	}
 
 	CldFile::~CldFile()
@@ -56,12 +57,13 @@ namespace Chess
 		m_LabelValues = std::make_shared<std::vector<std::string>>();
 		m_typeName = std::make_shared<uint8_t>(1);
 		m_typeValue = std::make_shared<uint8_t>(4);
+		m_Settings = std::make_shared<uint8_t>(0);
 
 		if (persentage)
 			*persentage = 0.1f;
 
 		m_ID = FileManager::Get().AddFile(path);
-		ChessFileManager::Get().AddCldFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue);
+		ChessFileManager::Get().AddCldFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue, m_Settings);
 
 		LoadDataPointers(persentage);
 
@@ -197,7 +199,7 @@ namespace Chess
 				EcldGames[i][indexName] = indexValue;
 			}
 
-			ChessFileManager::ConvertPgnMovePathToCldMovePath(EcldGames[i].GetMovePathbyRef(), eGame.GetMovePathbyRef());
+			ChessFileManager::ConvertPgnMovePathToCldMovePath(EcldGames[i].GetMovePathbyRef(), eGame.GetMovePathbyRef(), (*m_Settings) % 2 == 0 ? MoveEncoding::CLD : MoveEncoding::CORE);
 		}
 
 		std::vector<uint8_t> bufferNameNew, bufferValueNew;
@@ -229,7 +231,7 @@ namespace Chess
 			std::ofstream destination(cachePath / "helper", std::ios::binary, std::ios::trunc);
 			std::ofstream destinationGames(cachePath / "helperGames", std::ios::binary, std::ios::trunc);
 
-			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, 0x00, 0x00, 0x01, 0x04 };
+			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, (*m_Settings), 0x00, 0x01, 0x04 };
 			uint64_t indexName = m_LabelNamesPointer;
 			uint64_t indexValue = m_LabelValuesPointer + bufferNameNew.size();
 			//check if we have no games
@@ -326,7 +328,7 @@ namespace Chess
 				{
 					if (editedGames[i] == m_GamePointers->size())
 						NDataPointers->emplace_back(NPointersIndex);
-					else if (editedGames[i] - 1 == editedGames[i - 1])
+					else if (i > 0 && editedGames[i] - 1 == editedGames[i - 1])
 					{
 						std::vector<uint8_t> data;
 						EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue));
@@ -382,7 +384,7 @@ namespace Chess
 				m_ID = nID;
 			}
 
-			ChessFileManager::Get().AddCldFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue);
+			ChessFileManager::Get().AddCldFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue, m_Settings);
 		}
 	}
 
@@ -400,7 +402,7 @@ namespace Chess
 			return;
 
 		uint8_t version = buffer[3];
-		uint8_t settings = buffer[4];
+		(*m_Settings) = buffer[4];
 		uint8_t idTable = buffer[5];
 		(*m_typeName) = buffer[6];
 		(*m_typeValue) = buffer[7];
@@ -409,6 +411,12 @@ namespace Chess
 		m_LabelValuesPointer = *(uint64_t*)&buffer[16];
 		m_GamePointersPointer = *(uint64_t*)&buffer[24];
 		size_t numberOfGames = *(uint64_t*)&buffer[32];
+		
+		if (version != 0x01)
+			return;
+
+		if ((*m_Settings) != 0x00 && (*m_Settings) != 0x01)
+			return;
 
 		{
 			std::vector<uint8_t> bufferNames;
@@ -499,8 +507,9 @@ namespace Chess
 		m_LabelValues = std::make_shared<std::vector<std::string>>();
 		m_typeName = std::make_shared<uint8_t>(1);
 		m_typeValue = std::make_shared<uint8_t>(4);
+		m_Settings = std::make_shared<uint8_t>(0);
 
-		ChessFileManager::Get().AddCldFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue);
+		ChessFileManager::Get().AddCldFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue, m_Settings);
 	}
 
 	void CldFile::CreateGame(size_t index)
@@ -521,6 +530,11 @@ namespace Chess
 	{
 		if (m_DeletedGames.contains(index))
 			m_DeletedGames.erase(index);
+	}
+	
+	void CldFile::RemoveFromEdited(size_t index)
+	{
+		ChessFileManager::Get().RemoveFromEditedGames(m_ID, index);
 	}
 
 	void CldFile::MoveGame(size_t position, size_t direction)
@@ -852,7 +866,7 @@ namespace Chess
 		std::vector<uint8_t> data;
 		FileManager::Get().ReadBuffer(m_ID, (*m_GamePointers)[index], ((index + 1 < m_GamePointers->size()) ? ((*m_GamePointers)[index + 1] - (*m_GamePointers)[index]) : SIZE_MAX), (std::vector<uint8_t>&)data);
 
-		game.Parse(data);
+		game.Parse(data, (*m_Settings) % 2 == 0 ? MoveEncoding::CLD : MoveEncoding::CORE, (*m_typeName), (*m_typeValue), true, false, true, false);
 	}
 
 }

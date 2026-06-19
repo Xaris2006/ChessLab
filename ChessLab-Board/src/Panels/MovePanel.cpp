@@ -4,11 +4,9 @@
 #include "Walnut/UI/UI.h"
 #include "Walnut/ApplicationGUI.h"
 
+#include "../Panels.h"
+
 #include <functional>
-
-extern bool g_LoadingModalOpen;
-extern bool g_IsMoveChooseOpen;
-
 
 static bool s_IsVariationChecked = false;
 static Chess::GameManager::MoveKey s_VariationKey;
@@ -27,7 +25,7 @@ namespace Panels
 
 		ImGui::Begin("Moves", &m_viewPanel);
 		
-		if (g_LoadingModalOpen)
+		if (Panels::IsLoadingPopupOpen())
 		{
 			ImGui::End();
 			return;
@@ -39,7 +37,7 @@ namespace Panels
 
 		ImGuiStyle& style = ImGui::GetStyle();
 
-		if (ChessAPI::GetPgnFileName() == "New Game")
+		if (ChessAPI::GetChessFileName() == "New Game")
 		{
 			float size = ImGui::CalcTextSize("New Game").x + style.FramePadding.x * 2.0f;
 			float avail = ImGui::GetContentRegionAvail().x;
@@ -52,7 +50,7 @@ namespace Panels
 		}
 		else
 		{
-			//ImGui::TextWrapped(ChessAPI::GetPgnFileName().c_str());
+			//ImGui::TextWrapped(ChessAPI::GetChessFileName().c_str());
 			//ImGui::NewLine();
 
 			ImGui::PushFont(Walnut::Application::GetFont("Bold"));
@@ -105,7 +103,12 @@ namespace Panels
 
 			ImGui::Text(("ECO: " + ChessAPI::GetPgnGame()["ECO"]).c_str());
 			ImGui::SameLine();
-			ImGui::Text(("Result: " + ChessAPI::GetPgnGame()["Result"]).c_str());
+
+			std::string result = ChessAPI::GetPgnGame()["Result"];
+			if (result == "1/2-1/2")
+				result = "½-½";
+
+			ImGui::Text(("Result: " + result).c_str());
 		}
 		ImGui::NewLine();
 
@@ -395,7 +398,7 @@ namespace Panels
 
 				float red = 0, green = 0, blue = 0, alfa = 0;
 				
-				if (g_IsMoveChooseOpen && prevMoveKey == ChessAPI::GetActiveGame().GetLastMoveKey())
+				if (Panels::GetBoardPanel().IsMoveChooseOpen() && prevMoveKey == ChessAPI::GetActiveGame().GetLastMoveKey())
 				{
 					red = 0.6; green = 0.5; blue = 0.8; alfa = 0.5;
 				}

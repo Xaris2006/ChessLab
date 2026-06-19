@@ -15,7 +15,7 @@ namespace Panels
 	class ToolsPanel
 	{
 	public:
-		ToolsPanel();
+		void OnAttach();
 
 		void OnImGuiRender();
 

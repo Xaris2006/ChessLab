@@ -114,12 +114,10 @@ namespace Chess
 
 		PgnGame& GetPgnGame() { return *m_pgnGame; }
 
-		std::string ConvertUCIStringToString(const std::string& uciMove) const;
-
 	private:
-		void ConvertMoveDataToString(const MoveData& move, std::string& strmove) const;
-		void ConvertStringToMoveData(const std::string& strmove, MoveData& move) const;
-		void ConvertMoveToMoveData(const Board::Move& move, MoveData& moveData, Piece promotedType = NONE) const;
+		void ConvertMoveDataToPGNMove(const MoveData& move, std::string& strmove) const;
+		void ConvertPGNMoveToMoveData(const std::string& strmove, MoveData& move) const;
+		void ConvertCoreMoveToMoveData(const Board::Move& move, MoveData& moveData, Piece promotedType = NONE) const;
 
 		void GetCurrentPgnMovePath(PgnGame::ChessMovesPath*& path) const;
 

@@ -5,6 +5,7 @@
 #include <memory>
 #include <thread>
 #include <atomic>
+#include <array>
 
 #include "Walnut/Image.h"
 
@@ -13,8 +14,8 @@ namespace Panels {
 	class EnginePanel
 	{
 	public:
-		EnginePanel();
-		~EnginePanel();
+		void OnAttach();
+		void OnDetach();
 
 		void OnImGuiRender();
 		void Reset();
@@ -25,6 +26,13 @@ namespace Panels {
 		void CloseEngine();
 		bool IsEngineOpen() const;
 		std::vector<std::string>& GetAvailEngines();
+
+		bool IsBarOpen() const { return m_IsBarOpen; }
+		float GetBarValue() const { return m_BarValue; }
+
+		bool ShowEngineBoard() const { return m_ShowEngineBoard; }
+		std::array<std::array<int, 8>, 8> GetEngineBlocks() const { return m_EngineBlocks; }
+
 	private:
 		void CommandChessEngine(const std::string& command);
 
@@ -56,8 +64,15 @@ namespace Panels {
 		std::string m_DefaultEngine = "";
 		std::vector<std::string> m_AvailEngines;
 
-		std::shared_ptr<Walnut::Image> m_IconPlay = std::make_shared<Walnut::Image>("Resources/Icons/PlayButton.png");
-		std::shared_ptr<Walnut::Image> m_IconStop = std::make_shared<Walnut::Image>("Resources/Icons/StopButton.png");
+		std::shared_ptr<Walnut::Image> m_IconPlay;
+		std::shared_ptr<Walnut::Image> m_IconStop;
+
+	private:
+		bool m_IsBarOpen = false;
+		float m_BarValue = 0.0f;
+
+		bool m_ShowEngineBoard = false;
+		std::array<std::array<int, 8>, 8> m_EngineBlocks;
 
 	private:
 		std::thread* m_processThread = nullptr;

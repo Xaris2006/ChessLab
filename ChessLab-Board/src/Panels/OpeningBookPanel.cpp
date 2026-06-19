@@ -9,7 +9,7 @@
 
 namespace Panels
 {
-	OpeningBookPanel::~OpeningBookPanel()
+	void OpeningBookPanel::OnDetach()
 	{
 		m_EndPlayThreadJob = true;
 		if (m_PlayThread)

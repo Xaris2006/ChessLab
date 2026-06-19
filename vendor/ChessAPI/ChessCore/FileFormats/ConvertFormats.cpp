@@ -36,7 +36,7 @@ namespace Chess
 		pointerFile.close();
 	}
 
-	void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination, float* persentage)
+	void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination, MoveEncoding encoding, float* persentage)
 	{
 		if (destination.extension().string() != ".cld")
 			return;
@@ -46,15 +46,20 @@ namespace Chess
 		FileManager::Get().RemoveFile(id);
 
 		std::vector<uint8_t> dataToWrite;
+		dataToWrite.reserve(10'000);
+
+		size_t amount = 1;
+
 		CldGame cldGameToAdd;
-		PgnGame pgnGame;
+		cldGameToAdd.Parse({}, encoding);
+		std::vector<PgnGame*> PgnGamesToAdd;
+		PgnGamesToAdd.reserve(amount);
 
 		std::vector<size_t> gameIndexes;
 		std::vector<std::string> labelNames, labelValues;
 		std::unordered_map<std::string, size_t> labelNamesMap, labelValuesMap;
 		uint8_t typeName = 1, typeValue = 4;
 
-		dataToWrite.reserve(10'000);
 
 		gameIndexes.reserve(pgnFile.GetSize());
 		gameIndexes.emplace_back(0);
@@ -71,55 +76,59 @@ namespace Chess
 
 		std::ofstream helpOutfile(cachePath / "helper", std::ios::binary | std::ios::trunc);
 
-		for (size_t i = 0; i < pgnFile.GetSize(); i++)
+		for (size_t i = 0; i < pgnFile.GetSize() / amount + 1; i++)
 		{
 			if (persentage)
-				*persentage = std::min(0.0f + float(i / (double)pgnFile.GetSize()) * 0.6f, 0.6f);
+				*persentage = std::min(0.0f + float(i / (double)(pgnFile.GetSize() / amount + 1)) * 0.6f, 0.6f);
 
-			cldGameToAdd.Clear();
+			ChessFileManager::Get().GetGames(pgnFile.GetID(), i * amount, std::min(size_t(amount), pgnFile.GetSize() - i * amount), PgnGamesToAdd);
 
-			pgnGame = pgnFile.At(i);
-
-			if (pgnGame.IsLabelExist("Variant") && pgnGame["Variant"] == "chess960")
-				continue;
-
-			auto labels = pgnGame.GetLabelNames();
-
-			for (auto& label : labels)
+			for (auto& pgnGame : PgnGamesToAdd)
 			{
-				std::string value = pgnGame[label];
-				if (value == "?" || value.empty())
+				cldGameToAdd.Clear();
+
+				if (pgnGame->IsLabelExist("Variant") && (*pgnGame)["Variant"] == "chess960")
 					continue;
 
-				size_t indexName = -1;
-				if (!labelNamesMap.contains(label))
-				{
-					indexName = labelNames.size();
-					labelNamesMap[label] = labelNames.size();
-					labelNames.emplace_back(label);
-				}
-				else
-					indexName = labelNamesMap[label];
+				auto labels = pgnGame->GetLabelNames();
 
-				size_t indexValue = -1;
-				if (!labelValuesMap.contains(value))
+				for (auto& label : labels)
 				{
-					indexValue = labelValues.size();
-					labelValuesMap[value] = labelValues.size();
-					labelValues.emplace_back(value);
-				}
-				else
-					indexValue = labelValuesMap[value];
+					std::string value = (*pgnGame)[label];
+					if (value == "?" || value.empty())
+						continue;
 
-				cldGameToAdd[indexName] = indexValue;
+					size_t indexName = -1;
+					if (!labelNamesMap.contains(label))
+					{
+						indexName = labelNames.size();
+						labelNamesMap[label] = labelNames.size();
+						labelNames.emplace_back(label);
+					}
+					else
+						indexName = labelNamesMap[label];
+
+					size_t indexValue = -1;
+					if (!labelValuesMap.contains(value))
+					{
+						indexValue = labelValues.size();
+						labelValuesMap[value] = labelValues.size();
+						labelValues.emplace_back(value);
+					}
+					else
+						indexValue = labelValuesMap[value];
+
+					cldGameToAdd[indexName] = indexValue;
+				}
+
+				ChessFileManager::ConvertPgnMovePathToCldMovePath(cldGameToAdd.GetMovePathbyRef(), pgnGame->GetMovePathbyRef(), encoding);
+				static size_t count = 0;
+				count++;
+				cldGameToAdd.GetData(dataToWrite, typeName, typeValue);
+				gameIndexes.emplace_back(dataToWrite.size() + gameIndexes.back());
+
+				helpOutfile.write((char*)dataToWrite.data(), dataToWrite.size());
 			}
-
-			ChessFileManager::ConvertPgnMovePathToCldMovePath(cldGameToAdd.GetMovePathbyRef(), pgnGame.GetMovePathbyRef());
-
-			cldGameToAdd.GetData(dataToWrite, typeName, typeValue);
-			gameIndexes.emplace_back(dataToWrite.size() + gameIndexes.back());
-
-			helpOutfile.write((char*)dataToWrite.data(), dataToWrite.size());
 		}
 
 		helpOutfile.close();
@@ -144,7 +153,12 @@ namespace Chess
 			ValueBuffer.emplace_back(0);
 		}
 
-		const uint8_t title[8] = { 'C', 'L', 'D', 0x01, 0x00, 0x00, typeName, typeValue };
+		uint8_t settings = 0;
+
+		if (encoding == MoveEncoding::CORE)
+			settings += 1;
+
+		const uint8_t title[8] = { 'C', 'L', 'D', 0x01, settings, 0x00, typeName, typeValue };
 		uint64_t indexName = 40;
 		uint64_t indexValue = indexName + NameBuffer.size();
 		//check if we have no games
@@ -169,11 +183,10 @@ namespace Chess
 
 		if (persentage)
 			*persentage = 0.7f;
-
-		std::ifstream helpInfile(cachePath / "helper", std::ios::binary);
-
+		
 		std::vector<char> bufferToCopy(40'000'000);
 
+		std::ifstream helpInfile(cachePath / "helper", std::ios::binary);
 		helpInfile.seekg(0, std::ios_base::end);
 		std::streampos maxIndex = helpInfile.tellg();
 		helpInfile.seekg(0, std::ios::beg);

@@ -6,7 +6,7 @@ namespace Panels
 	class HelpPanel
 	{
 	public:
-		HelpPanel();
+		void OnAttach();
 
 		void OnImGuiRender();
 	};

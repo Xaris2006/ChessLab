@@ -1,54 +1,21 @@
 #include "ChessFileManager.h"
 
 #include <span>
-#include <fstream>
-#include <iostream>
+
+#include "../Board.h"
+#include "MoveTables.h"
 
 static Chess::ChessFileManager* s_ChessFileManager = nullptr;
 
-static std::shared_mutex s_PgnManagerDataAccessMutex;
-static std::shared_mutex s_PgnManagerSearchAccessMutex;
+static std::shared_mutex s_ChessManagerDataAccessMutex;
+static std::shared_mutex s_ChessManagerSearchAccessMutex;
 
-static std::unordered_map<uint16_t, uint8_t> s_tableRainE;
-static std::unordered_map<uint16_t, uint8_t> s_tableRainM;
-static std::unordered_map<uint16_t, uint8_t> s_tableRainL;
-static std::vector<uint16_t> s_tableRainI;
 
 namespace Chess
 {
 	void ChessFileManager::Init()
 	{
-		if (true)
-		{
-			std::ifstream infileTable("table.clt", std::ios::binary);
-
-			std::vector<uint8_t> data;
-
-			infileTable.seekg(0, std::ios_base::end);
-			std::streampos maxIndex = infileTable.tellg();
-			infileTable.seekg(0, std::ios::beg);
-
-			data.resize(maxIndex);
-			infileTable.read(reinterpret_cast<char*>(data.data()), data.size());
-
-			infileTable.close();
-
-			s_tableRainI.resize(189 * 3);
-
-			for (int i = 0; i < data.size(); i += 2)
-			{
-				uint16_t move = (((uint16_t)data[i + 1] << 8) | data[i]);
-
-				if (i < 189 * 2)
-					s_tableRainE[move] = (i / 2) % 189;
-				else if (i < 189 * 4)
-					s_tableRainM[move] = (i / 2) % 189;
-				else
-					s_tableRainL[move] = (i / 2) % 189;
-
-				s_tableRainI[i / 2] = move;
-			}
-		}
+		InitializeMoveTables();
 
 		s_ChessFileManager = new ChessFileManager();
 
@@ -61,7 +28,7 @@ namespace Chess
 				{
 					std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-					std::unique_lock uniqueLock(s_PgnManagerDataAccessMutex);
+					std::unique_lock uniqueLock(s_ChessManagerDataAccessMutex);
 
 					for (auto it = s_ChessFileManager->m_GamesTimer.begin(); it != s_ChessFileManager->m_GamesTimer.end();)
 					{
@@ -91,7 +58,7 @@ namespace Chess
 
 						bool hasRef = !s_ChessFileManager->m_Games[key].IsFree();
 
-						if (time > 1000 && !hasRef)
+						if ((time > 1000 && !hasRef) || (!s_ChessFileManager->m_PgnData.contains(key.first) && !s_ChessFileManager->m_CldData.contains(key.first)))
 						{
 							s_ChessFileManager->m_Games.erase(key);
 							it = s_ChessFileManager->m_GamesTimer.erase(it);
@@ -153,7 +120,7 @@ namespace Chess
 					while (!s_ChessFileManager->m_endWorkers[threadIndex])
 					{
 						{
-							std::unique_lock lock(s_PgnManagerSearchAccessMutex);
+							std::unique_lock lock(s_ChessManagerSearchAccessMutex);
 
 							for (auto& [searchID, searchData] : s_ChessFileManager->m_Searches)
 							{
@@ -167,7 +134,7 @@ namespace Chess
 									std::shared_ptr<std::vector<size_t>> pointers;
 									
 									{
-										std::shared_lock sharedLock(s_PgnManagerDataAccessMutex);
+										std::shared_lock sharedLock(s_ChessManagerDataAccessMutex);
 
 										if (!FileManager::Get().HasFile(fileID) 
 											|| (!s_ChessFileManager->m_PgnData.contains(fileID) && !s_ChessFileManager->m_CldData.contains(fileID)))
@@ -208,7 +175,7 @@ namespace Chess
 										continue;
 
 									f_startIndex = indexRef;
-									f_endIndex = f_startIndex + 5'000 + 1;
+									f_endIndex = f_startIndex + 5'000 + 1;//5'000 + 1;
 									indexRef = f_endIndex;
 
 									f_fileID = fileID;
@@ -228,7 +195,7 @@ namespace Chess
 							
 							if (false)
 							{
-								std::shared_lock sharedLock(s_PgnManagerSearchAccessMutex);
+								std::shared_lock sharedLock(s_ChessManagerSearchAccessMutex);
 
 								if ( s_ChessFileManager->m_Searches.contains(f_currentSearchID) == false)
 								{
@@ -243,7 +210,7 @@ namespace Chess
 								f_mtx = std::get<2>(search);
 							}
 							{
-								std::shared_lock sharedLock(s_PgnManagerDataAccessMutex);
+								std::shared_lock sharedLock(s_ChessManagerDataAccessMutex);
 
 								if (!FileManager::Get().HasFile(f_fileID)
 									|| (!s_ChessFileManager->m_PgnData.contains(f_fileID) && !s_ChessFileManager->m_CldData.contains(f_fileID)))
@@ -265,6 +232,9 @@ namespace Chess
 									continue;
 								}
 							}
+
+							bool readLabels = f_searchPtr->first.IsLabelUsed();
+							bool readMoves = f_searchPtr->first.IsMovesUsed();
 
 							size_t fileStartIndex = f_pointers->at(f_startIndex);
 							size_t fileEndIndex = ((f_endIndex < f_pointers->size()) ? f_pointers->at(f_endIndex) : SIZE_MAX);
@@ -288,7 +258,7 @@ namespace Chess
 								{
 									static thread_local PgnGame game;
 
-									game.Parse(std::string_view{ &data[nextDataIndex], endDataIndex - nextDataIndex }, true, false);
+									game.Parse(std::string_view{ &data[nextDataIndex], endDataIndex - nextDataIndex }, true, true);
 									nextDataIndex = endDataIndex;
 
 									if (f_searchPtr->first.IsGameValid(game))
@@ -296,12 +266,21 @@ namespace Chess
 								}
 								else if (s_ChessFileManager->m_CldData.contains(f_fileID))
 								{
+									bool wencode = ((*s_ChessFileManager->m_CldData.at(f_fileID).settings)) % 2 == 0;
+									MoveEncoding encoding = MoveEncoding::CLD;
+									if (!wencode)
+										encoding = MoveEncoding::CORE;
+
 									static thread_local CldGame game;
 									game.Parse(std::span<uint8_t>((uint8_t*)data.data() + nextDataIndex, endDataIndex - nextDataIndex),
+										encoding,
 										(*s_ChessFileManager->m_CldData.at(f_fileID).typeName),
 										(*s_ChessFileManager->m_CldData.at(f_fileID).typeValue),
 										true, 
+										readLabels,
+										readMoves,
 										false);
+
 									nextDataIndex = endDataIndex;
 
 									if (f_searchPtr->first.IsGameValid(game))
@@ -360,7 +339,7 @@ namespace Chess
 
 	void ChessFileManager::AddFileReference(FileManager::FileID fileID, std::shared_ptr<std::vector<size_t>> pointers)
 	{
-		std::unique_lock lock(s_PgnManagerDataAccessMutex);
+		std::unique_lock lock(s_ChessManagerDataAccessMutex);
 
 		m_PgnData[fileID].gamePointers = pointers;
 	}
@@ -370,9 +349,10 @@ namespace Chess
 		std::shared_ptr<std::vector<std::string>> labelNames, 
 		std::shared_ptr<std::vector<std::string>> labelValues, 
 		std::shared_ptr<uint8_t> typeName,
-		std::shared_ptr<uint8_t> typeValue)
+		std::shared_ptr<uint8_t> typeValue,
+		std::shared_ptr<uint8_t> settings)
 	{
-		std::unique_lock lock(s_PgnManagerDataAccessMutex);
+		std::unique_lock lock(s_ChessManagerDataAccessMutex);
 
 		auto& cldD = m_CldData[fileID];
 		cldD.gamePointers = gamePointers;
@@ -380,11 +360,12 @@ namespace Chess
 		cldD.labelValues = labelValues;
 		cldD.typeName = typeName;
 		cldD.typeValue = typeValue;
+		cldD.settings = settings;
 	}
 
 	void ChessFileManager::RemoveFileReference(FileManager::FileID fileID)
 	{
-		std::unique_lock lock(s_PgnManagerDataAccessMutex);
+		std::unique_lock lock(s_ChessManagerDataAccessMutex);
 
 		if (s_ChessFileManager->m_PgnData.contains(fileID))
 			m_PgnData.erase(fileID);
@@ -392,11 +373,22 @@ namespace Chess
 			m_CldData.erase(fileID);
 
 		m_EditedGames.erase(fileID);
+
+		//make it diff function
+		for (auto it = s_ChessFileManager->m_GamesTimer.begin(); it != s_ChessFileManager->m_GamesTimer.end(); ++it)
+		{
+			auto& [key, value] = *it;
+
+			if (key.first == fileID)
+			{
+				s_ChessFileManager->m_Games[key].SetCurrentAsInitial();
+			}
+		}
 	}
 
 	PgnGame& ChessFileManager::GetGame(FileManager::FileID fileID, size_t index)
 	{
-		std::unique_lock lock(s_PgnManagerDataAccessMutex);
+		std::unique_lock lock(s_ChessManagerDataAccessMutex);
 
 		if (m_Games.contains({ fileID, index }))
 		{
@@ -437,15 +429,20 @@ namespace Chess
 			std::vector<uint8_t> data;
 			FileManager::Get().ReadBuffer(fileID, (*m_CldData[fileID].gamePointers)[index], ((index + 1 < m_CldData[fileID].gamePointers->size()) ? ((*m_CldData[fileID].gamePointers)[index + 1] - (*m_CldData[fileID].gamePointers)[index]) : SIZE_MAX), (std::vector<uint8_t>&)data);
 
+			bool wencode = ((*s_ChessFileManager->m_CldData.at(fileID).settings) % 2) == 0;
+			MoveEncoding encoding = MoveEncoding::CLD;
+			if (!wencode)
+				encoding = MoveEncoding::CORE;
+
 			CldGame cldGame;
-			cldGame.Parse(data, (*m_CldData[fileID].typeName), (*m_CldData[fileID].typeValue));
+			cldGame.Parse(data, encoding, (*m_CldData[fileID].typeName), (*m_CldData[fileID].typeValue), true);
 
 			auto& newGame = m_Games[{ fileID, index }];
 			
 			for (auto& nameIndex : cldGame.GetLabelNames())
 				newGame[(*m_CldData[fileID].labelNames)[nameIndex]] = (*m_CldData[fileID].labelValues)[cldGame[nameIndex]];
 			
-			ConvertCldMovePathToPgnMovePath(newGame.GetMovePathbyRef(), cldGame.GetMovePathbyRef());
+			ConvertCldMovePathToPgnMovePath(newGame.GetMovePathbyRef(), cldGame.GetMovePathbyRef(), encoding);
 			newGame.SetCurrentAsInitial();
 
 			m_GamesTimer[{ fileID, index }] = std::chrono::high_resolution_clock::now();
@@ -453,30 +450,63 @@ namespace Chess
 		}
 	}
 
-	void ChessFileManager::GetGames(FileManager::FileID fileID, size_t index, size_t size, std::vector<PgnGame*> games)
+	void ChessFileManager::GetGames(FileManager::FileID fileID, size_t index, size_t size, std::vector<PgnGame*>& games)
 	{
-		std::unique_lock lock(s_PgnManagerDataAccessMutex);
+		std::unique_lock lock(s_ChessManagerDataAccessMutex);
 
 		games.clear();
 
-		if (m_Games.contains({ fileID, index }))
+		std::unordered_set<size_t> alreadyLoadedIndexes;
+
+		for (int i = 0; i < size; i++)
 		{
-			m_GamesTimer[{ fileID, index }] = std::chrono::high_resolution_clock::now();
-			return; m_Games.at({ fileID, index });
+			if (m_Games.contains({ fileID, index + i }))
+			{
+				alreadyLoadedIndexes.insert(index + i);
+			}
 		}
 
-		if (m_PgnData.contains(fileID) && m_PgnData.at(fileID).gamePointers->size() <= index)
+		if (alreadyLoadedIndexes.size() == size)
 		{
-			m_EditedGames[fileID].emplace_back(index);
-			m_GamesTimer[{ fileID, index }] = std::chrono::high_resolution_clock::now();
-			return; m_Games[{ fileID, index }];
+			for (int i = 0; i < size; i++)
+			{
+				games.emplace_back(&m_Games.at({ fileID, index + i }));
+				m_GamesTimer[{ fileID, index + i }] = std::chrono::high_resolution_clock::now();
+			}
+
+			return;
 		}
 
-		if (m_CldData.contains(fileID) && m_CldData.at(fileID).gamePointers->size() <= index)
+		if (m_PgnData.contains(fileID))
 		{
-			m_EditedGames[fileID].emplace_back(index);
-			m_GamesTimer[{ fileID, index }] = std::chrono::high_resolution_clock::now();
-			return; m_Games[{ fileID, index }];
+			if (index >= m_PgnData.at(fileID).gamePointers->size())
+			{
+				for (int i = 0; i < size; i++)
+				{
+					m_EditedGames[fileID].emplace_back(index + i);
+					m_GamesTimer[{ fileID, index + i }] = std::chrono::high_resolution_clock::now();
+					games.emplace_back(&m_Games[{ fileID, index + i }]);
+				}
+
+				return;
+			}
+
+		}
+
+		if (m_CldData.contains(fileID))
+		{
+			if (index >= m_CldData.at(fileID).gamePointers->size())
+			{
+				for (int i = 0; i < size; i++)
+				{
+					m_EditedGames[fileID].emplace_back(index + i);
+					m_GamesTimer[{ fileID, index + i }] = std::chrono::high_resolution_clock::now();
+					games.emplace_back(&m_Games[{ fileID, index + i }]);
+				}
+
+				return;
+			}
+
 		}
 
 		if (!FileManager::Get().HasFile(fileID))
@@ -484,39 +514,111 @@ namespace Chess
 
 		if (m_PgnData.contains(fileID))
 		{
+			size_t maxIndex = std::min(index + size, m_PgnData.at(fileID).gamePointers->size());
+
 			std::vector<uint8_t> data;
-			FileManager::Get().ReadBuffer(fileID, (*m_PgnData[fileID].gamePointers)[index], ((index + 1 < m_PgnData[fileID].gamePointers->size()) ? ((*m_PgnData[fileID].gamePointers)[index + 1] - (*m_PgnData[fileID].gamePointers)[index]) : SIZE_MAX), (std::vector<uint8_t>&)data);
+			FileManager::Get().ReadBuffer(fileID, (*m_PgnData[fileID].gamePointers)[index], ((maxIndex < m_PgnData[fileID].gamePointers->size()) ? ((*m_PgnData[fileID].gamePointers)[maxIndex] - (*m_PgnData[fileID].gamePointers)[index]) : SIZE_MAX), (std::vector<uint8_t>&)data);
 
-			m_Games[{ fileID, index }].Parse(std::string_view{ (char*)data.data(), data.size() });
-			m_GamesTimer[{ fileID, index }] = std::chrono::high_resolution_clock::now();
+			for (size_t i = index; i < maxIndex; i++)
+			{
+				if (alreadyLoadedIndexes.contains(i))
+				{
+					m_GamesTimer[{ fileID, i }] = std::chrono::high_resolution_clock::now();
+					games.emplace_back(&m_Games.at({ fileID, i }));
+				}
+				else
+				{
+					m_Games[{ fileID, i }].Parse(std::string_view{ (char*)data.data() + (*m_PgnData[fileID].gamePointers)[i] - (*m_PgnData[fileID].gamePointers)[index], (i == m_PgnData.at(fileID).gamePointers->size() - 1 ? (data.size()+ (*m_PgnData[fileID].gamePointers)[index] - (*m_PgnData[fileID].gamePointers)[i]) : ((*m_PgnData[fileID].gamePointers)[i + 1] - (*m_PgnData[fileID].gamePointers)[i])) });
+					m_GamesTimer[{ fileID, i }] = std::chrono::high_resolution_clock::now();
+					
+					games.emplace_back(&m_Games.at({ fileID, i }));
+				}
+			}
 
-			return; m_Games.at({ fileID, index });
+			if (maxIndex >= m_PgnData.at(fileID).gamePointers->size())
+			{
+				for (int i = 0; i < index + size - m_PgnData.at(fileID).gamePointers->size(); i++)
+				{
+					m_EditedGames[fileID].emplace_back(maxIndex + i);
+					m_GamesTimer[{ fileID, maxIndex + i }] = std::chrono::high_resolution_clock::now();
+					games.emplace_back(&m_Games[{ fileID, maxIndex + i }]);
+				}
+			}
+
+			return;
 		}
 
 		if (m_CldData.contains(fileID))
 		{
+			size_t maxIndex = std::min(index + size, m_CldData.at(fileID).gamePointers->size());
+
 			std::vector<uint8_t> data;
-			FileManager::Get().ReadBuffer(fileID, (*m_CldData[fileID].gamePointers)[index], ((index + 1 < m_CldData[fileID].gamePointers->size()) ? ((*m_CldData[fileID].gamePointers)[index + 1] - (*m_CldData[fileID].gamePointers)[index]) : SIZE_MAX), (std::vector<uint8_t>&)data);
+			FileManager::Get().ReadBuffer(fileID, (*m_CldData[fileID].gamePointers)[index], ((maxIndex < m_CldData[fileID].gamePointers->size()) ? ((*m_CldData[fileID].gamePointers)[maxIndex] - (*m_CldData[fileID].gamePointers)[index]) : SIZE_MAX), (std::vector<uint8_t>&)data);
 
-			CldGame cldGame;
-			cldGame.Parse(data, (*m_CldData[fileID].typeName), (*m_CldData[fileID].typeValue));
+			for (size_t i = index; i < maxIndex; i++)
+			{
+				if (alreadyLoadedIndexes.contains(i))
+				{
+					m_GamesTimer[{ fileID, i }] = std::chrono::high_resolution_clock::now();
+					games.emplace_back(&m_Games.at({ fileID, i }));
+				}
+				else
+				{
+					bool wencode = ((*s_ChessFileManager->m_CldData.at(fileID).settings) % 2) == 0;
+					MoveEncoding encoding = MoveEncoding::CLD;
+					if (!wencode)
+						encoding = MoveEncoding::CORE;
 
-			auto& newGame = m_Games[{ fileID, index }];
+					CldGame cldGame;
+					cldGame.Parse(std::span(data.data() + (*m_CldData[fileID].gamePointers)[i] - (*m_CldData[fileID].gamePointers)[index], i == m_CldData.at(fileID).gamePointers->size() - 1 ? (data.size() + (*m_CldData[fileID].gamePointers)[index] - (*m_CldData[fileID].gamePointers)[i]) : ((*m_CldData[fileID].gamePointers)[i + 1] - (*m_CldData[fileID].gamePointers)[i])), encoding, (*m_CldData[fileID].typeName), (*m_CldData[fileID].typeValue));
 
-			for (auto& nameIndex : cldGame.GetLabelNames())
-				newGame[(*m_CldData[fileID].labelNames)[nameIndex]] = (*m_CldData[fileID].labelValues)[cldGame[nameIndex]];
+					auto& newGame = m_Games[{ fileID, i }];
 
-			ConvertCldMovePathToPgnMovePath(newGame.GetMovePathbyRef(), cldGame.GetMovePathbyRef());
-			newGame.SetCurrentAsInitial();
+					for (auto& nameIndex : cldGame.GetLabelNames())
+						newGame[(*m_CldData[fileID].labelNames)[nameIndex]] = (*m_CldData[fileID].labelValues)[cldGame[nameIndex]];
 
-			m_GamesTimer[{ fileID, index }] = std::chrono::high_resolution_clock::now();
-			return; m_Games.at({ fileID, index });
+					ConvertCldMovePathToPgnMovePath(newGame.GetMovePathbyRef(), cldGame.GetMovePathbyRef(), encoding);
+					newGame.SetCurrentAsInitial();
+
+					m_GamesTimer[{ fileID, i }] = std::chrono::high_resolution_clock::now();
+					games.emplace_back(&m_Games.at({ fileID, i }));
+				}
+			}
+
+			if (maxIndex >= m_CldData.at(fileID).gamePointers->size())
+			{
+				for (int i = 0; i < index + size - m_CldData.at(fileID).gamePointers->size(); i++)
+				{
+					m_EditedGames[fileID].emplace_back(maxIndex + i);
+					m_GamesTimer[{ fileID, maxIndex + i }] = std::chrono::high_resolution_clock::now();
+					games.emplace_back(&m_Games[{ fileID, maxIndex + i }]);
+				}
+			}
+
+			return;
+		}
+	}
+
+	void ChessFileManager::RemoveFromEditedGames(FileManager::FileID fileID, size_t index)
+	{
+		std::unique_lock lock(s_ChessManagerDataAccessMutex);
+		
+		if (!m_EditedGames.contains(fileID))
+			return;
+		
+		for (int i = 0; i < m_EditedGames.at(fileID).size(); i++)
+		{
+			if (m_EditedGames.at(fileID)[i] == index)
+			{
+				m_EditedGames.at(fileID).erase(m_EditedGames.at(fileID).begin() + i);
+				return;
+			}
 		}
 	}
 
 	void ChessFileManager::GetEditedGames(FileManager::FileID fileID, std::vector<size_t>& indexes) const
 	{
-		std::unique_lock lock(s_PgnManagerDataAccessMutex);
+		std::unique_lock lock(s_ChessManagerDataAccessMutex);
 
 		if (!m_EditedGames.contains(fileID))
 			return;
@@ -526,7 +628,7 @@ namespace Chess
 
 	bool ChessFileManager::IsGameEdited(FileManager::FileID fileID, size_t index) const
 	{
-		std::unique_lock lock(s_PgnManagerDataAccessMutex);
+		std::unique_lock lock(s_ChessManagerDataAccessMutex);
 
 		if (!m_EditedGames.contains(fileID))
 			return false;
@@ -542,7 +644,7 @@ namespace Chess
 
 	void ChessFileManager::ClearSearch(SearchID id)
 	{
-		std::unique_lock lock(s_PgnManagerSearchAccessMutex);
+		std::unique_lock lock(s_ChessManagerSearchAccessMutex);
 
 		if (!m_Searches.contains(id))
 			return;
@@ -552,7 +654,7 @@ namespace Chess
 
 	void ChessFileManager::StartSearch(SearchID id, FileManager::FileID fileID, std::shared_ptr<std::pair<SearchOptions, SearchResult>> seachPtr)
 	{
-		std::unique_lock lock(s_PgnManagerSearchAccessMutex);
+		std::unique_lock lock(s_ChessManagerSearchAccessMutex);
 
 		if (m_Searches.contains(id))
 			return;
@@ -577,9 +679,13 @@ namespace Chess
 		}
 	}
 
-	void ChessFileManager::ConvertCldMovePathToPgnMovePath(PgnGame::ChessMovesPath& pgnMovePath, const CldGame::CldMovesPath& cldMovePath, int moveIndex)
+	void ChessFileManager::ConvertCldMovePathToPgnMovePath(PgnGame::ChessMovesPath& pgnMovePath, const CldGame::CldMovesPath& cldMovePath, MoveEncoding encoding, int moveIndex)
 	{
 		static const char* pieceNames = "NBRQPK";
+		static Board staticBoard;
+		Board myBoard = staticBoard;
+		Board::Move prevMove;
+		Piece prevProm;
 
 		if (cldMovePath.details.contains(-1))
 		{
@@ -596,6 +702,8 @@ namespace Chess
 
 			if (move->first == UINT8_MAX)
 			{
+				Board oldBoard = staticBoard;
+
 				pgnMovePath.move.emplace_back("child");
 
 				int moveIndexToPass = moveIndex;
@@ -605,8 +713,10 @@ namespace Chess
 				else
 					moveIndexToPass *= -1;
 
-				ConvertCldMovePathToPgnMovePath(pgnMovePath.children.emplace_back(), cldMovePath.children[index], moveIndexToPass);
+				ConvertCldMovePathToPgnMovePath(pgnMovePath.children.emplace_back(), cldMovePath.children[index], encoding, moveIndexToPass);
 				index++;
+
+				staticBoard = oldBoard;
 
 				continue;
 			}
@@ -621,258 +731,32 @@ namespace Chess
 				moveToAdd += (std::to_string(moveIndex) + ". ");
 			}
 
-			std::pair<uint8_t, uint8_t> tableMove;
-
-			if (move->first >= 64)
+			if (encoding == MoveEncoding::CLD)
 			{
-				size_t indexOfMove = move->first - 64;
-
-				if (i - index >= 70)
-					indexOfMove += (189 * 2);
-				else if (i - index >= 45)
-					indexOfMove += 189;
-
-				tableMove.first = uint8_t(s_tableRainI.at(indexOfMove) >> 8);
-				tableMove.second = uint8_t(s_tableRainI.at(indexOfMove) & 0x00FF);
-
-				move = &tableMove;
+				moveToAdd += Board::ConvertCLDMoveToPGNMove(*move);
+				pgnMovePath.move.emplace_back(moveToAdd);
 			}
-
-			uint8_t moveDir = move->first & 0b00111111;
-			uint8_t movePartOne = (move->second & 0b11100000) >> 5;
-			uint8_t movePartSecond = (move->second & 0b00011100) >> 2;
-			uint8_t movePartThird = move->second & 0b00000011;
-			
-			char DirX = 'a' + (moveDir >> 3);
-			char DirY = '1' + (moveDir & 0b00000111);
-
-			if (movePartOne == 0)
+			else if (encoding == MoveEncoding::CORE)
 			{
-				if ((moveDir >> 3) != movePartSecond)
-				{
-					moveToAdd += ('a' + movePartSecond);
-					moveToAdd += 'x';
-				}
-	
-				moveToAdd += DirX;
-				moveToAdd += DirY;
+				Board::Move coreMove;
+				Piece promType = NONE;
 
-				if (DirY == '1' || DirY == '8')
+				coreMove.index = move->first;
+				coreMove.move = uint8_t(move->second >> 2) - coreMove.index;
+				promType = Piece((move->second & 0b00000011) + 1);
+
+				moveToAdd = myBoard.ConvertCoreMoveToPGNMove(coreMove, promType);
+
+				pgnMovePath.move.emplace_back(moveToAdd);
+				myBoard.MakeMove(coreMove, promType);
+
+				if (prevMove.move != 0)
 				{
-					moveToAdd += '=';
-					moveToAdd += pieceNames[movePartThird];
+					staticBoard.MakeMove(prevMove, prevProm);
+					prevMove = coreMove;
+					prevProm = promType;
 				}
 			}
-			else if (movePartOne == 1)
-			{
-				if (movePartSecond == 0)
-				{
-					moveToAdd += 'K';
-					moveToAdd += DirX;
-					moveToAdd += DirY;
-				}
-				else if (movePartSecond == 1)
-				{
-					moveToAdd += 'K';
-					moveToAdd += 'x';
-					moveToAdd += DirX;
-					moveToAdd += DirY;
-				}
-				else if (movePartSecond == 2)
-				{
-					moveToAdd += pieceNames[movePartThird];
-					moveToAdd += DirX;
-					moveToAdd += DirY;
-				}
-				else if (movePartSecond == 3)
-				{
-					moveToAdd += pieceNames[movePartThird];
-					moveToAdd += 'x';
-					moveToAdd += DirX;
-					moveToAdd += DirY;
-				}
-				else if (movePartSecond == 4)
-				{
-					moveToAdd += "O-O";
-				}
-				else if (movePartSecond == 5)
-				{
-					moveToAdd += "O-O-O";
-				}
-			}
-			else if (movePartOne == 2)
-			{
-				moveToAdd += pieceNames[movePartThird];
-				moveToAdd += ('a' + movePartSecond);
-				moveToAdd += DirX;
-				moveToAdd += DirY;
-			}
-			else if (movePartOne == 3)
-			{
-				moveToAdd += pieceNames[movePartThird];
-				moveToAdd += ('a' + movePartSecond);
-				moveToAdd += 'x';
-				moveToAdd += DirX;
-				moveToAdd += DirY;
-			}
-			else if (movePartOne == 4)
-			{
-				moveToAdd += pieceNames[movePartThird];
-				moveToAdd += ('1' + movePartSecond);
-				moveToAdd += DirX;
-				moveToAdd += DirY;
-			}
-			else if (movePartOne == 5)
-			{
-				moveToAdd += pieceNames[movePartThird];
-				moveToAdd += ('1' + movePartSecond);
-				moveToAdd += 'x';
-				moveToAdd += DirX;
-				moveToAdd += DirY;
-			}
-			else if (movePartOne == 6)
-			{
-				static const int converter[] = {-2, -1, 1, 2};
-				char pN;
-				char posX;
-				char posY;
-
-				if (movePartThird == 0)
-				{
-					int converted = converter[movePartSecond % 4];
-					posX = DirX + converted;
-
-					converted = (std::abs(converted) == 2 ? 1 : 2);
-					
-					if (movePartSecond / 4 == 0)
-						posY = DirY - converted;
-					else
-						posY = DirY + converted;
-					
-					pN = pieceNames[movePartThird];
-				}
-				else if (movePartThird == 1 || movePartThird == 2)
-				{
-					int converted = converter[movePartSecond % 4];
-					posX = DirX + converted;
-
-					if (movePartSecond / 4 == 0)
-						posY = DirY - converted;
-					else
-						posY = DirY + converted;
-
-					pN = pieceNames[movePartThird];
-				}
-				else
-				{
-					int pos3 = movePartSecond % 4;
-					
-					if (pos3 == 0)
-					{
-						posX = DirX - 3;
-						posY = DirY - 3;
-					}
-					else if (pos3 == 1)
-					{
-						posX = DirX + 3;
-						posY = DirY - 3;
-					}
-					else if (pos3 == 2)
-					{
-						posX = DirX - 3;
-						posY = DirY + 3;
-					}
-					else 
-					{
-						posX = DirX + 3;
-						posY = DirY + 3;
-					}
-
-					if (movePartSecond / 4 == 0)
-						pN = 'B';
-					else
-						pN = 'Q';
-				}
-
-				moveToAdd += pN;
-				moveToAdd += posX;
-				moveToAdd += posY;
-				moveToAdd += DirX;
-				moveToAdd += DirY;
-			}
-			else if (movePartOne == 7)
-			{
-				static const int converter[] = { -2, -1, 1, 2 };
-				char pN;
-				char posX;
-				char posY;
-
-				if (movePartThird == 0)
-				{
-					int converted = converter[movePartSecond % 4];
-					posX = DirX + converted;
-
-					converted = (std::abs(converted) == 2 ? 1 : 2);
-
-					if (movePartSecond / 4 == 0)
-						posY = DirY - converted;
-					else
-						posY = DirY + converted;
-
-					pN = pieceNames[movePartThird];
-				}
-				else if (movePartThird == 1 || movePartThird == 2)
-				{
-					int converted = converter[movePartSecond % 4];
-					posX = DirX + converted;
-
-					if (movePartSecond / 4 == 0)
-						posY = DirY - converted;
-					else
-						posY = DirY + converted;
-
-					pN = pieceNames[movePartThird];
-				}
-				else
-				{
-					int pos3 = movePartSecond % 4;
-
-					if (pos3 == 0)
-					{
-						posX = DirX - 3;
-						posY = DirY - 3;
-					}
-					else if (pos3 == 1)
-					{
-						posX = DirX + 3;
-						posY = DirY - 3;
-					}
-					else if (pos3 == 2)
-					{
-						posX = DirX - 3;
-						posY = DirY + 3;
-					}
-					else
-					{
-						posX = DirX + 3;
-						posY = DirY + 3;
-					}
-
-					if (movePartSecond / 4 == 0)
-						pN = 'B';
-					else
-						pN = 'Q';
-				}
-
-				moveToAdd += pN;
-				moveToAdd += posX;
-				moveToAdd += posY;
-				moveToAdd += 'x';
-				moveToAdd += DirX;
-				moveToAdd += DirY;
-			}
-
-			pgnMovePath.move.emplace_back(moveToAdd);
 
 			if (cldMovePath.details.contains(i))
 			{
@@ -883,10 +767,13 @@ namespace Chess
 		}
 	}
 
-	void ChessFileManager::ConvertPgnMovePathToCldMovePath(CldGame::CldMovesPath& cldMovePath, const PgnGame::ChessMovesPath& pgnMovePath)
+	void ChessFileManager::ConvertPgnMovePathToCldMovePath(CldGame::CldMovesPath& cldMovePath, const PgnGame::ChessMovesPath& pgnMovePath, MoveEncoding encoding)
 	{
-		const uint8_t converter[] = { 0, 1, 0, 2, 3 };
 		const uint8_t childIndexID = 255;
+		static Board staticBoard;
+		Board myBoard = staticBoard;
+		Board::Move prevMove = { 0, 0 };
+		Piece prevProm = NONE;
 
 		if (pgnMovePath.details.contains(-1) && (pgnMovePath.details.at(-1).note != "" || !pgnMovePath.details.at(-1).cmds.empty()))
 		{
@@ -903,364 +790,46 @@ namespace Chess
 
 			if (move == "child")
 			{
+				Board oldBoard = staticBoard;
+
 				cldMovePath.move.emplace_back(childIndexID, childIndexID);
 				
 				auto& child = cldMovePath.children.emplace_back(&cldMovePath);
-				ConvertPgnMovePathToCldMovePath(child, pgnMovePath.children[index]);
+				ConvertPgnMovePathToCldMovePath(child, pgnMovePath.children[index], encoding);
 				index++;
+
+				staticBoard = oldBoard;
 
 				continue;
 			}
 
-			uint8_t firstPart, secondPart;
-
-			size_t moveStart = -1, moveDirStart = -1, yPosIndex = -1, xPosIndex = -1;
-			bool xPos = false, yPos = false, taking = false, Prom = false;
-
-			bool bigRoke = move.find("O-O-O") != std::string::npos || move.find("0-0-0") != std::string::npos;
-			bool smallRoke = move.find("O-O") != std::string::npos || move.find("0-0") != std::string::npos;
-
-			if (bigRoke)
+			if (encoding == MoveEncoding::CLD)
 			{
-				firstPart = 0;
-				secondPart = 0b00110100;
+				auto moveCld = Board::ConvertPGNMoveToCLDMove(move);
+				cldMovePath.move.emplace_back(moveCld.first, moveCld.second);
 			}
-			else if (smallRoke)
+			else if (encoding == MoveEncoding::CORE)
 			{
-				firstPart = 0;
-				secondPart = 0b00110000;
-			}
-			else
-			{
-				moveStart = move.find(' ');
+				Board::Move coreMove;
+				Piece promType;
+				myBoard.ConvertPGNMoveToCoreMove(coreMove, promType, move);
 
-				if (moveStart == std::string::npos)
-					moveStart = 0;
-				else
-					moveStart += 1;
+				uint8_t promotionBits = (promType - 1) & 0b00000011;
 
-				moveDirStart = moveStart;
-
-				for (int k = move.size() - 1; k > moveStart; k--)
+				cldMovePath.move.emplace_back(coreMove.index, (uint8_t(coreMove.move + coreMove.index) << 2) | promotionBits);
+				
+				if (myBoard.MakeMove(coreMove, promType) != Board::SUCCESS)
 				{
-					if (move[k] >= '1' && move[k] <= '8')
-					{
-						moveDirStart = k - 1;
-						break;
-					}
+					break;
+					//__debugbreak();
 				}
-
-				Prom = move.find('=') != std::string::npos;
-				taking = move.find('x') != std::string::npos;
-				uint8_t dirX = move[moveDirStart] - 'a';
-				uint8_t dirY = move[moveDirStart + 1] - '1';
-
-				firstPart = (dirX << 3) | dirY;
-
-				if (move[moveStart] > 'A' && move[moveStart] < 'Z')
+				if (prevMove.move != 0)
 				{
-					int checkIfPos = moveDirStart - moveStart;
-
-					if (taking)
-						checkIfPos -= 1;
-
-					for (int k = 1; k < checkIfPos; k++)
-					{
-						char c = move[k + moveStart];
-						if (c >= 'a' && c <= 'h')
-						{
-							xPosIndex = c - 'a';
-							xPos = true;
-						}
-						else if (c >= '1' && c <= '8')
-						{
-							yPosIndex = c - '1';
-							yPos = true;
-						}
-					}
-
-					if (!xPos && !yPos)
-					{
-						if (move[moveStart] == 'K')
-						{
-							if (taking)
-								secondPart = 0b00100100;
-							else
-								secondPart = 0b00100000;
-						}
-						else if (move[moveStart] == 'N')
-						{
-							if (taking)
-								secondPart = 0b00101100;
-							else
-								secondPart = 0b00101000;
-						}
-						else if (move[moveStart] == 'B')
-						{
-							if (taking)
-								secondPart = 0b00101101;
-							else
-								secondPart = 0b00101001;
-						}
-						else if (move[moveStart] == 'R')
-						{
-							if (taking)
-								secondPart = 0b00101110;
-							else
-								secondPart = 0b00101010;
-						}
-						else if (move[moveStart] == 'Q')
-						{
-							if (taking)
-								secondPart = 0b00101111;
-							else
-								secondPart = 0b00101011;
-						}
-					}
-					else if (xPos && !yPos && !taking)
-					{
-						if (move[moveStart] == 'N')
-						{
-							secondPart = 0b01000000 | (xPosIndex << 2);
-						}
-						else if (move[moveStart] == 'B')
-						{
-							secondPart = 0b01000001 | (xPosIndex << 2);
-						}
-						else if (move[moveStart] == 'R')
-						{
-							secondPart = 0b01000010 | (xPosIndex << 2);
-						}
-						else if (move[moveStart] == 'Q')
-						{
-							secondPart = 0b01000011 | (xPosIndex << 2);
-						}
-					}
-					else if (xPos && !yPos && taking)
-					{
-						if (move[moveStart] == 'N')
-						{
-							secondPart = 0b01100000 | (xPosIndex << 2);
-						}
-						else if (move[moveStart] == 'B')
-						{
-							secondPart = 0b01100001 | (xPosIndex << 2);
-						}
-						else if (move[moveStart] == 'R')
-						{
-							secondPart = 0b01100010 | (xPosIndex << 2);
-						}
-						else if (move[moveStart] == 'Q')
-						{
-							secondPart = 0b01100011 | (xPosIndex << 2);
-						}
-					}
-					else if (!xPos && yPos && !taking)
-					{
-						if (move[moveStart] == 'N')
-						{
-							secondPart = 0b10000000 | (yPosIndex << 2);
-						}
-						else if (move[moveStart] == 'B')
-						{
-							secondPart = 0b10000001 | (yPosIndex << 2);
-						}
-						else if (move[moveStart] == 'R')
-						{
-							secondPart = 0b10000010 | (yPosIndex << 2);
-						}
-						else if (move[moveStart] == 'Q')
-						{
-							secondPart = 0b10000011 | (yPosIndex << 2);
-						}
-					}
-					else if (!xPos && yPos && taking)
-					{
-						if (move[moveStart] == 'N')
-						{
-							secondPart = 0b10100000 | (yPosIndex << 2);
-						}
-						else if (move[moveStart] == 'B')
-						{
-							secondPart = 0b01010001 | (yPosIndex << 2);
-						}
-						else if (move[moveStart] == 'R')
-						{
-							secondPart = 0b10100010 | (yPosIndex << 2);
-						}
-						else if (move[moveStart] == 'Q')
-						{
-							secondPart = 0b10100011 | (yPosIndex << 2);
-						}
-					}
-					else if (xPos && yPos && !taking)
-					{
-						int xDiff = dirX - xPosIndex;
-						int yDiff = dirY - yPosIndex;
-
-						if (move[moveStart] == 'N')
-						{
-							secondPart = 0b11000000 | ((converter[xDiff + 2] + (0 ? yDiff > 0 : 4)) << 2);
-						}
-						else if (move[moveStart] == 'B')
-						{
-							if (std::abs(xDiff) > 2)
-							{
-								if (xDiff < 0 && yDiff < 0)
-								{
-									secondPart = 0b11000010;
-								}
-								else if (xDiff > 0 && yDiff < 0)
-								{
-									secondPart = 0b11000110;
-								}
-								else if (xDiff < 0 && yDiff > 0)
-								{
-									secondPart = 0b11001010;
-								}
-								else
-								{
-									secondPart = 0b11001110;
-								}
-							}
-							else
-							{
-								secondPart = 0b11000001 | ((converter[xDiff + 2] + (yDiff > 0 ? 0 : 4)) << 2);
-							}
-						}
-						else if (move[moveStart] == 'Q')
-						{
-							if (std::abs(xDiff) > 2)
-							{
-								if (xDiff < 0 && yDiff < 0)
-								{
-									secondPart = 0b11010010;
-								}
-								else if (xDiff > 0 && yDiff < 0)
-								{
-									secondPart = 0b11010110;
-								}
-								else if (xDiff < 0 && yDiff > 0)
-								{
-									secondPart = 0b11011010;
-								}
-								else
-								{
-									secondPart = 0b11011110;
-								}
-							}
-							else
-							{
-								secondPart = 0b11000011 | ((converter[xDiff + 2] + (yDiff > 0 ?  0 : 4)) << 2);
-							}
-						}
-					}
-					else if (xPos && yPos && taking)
-					{
-						int xDiff = dirX - xPosIndex;
-						int yDiff = dirY - yPosIndex;
-
-						if (move[moveStart] == 'N')
-						{
-							secondPart = 0b11100000 | ((converter[xDiff + 2] + (yDiff > 0 ? 0 : 4)) << 2);
-						}
-						else if (move[moveStart] == 'B')
-						{
-							if (std::abs(xDiff) > 2)
-							{
-								if (xDiff < 0 && yDiff < 0)
-								{
-									secondPart = 0b11100010;
-								}
-								else if (xDiff > 0 && yDiff < 0)
-								{
-									secondPart = 0b11100110;
-								}
-								else if (xDiff < 0 && yDiff > 0)
-								{
-									secondPart = 0b11101010;
-								}
-								else
-								{
-									secondPart = 0b11101110;
-								}
-							}
-							else
-							{
-								secondPart = 0b11100001 | ((converter[xDiff + 2] + (yDiff > 0 ?  0 : 4)) << 2);
-							}
-						}
-						else if (move[moveStart] == 'Q')
-						{
-							if (std::abs(xDiff) > 2)
-							{
-								if (xDiff < 0 && yDiff < 0)
-								{
-									secondPart = 0b11110010;
-								}
-								else if (xDiff > 0 && yDiff < 0)
-								{
-									secondPart = 0b11110110;
-								}
-								else if (xDiff < 0 && yDiff > 0)
-								{
-									secondPart = 0b11111010;
-								}
-								else
-								{
-									secondPart = 0b11111110;
-								}
-							}
-							else
-							{
-								secondPart = 0b11100011 | ((converter[xDiff + 2] + (yDiff > 0 ? 0 : 4)) << 2);
-							}
-						}
-					}
-				}
-				else
-				{
-					if (taking)
-					{
-						secondPart = 0b00000000 | ((move[moveStart] - 'a') << 2);
-					}
-					else
-					{
-						secondPart = 0b00000000 | (dirX << 2);
-					}
-
-					if (Prom)
-					{
-						char type = move[moveDirStart + 3];
-						
-						if (type == 'B')
-							secondPart |= 1;
-						else if (type == 'R')
-							secondPart |= 2;
-						else if (type == 'Q')
-							secondPart |= 3;
-					}
+					staticBoard.MakeMove(prevMove, prevProm);
+					prevMove = coreMove;
+					prevProm = promType;
 				}
 			}
-
-			if (i - index < 45)
-			{
-				if (s_tableRainE.contains((firstPart << 8) | secondPart))
-					cldMovePath.move.emplace_back(s_tableRainE[(firstPart << 8) | secondPart] + 64, 0);
-				else
-					cldMovePath.move.emplace_back(firstPart, secondPart);
-			}
-			else if (i - index < 70)
-			{
-				if (s_tableRainM.contains((firstPart << 8) | secondPart))
-					cldMovePath.move.emplace_back(s_tableRainM[(firstPart << 8) | secondPart] + 64, 0);
-				else
-					cldMovePath.move.emplace_back(firstPart, secondPart);
-			}
-			else if (s_tableRainL.contains((firstPart << 8) | secondPart))
-				cldMovePath.move.emplace_back(s_tableRainL[(firstPart << 8) | secondPart] + 64, 0);
-			else
-				cldMovePath.move.emplace_back(firstPart, secondPart);
 
 			if (pgnMovePath.details.contains(i) && (pgnMovePath.details.at(i).note != "" || !pgnMovePath.details.at(i).cmds.empty()))
 			{

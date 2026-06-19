@@ -3,7 +3,8 @@
 #include "imgui.h"
 #include "misc/cpp/imgui_stdlib.h"
 
-extern bool g_LoadingModalOpen;
+#include "../ChessAPI/ChessAPI.h"
+#include "../Panels.h"
 
 namespace Panels
 {
@@ -14,7 +15,7 @@ namespace Panels
 
 		ImGui::Begin("Notes", &m_viewPanel);
 		
-		if (g_LoadingModalOpen)
+		if (Panels::IsLoadingPopupOpen())
 		{
 			ImGui::End();
 			return;
