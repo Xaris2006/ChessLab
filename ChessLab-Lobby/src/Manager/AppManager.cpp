@@ -180,6 +180,7 @@ namespace Manager
 						if (!alreadyOpened)
 						{
 							auto pathToAdd = std::filesystem::canonical(npath).wstring();
+
 							s_AppManager->m_Apps.emplace_back(L"ChessLabApp\\ChessLab-Board.exe", pathToAdd);
 							s_AppManager->m_Apps[s_AppManager->m_Apps.size() - 1].Write("Ok");
 						}

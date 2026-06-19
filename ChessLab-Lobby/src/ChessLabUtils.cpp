@@ -23,6 +23,33 @@ std::filesystem::path s_CacheDirectory;
 static bool s_IamSecond = false;
 static HANDLE s_hMutex;
 
+static std::string WCharToString(const wchar_t* w)
+{
+	if (!w) return {};
+
+	int size = WideCharToMultiByte(
+		CP_UTF8, 0,
+		w, -1,
+		nullptr, 0,
+		nullptr, nullptr
+	);
+
+	std::string str(size, 0);
+
+	WideCharToMultiByte(
+		CP_UTF8, 0,
+		w, -1,
+		&str[0], size,
+		nullptr, nullptr
+	);
+
+	// Remove Windows null terminator
+	if (!str.empty() && str.back() == '\0')
+		str.pop_back();
+
+	return str;
+}
+
 namespace ChessLab::Utils
 {
 	void New()
@@ -32,7 +59,7 @@ namespace ChessLab::Utils
 
 	void Open()
 	{
-		std::string filepath = Windows::Utils::OpenFile("Chess Database (*.pgn)\0*.pgn\0");
+		std::string filepath = Windows::Utils::OpenFile(L"Any Database (*.pgn, *.cld)\0*.pgn;*.cld\0PGN Database (*.pgn)\0*.pgn\0Chess Lab Database (*.cld)\0*.cld\0\0");
 		if (!filepath.empty())
 			Manager::AppManager::Get().CreateApp(filepath);
 	}
@@ -132,18 +159,22 @@ namespace ChessLab::Utils
 		}
 	}
 
-	void InitializeArguments(int argc, char** argv)
+	void InitializeArguments(int argc, wchar_t** wargv)
 	{
 		s_arg.clear();
-		s_arg.emplace_back(argv[0]);
+
+		if (argc < 1)
+			return;
+
+		s_arg.emplace_back(WCharToString(wargv[0]));
 		for (int i = 1; i < argc; i++)
 		{
 			if (std::filesystem::path(s_arg[s_arg.size() - 1]).has_extension())
-				s_arg.emplace_back(argv[i]);
+				s_arg.emplace_back(WCharToString(wargv[i]));
 			else
 			{
 				s_arg[s_arg.size() - 1] += ' ';
-				s_arg[s_arg.size() - 1] += argv[i];
+				s_arg[s_arg.size() - 1] += WCharToString(wargv[i]);
 			}
 		}
 	}

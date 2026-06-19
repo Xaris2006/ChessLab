@@ -41,9 +41,9 @@ public:
 	}
 };
 
-Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
+Walnut::Application* Walnut::CreateApplication(int argc, wchar_t** wargv)
 {	
-	ChessLab::Utils::InitializeArguments(argc, argv);
+	ChessLab::Utils::InitializeArguments(argc, wargv);
 	ChessLab::Utils::InitializeAppDirectory();
 	ChessLab::Utils::InitializeCacheDirectory();
 

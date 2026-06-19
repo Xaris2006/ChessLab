@@ -12,7 +12,7 @@ namespace ChessLab::Utils
 	void LoadViewStyle();
 	void SaveViewStyle();
 
-	void InitializeArguments(int argc, char** argv);
+	void InitializeArguments(int argc, wchar_t** wargv);
 	std::vector<std::string> GetArguments();
 
 	void InitializeAppSpecification();

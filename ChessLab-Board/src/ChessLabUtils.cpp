@@ -10,11 +10,40 @@
 
 #include <fstream>
 
+#include <Windows.h>
+
 static Walnut::ApplicationSpecification s_spec;
 static std::vector<std::string> s_arg;
 
 std::string s_AppDirectory;
 std::filesystem::path s_CacheDirectory;
+
+static std::string WCharToString(const wchar_t* w)
+{
+	if (!w) return {};
+
+	int size = WideCharToMultiByte(
+		CP_UTF8, 0,
+		w, -1,
+		nullptr, 0,
+		nullptr, nullptr
+	);
+
+	std::string str(size, 0);
+
+	WideCharToMultiByte(
+		CP_UTF8, 0,
+		w, -1,
+		&str[0], size,
+		nullptr, nullptr
+	);
+
+	// Remove Windows null terminator
+	if (!str.empty() && str.back() == '\0')
+		str.pop_back();
+
+	return str;
+}
 
 namespace ChessLab::Utils
 {
@@ -297,18 +326,22 @@ namespace ChessLab::Utils
 		}
 	}
 
-	void InitializeArguments(int argc, char** argv)
+	void InitializeArguments(int argc, wchar_t** wargv)
 	{
 		s_arg.clear();
-		s_arg.emplace_back(argv[0]);
+
+		if (argc < 1)
+			return;
+
+		s_arg.emplace_back(WCharToString(wargv[0]));
 		for (int i = 1; i < argc; i++)
 		{
 			if (std::filesystem::path(s_arg[s_arg.size() - 1]).has_extension())
-				s_arg.emplace_back(argv[i]);
+				s_arg.emplace_back(WCharToString(wargv[i]));
 			else
 			{
 				s_arg[s_arg.size() - 1] += ' ';
-				s_arg[s_arg.size() - 1] += argv[i];
+				s_arg[s_arg.size() - 1] += WCharToString(wargv[i]);
 			}
 		}
 	}
