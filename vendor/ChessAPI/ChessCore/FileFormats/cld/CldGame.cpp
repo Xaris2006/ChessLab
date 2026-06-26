@@ -230,7 +230,7 @@ namespace Chess
 		//everything else is table moves
 
 		CldMovesPath* Parent = &m_MovesPath;
-		auto& moves = Parent->move;
+		auto* moves = &Parent->move;
 		//Parent->details.reserve(20);
 		//Parent->move.reserve(80);
 		
@@ -242,7 +242,7 @@ namespace Chess
 			//regular move started
 			if (startMovePart < regulaMove)
 			{
-				moves.emplace_back(startMovePart, data[i]);
+				moves->emplace_back(startMovePart, data[i]);
 				startMovePart = regulaMove;
 				continue;
 			}
@@ -265,7 +265,7 @@ namespace Chess
 						continue;
 					}
 				
-					size_t detailIndex = moves.size() - 1;
+					size_t detailIndex = moves->size() - 1;
 
 					Parent->details[detailIndex].note += ' ';
 
@@ -304,6 +304,9 @@ namespace Chess
 
 						if (cmdSection)
 						{
+							if (Parent->details[detailIndex].note[i] == '\n')
+								continue;
+
 							if (cmdSectionValue)
 								cmdValue += Parent->details[detailIndex].note[i];
 							else
@@ -328,7 +331,14 @@ namespace Chess
 						realNote += Parent->details[detailIndex].note[i];
 					}
 
-					Parent->details[detailIndex].note = realNote;
+					int lastIndex = 0;
+					for (int indexN = 0; indexN < realNote.size(); indexN++)
+					{
+						if (realNote[indexN] != ' ')
+							lastIndex = indexN;
+					}
+
+					Parent->details[detailIndex].note = std::string(realNote.begin(), realNote.begin() + lastIndex + 1);
 
 					detailsOpen = false;
 					continue;
@@ -339,7 +349,7 @@ namespace Chess
 					if (!readDetails)
 						continue;
 
-					Parent->details[moves.size() - 1].note += curData;
+					Parent->details[moves->size() - 1].note += curData;
 					continue;
 				}
 			}
@@ -350,7 +360,7 @@ namespace Chess
 				{
 					Parent->move.emplace_back(child, child);					
 					Parent = &Parent->children.emplace_back(CldMovesPath(Parent));
-					moves = Parent->move;
+					moves = &Parent->move;
 
 					Parent->details.reserve(5);
 					Parent->move.reserve(10);
@@ -360,7 +370,7 @@ namespace Chess
 				if (curData == closeVariation)
 				{
 					Parent = Parent->parent;
-					moves = Parent->move;
+					moves = &Parent->move;
 					continue;
 				}
 			}
@@ -376,11 +386,11 @@ namespace Chess
 				uint16_t convertedMove = 0;
 				
 				if (encoding == MoveEncoding::CLD)
-					convertedMove = GetMoveByIndex("3STCLDE", curData, moves.size() - Parent->children.size());
+					convertedMove = GetMoveByIndex("3STCLDE", curData, moves->size() - Parent->children.size());
 				else if (encoding == MoveEncoding::CORE)
-					convertedMove = GetMoveByIndex("3STCOREE", curData, moves.size() - Parent->children.size());
+					convertedMove = GetMoveByIndex("3STCOREE", curData, moves->size() - Parent->children.size());
 				
-				moves.emplace_back(convertedMove >> 8, convertedMove & 0x00FF);
+				moves->emplace_back(convertedMove & 0x00FF, convertedMove >> 8);
 			}
 
 #undef curData

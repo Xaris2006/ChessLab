@@ -295,6 +295,9 @@ namespace Chess
 
 						if(cmdSection)
 						{
+							if (Parent->details[detailIndex].note[i] == '\n')
+								continue;
+
 							if(cmdSectionValue)
 								cmdValue += Parent->details[detailIndex].note[i];
 							else
@@ -320,6 +323,9 @@ namespace Chess
 					}
 
 					Parent->details[detailIndex].note = realNote;
+
+					if (Parent->details[detailIndex].note.empty() && Parent->details[detailIndex].cmds.empty())
+						Parent->details.erase(detailIndex);
 
 					detailsopen = false;
 					continue;

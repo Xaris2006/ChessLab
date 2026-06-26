@@ -178,7 +178,39 @@ namespace Panels
 				
 				ImGui::PopStyleColor(4);
 			
-				//ImGui::SameLine();
+				auto curNote = ChessAPI::GetActiveGame().GetNote(ChessAPI::GetActiveGame().GetLastMoveKey());
+
+				if (curNote.cmds.contains("eval"))
+				{
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.48f, 0.87f, 0.2f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.48f, 0.87f, 0.2f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.48f, 0.87f, 0.2f));
+
+					ImGui::Button(curNote.cmds["eval"].c_str());
+					
+					ImGui::PopStyleColor(3);
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Current Evaluation");
+					
+					ImGui::SameLine();
+				}
+
+				if (curNote.cmds.contains("clk"))
+				{
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.48f, 0.87f, 0.2f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.48f, 0.87f, 0.2f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.48f, 0.87f, 0.2f));
+
+					ImGui::Button(curNote.cmds["clk"].c_str());
+
+					ImGui::PopStyleColor(3);
+
+					if (ImGui::IsItemHovered())
+						ImGui::SetTooltip("Current Clock");
+
+					ImGui::SameLine();
+				}
 
 				std::string childID;
 				{

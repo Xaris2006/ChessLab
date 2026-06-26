@@ -76,25 +76,27 @@ namespace Chess
 
 		std::ofstream helpOutfile(cachePath / "helper", std::ios::binary | std::ios::trunc);
 
-		for (size_t i = 0; i < pgnFile.GetSize() / amount + 1; i++)
+		for (size_t i = 0; i < pgnFile.GetSize() / amount; i++)
 		{
 			if (persentage)
-				*persentage = std::min(0.0f + float(i / (double)(pgnFile.GetSize() / amount + 1)) * 0.6f, 0.6f);
+				*persentage = std::min(0.0f + float(i / (double)(pgnFile.GetSize() / amount)) * 0.6f, 0.6f);
 
-			ChessFileManager::Get().GetGames(pgnFile.GetID(), i * amount, std::min(size_t(amount), pgnFile.GetSize() - i * amount), PgnGamesToAdd);
+			//ChessFileManager::Get().GetGames(pgnFile.GetID(), i * amount, amount, PgnGamesToAdd);
 
-			for (auto& pgnGame : PgnGamesToAdd)
+			//for (auto& pgnGame : PgnGamesToAdd)
 			{
+				auto pgnGame = ChessFileManager::Get().GetGame(pgnFile.GetID(), i);
+
 				cldGameToAdd.Clear();
 
-				if (pgnGame->IsLabelExist("Variant") && (*pgnGame)["Variant"] == "chess960")
+				if (pgnGame.IsLabelExist("Variant") && pgnGame["Variant"] == "chess960")
 					continue;
 
-				auto labels = pgnGame->GetLabelNames();
+				auto labels = pgnGame.GetLabelNames();
 
 				for (auto& label : labels)
 				{
-					std::string value = (*pgnGame)[label];
+					std::string value = pgnGame[label];
 					if (value == "?" || value.empty())
 						continue;
 
@@ -121,7 +123,7 @@ namespace Chess
 					cldGameToAdd[indexName] = indexValue;
 				}
 
-				ChessFileManager::ConvertPgnMovePathToCldMovePath(cldGameToAdd.GetMovePathbyRef(), pgnGame->GetMovePathbyRef(), encoding);
+				ChessFileManager::ConvertPgnMovePathToCldMovePath(cldGameToAdd.GetMovePathbyRef(), pgnGame.GetMovePathbyRef(), encoding, true);
 				static size_t count = 0;
 				count++;
 				cldGameToAdd.GetData(dataToWrite, typeName, typeValue);

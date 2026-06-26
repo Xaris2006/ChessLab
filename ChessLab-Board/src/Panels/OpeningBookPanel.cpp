@@ -4,6 +4,7 @@
 
 #include "../ChessAPI/ChessAPI.h"
 #include "../Windows/WindowsUtils.h"
+#include "../Panels.h"
 
 #include <filesystem>
 
@@ -30,6 +31,12 @@ namespace Panels
 
 		ImGui::Begin("Opening Book", &m_viewPanel);
 		
+		if (IsLoadingPopupOpen())
+		{
+			ImGui::End();
+			return;
+		}
+
 		if (!m_cobPath.empty())
 		{
 			ImGui::TextWrapped(m_cobFilename.c_str());

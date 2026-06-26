@@ -199,7 +199,7 @@ namespace Chess
 				EcldGames[i][indexName] = indexValue;
 			}
 
-			ChessFileManager::ConvertPgnMovePathToCldMovePath(EcldGames[i].GetMovePathbyRef(), eGame.GetMovePathbyRef(), (*m_Settings) % 2 == 0 ? MoveEncoding::CLD : MoveEncoding::CORE);
+			ChessFileManager::ConvertPgnMovePathToCldMovePath(EcldGames[i].GetMovePathbyRef(), eGame.GetMovePathbyRef(), (*m_Settings) % 2 == 0 ? MoveEncoding::CLD : MoveEncoding::CORE, true);
 		}
 
 		std::vector<uint8_t> bufferNameNew, bufferValueNew;

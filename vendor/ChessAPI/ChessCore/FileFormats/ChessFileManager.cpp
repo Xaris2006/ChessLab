@@ -442,7 +442,7 @@ namespace Chess
 			for (auto& nameIndex : cldGame.GetLabelNames())
 				newGame[(*m_CldData[fileID].labelNames)[nameIndex]] = (*m_CldData[fileID].labelValues)[cldGame[nameIndex]];
 			
-			ConvertCldMovePathToPgnMovePath(newGame.GetMovePathbyRef(), cldGame.GetMovePathbyRef(), encoding);
+			ConvertCldMovePathToPgnMovePath(newGame.GetMovePathbyRef(), cldGame.GetMovePathbyRef(), encoding, 0, true);
 			newGame.SetCurrentAsInitial();
 
 			m_GamesTimer[{ fileID, index }] = std::chrono::high_resolution_clock::now();
@@ -577,7 +577,7 @@ namespace Chess
 					for (auto& nameIndex : cldGame.GetLabelNames())
 						newGame[(*m_CldData[fileID].labelNames)[nameIndex]] = (*m_CldData[fileID].labelValues)[cldGame[nameIndex]];
 
-					ConvertCldMovePathToPgnMovePath(newGame.GetMovePathbyRef(), cldGame.GetMovePathbyRef(), encoding);
+					ConvertCldMovePathToPgnMovePath(newGame.GetMovePathbyRef(), cldGame.GetMovePathbyRef(), encoding, 0, true);
 					newGame.SetCurrentAsInitial();
 
 					m_GamesTimer[{ fileID, i }] = std::chrono::high_resolution_clock::now();
@@ -679,10 +679,14 @@ namespace Chess
 		}
 	}
 
-	void ChessFileManager::ConvertCldMovePathToPgnMovePath(PgnGame::ChessMovesPath& pgnMovePath, const CldGame::CldMovesPath& cldMovePath, MoveEncoding encoding, int moveIndex)
+	void ChessFileManager::ConvertCldMovePathToPgnMovePath(PgnGame::ChessMovesPath& pgnMovePath, const CldGame::CldMovesPath& cldMovePath, MoveEncoding encoding, int moveIndex, bool reset)
 	{
 		static const char* pieceNames = "NBRQPK";
 		static Board staticBoard;
+
+		if (reset)
+			staticBoard.NewPosition();
+
 		Board myBoard = staticBoard;
 		Board::Move prevMove;
 		Piece prevProm;
@@ -767,10 +771,14 @@ namespace Chess
 		}
 	}
 
-	void ChessFileManager::ConvertPgnMovePathToCldMovePath(CldGame::CldMovesPath& cldMovePath, const PgnGame::ChessMovesPath& pgnMovePath, MoveEncoding encoding)
+	void ChessFileManager::ConvertPgnMovePathToCldMovePath(CldGame::CldMovesPath& cldMovePath, const PgnGame::ChessMovesPath& pgnMovePath, MoveEncoding encoding, bool reset)
 	{
 		const uint8_t childIndexID = 255;
 		static Board staticBoard;
+
+		if (reset)
+			staticBoard.NewPosition();
+
 		Board myBoard = staticBoard;
 		Board::Move prevMove = { 0, 0 };
 		Piece prevProm = NONE;
@@ -824,11 +832,10 @@ namespace Chess
 					//__debugbreak();
 				}
 				if (prevMove.move != 0)
-				{
 					staticBoard.MakeMove(prevMove, prevProm);
-					prevMove = coreMove;
-					prevProm = promType;
-				}
+				
+				prevMove = coreMove;
+				prevProm = promType;
 			}
 
 			if (pgnMovePath.details.contains(i) && (pgnMovePath.details.at(i).note != "" || !pgnMovePath.details.at(i).cmds.empty()))

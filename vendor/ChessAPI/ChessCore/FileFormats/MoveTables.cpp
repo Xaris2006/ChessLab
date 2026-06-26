@@ -35,7 +35,7 @@ namespace Chess
 
 			for (int i = 0; i < data.size(); i += 2)
 			{
-				uint16_t move = (((uint16_t)data[i + 1] << 8) | data[i]);
+				uint16_t move = (((uint16_t)data[i] << 8) | data[i + 1]);
 
 				if (i < 189 * 2)
 					s_3STCLDE_E[move] = (i / 2) % 189;
@@ -48,9 +48,8 @@ namespace Chess
 			}
 		}
 
-		if (false)
 		{
-			std::ifstream infileTable("tableCoreS.clt", std::ios::binary);
+			std::ifstream infileTable("tableCore.clt", std::ios::binary);
 
 			std::vector<uint8_t> data;
 
@@ -67,7 +66,7 @@ namespace Chess
 
 			for (int i = 0; i < data.size(); i += 2)
 			{
-				uint16_t move = (((uint16_t)data[i + 1] << 8) | data[i]);
+				uint16_t move = (((uint16_t)data[i] << 8) | data[i + 1]);
 
 				if (i < 189 * 2)
 					s_3STCOREE_E[move] = (i / 2) % 189;

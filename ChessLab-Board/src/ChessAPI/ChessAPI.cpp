@@ -171,7 +171,6 @@ namespace ChessAPI
 			s_ActiveGame = 0;
 			s_OpenGames.emplace_back(0);
 
-			s_Games[0].Clear();
 			s_Games[0].InitPgnGame(s_ChessFile->operator[](0));
 
 			return;
@@ -199,7 +198,6 @@ namespace ChessAPI
 			s_ActiveGame = 0;
 			s_OpenGames.emplace_back(0);
 
-			s_Games[0].Clear();
 			s_Games[0].InitPgnGame(s_ChessFile->operator[](0));
 
 			return;
@@ -213,8 +211,17 @@ namespace ChessAPI
 		s_ActiveGame = 0;
 		s_OpenGames.emplace_back(0);
 
-		s_Games[0].Clear();
 		s_Games[0].InitPgnGame(s_ChessFile->operator[](0));
+
+		if (false)
+		{
+			for (int i = 0; i < s_ChessFile->GetSize(); i++)
+			{
+				Chess::CldGame game;
+				((Chess::CldFile*)s_ChessFile)->GetCldGame(game, i);
+				//s_ChessFile->operator[](i);
+			}
+		}
 
 		if (false)
 		{
@@ -352,7 +359,7 @@ namespace ChessAPI
 					orderedL.emplace_back(move);
 			}
 
-			std::ofstream outfileT("tableCoreS.clt", std::ios::binary | std::ios::trunc);
+			std::ofstream outfileT("tableCore.clt", std::ios::binary | std::ios::trunc);
 
 			std::cout << "\n ----- [ E ] ----- \n";
 
@@ -365,7 +372,7 @@ namespace ChessAPI
 				{
 					auto& [count, sum] = movesCounterE[orderedE[i]];
 
-					std::cout << " -- [ " << count << " ] -- " << " -- [ " << sum / count << " ] -- " << '\n';// << (move >> 8) << "  --  " << (move & 0x00ff) << '\n';
+					std::cout << " -- [ " << count << " ] -- " << " -- [ " << sum / count << " ] -- " << (orderedE[i] >> 8) << "  --  " << (orderedE[i] & 0x00ff) << '\n';
 					index += 1;
 					overral += count;
 				}

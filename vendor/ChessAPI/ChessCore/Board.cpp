@@ -844,7 +844,10 @@ namespace Chess
 			return MOVEERROR;
 
 		if (type > 6)
-			__debugbreak();
+		{
+			//__debugbreak();
+			return MOVEERROR;
+		}
 
 		//safe
 		//if (type == PAWN && ((direction / 8) == 0 || (direction / 8) == 7) && (piecePromotion > QUEEN || piecePromotion == PAWN))
