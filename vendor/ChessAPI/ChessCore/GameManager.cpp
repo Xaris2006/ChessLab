@@ -86,6 +86,9 @@ namespace Chess
 
 	PgnGame::Detail& GameManager::GetNote(const MoveKey& moveKey)
 	{
+		if (!m_pgnGame || moveKey.empty())
+			return *(PgnGame::Detail*)(void*)nullptr;
+
 		auto currentPath = &m_pgnGame->GetMovePathbyRef();
 
 		for (int i = 1; i < moveKey.size(); i += 2)

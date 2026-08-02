@@ -186,9 +186,9 @@ namespace Chess
 					{
 						auto& movePath = game.GetMovePathbyRef();
 
-						int middle = std::min((int)movePath.move.size(), 0);
+						size_t middle = std::min(movePath.move.size(), 0ui64);
 
-						for (int i = 0; i < middle; i++)
+						for (size_t i = 0; i < middle; i++)
 						{
 							if (movePath.move[i].first == 255ui8)
 								continue;
@@ -199,7 +199,7 @@ namespace Chess
 							Piece piecePromote = NONE;
 
 							if (game.GetEncoding() == MoveEncoding::CLD)
-								boardForSearch.ConvertCLDMoveToCoreMove(move, piecePromote, *(uint16_t*)(void*)&GameMove);
+								boardForSearch.ConvertCLDMoveToCoreMove(move, piecePromote, GameMove);
 							else
 							{
 								move.index = GameMove.first;
@@ -228,7 +228,7 @@ namespace Chess
 							Piece piecePromote = NONE;
 
 							if (game.GetEncoding() == MoveEncoding::CLD)
-								boardForSearch.ConvertCLDMoveToCoreMove(move, piecePromote, *(uint16_t*)(void*)&GameMove);
+								boardForSearch.ConvertCLDMoveToCoreMove(move, piecePromote, GameMove);
 							else
 							{
 								move.index = GameMove.first;
@@ -282,6 +282,95 @@ namespace Chess
 		}
 
 		return false;
+	}
+
+	int SearchOptions::IsGameValidClr(CldGame& game)
+	{
+		for (auto& option : m_CldOptions)
+		{
+			for (auto& [name, values] : option)
+			{
+				if (name == SIZE_MAX - 1)
+				{
+					uint64_t hash = 0;
+					int amount = 0;
+					bool rokeK = false, rokeQ = false, rokek = false, rokeq = false;
+					int whitePop = 0, blackPop = 0;
+
+					for (auto& value : values)
+					{
+						if (value > 32 + 16 + 9 + 9)
+							hash = value;
+						else if (value == 33)
+							rokeK = true;
+						else if (value == 34)
+							rokeQ = true;
+						else if (value == 35)
+							rokek = true;
+						else if (value == 36)
+							rokeq = true;
+						else if (value >= 37 && value <= 45)
+							whitePop = value - 37;
+						else if (value >= 46 && value <= 54)
+							blackPop = value - 37 - 8 - 1;
+						else
+							amount = value;
+					}
+
+					if (947986582360952339ui64 == hash)
+						return -1;
+					else
+					{
+						auto& movePath = game.GetMovePathbyRef();
+
+						static thread_local Board boardForSearch;
+						boardForSearch.NewPosition();
+
+						for (int i = 0; i < movePath.move.size(); i++)
+						{
+							if (movePath.move[i].first == 255ui8)
+								continue;
+
+							std::pair<uint8_t, uint8_t> GameMove = movePath.move[i];
+
+							Board::Move move;
+							Piece piecePromote = NONE;
+
+							if (game.GetEncoding() == MoveEncoding::CLD)
+								boardForSearch.ConvertCLDMoveToCoreMove(move, piecePromote, GameMove);
+							else
+							{
+								move.index = GameMove.first;
+								move.move = (GameMove.second >> 2) - move.index;
+								piecePromote = Piece((GameMove.second & 0b00000011ui8) + 1ui8);
+							}
+
+							if (boardForSearch.MakeMove(move, piecePromote) != Board::SUCCESS)
+								break;
+
+							if (boardForSearch.GetHash() == hash)
+							{
+								return i;
+							}
+
+							if (i % 5 == 0 &&
+								(boardForSearch.GetAmountOfPieces() < amount ||
+									(rokeK && !boardForSearch.GetKRoke()) ||
+									(rokeQ && !boardForSearch.GetQRoke()) ||
+									(rokek && !boardForSearch.GetkRoke()) ||
+									(rokeq && !boardForSearch.GetqRoke()) ||
+									(std::popcount(boardForSearch.GetBitBoard(PAWN, WHITE).Data() & 0x000000000000FF00) < whitePop) ||
+									(std::popcount(boardForSearch.GetBitBoard(PAWN, BLACK).Data() & 0x00FF000000000000) < blackPop)))
+								break;
+						}						
+					}
+
+					return -2;
+				}
+			}
+		}
+
+		return -2;
 	}
 
 	SearchOptions& SearchOptions::StartOption()
@@ -449,6 +538,12 @@ namespace Chess
 			}
 		}
 	}
+
+	void SearchOptions::InitClrSearch(FileManager::FileID fileID, std::shared_ptr<std::vector<std::string>> labelNames, std::shared_ptr<std::vector<std::string>> labelValues)
+	{
+		InitCldSearch(labelNames, labelValues);
+	}
+
 
 	void SearchOptions::SetOptionByData(const std::vector<uint8_t>& data)
 	{

@@ -24,7 +24,8 @@ namespace Panels
 		void FilePopup();
 		void EmptyPopup();
 		void RenamePopup();
-		void NewPopup();
+		void NewFolderPopup();
+		void NewFilePopup();
 
 	private:
 

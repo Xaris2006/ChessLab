@@ -42,9 +42,11 @@ namespace Chess
 		std::string GetFen() const;
 		std::vector<uint8_t>  GetFormatedFen() const;
 		uint64_t GetHash(bool recalculate = false) const;
+		std::array<uint8_t, 149> GetBinFixedFen() const;
 		
 		bool NewPosition(const std::string& fenStr = "default");
 		bool NewPosition(const std::vector<uint8_t>& ffen);
+		bool NewPosition(const std::array<uint8_t, 149>& bffen, uint64_t fenHash = 0);
 
 		void GetAvailableMoves(std::vector<Move>& moves) const;
 		void GetAvailableMoves(std::vector<Move>& moves, Piece type) const;
@@ -96,22 +98,21 @@ namespace Chess
 		std::string ConvertUCIMoveToPGNMove(const std::string& uciMove) const;
 		std::string ConvertPGNMoveToUCIMove(const std::string& pgnMove) const;
 
-		std::string ConvertCLDMoveToUCIMove(uint16_t cldMove) const;
-		uint16_t ConvertUCIMoveToCLDMove(const std::string& uciMove) const;
+		std::string ConvertCLDMoveToUCIMove(std::pair<uint8_t, uint8_t> cldMove) const;
+		std::pair<uint8_t, uint8_t> ConvertUCIMoveToCLDMove(const std::string& uciMove) const;
 
 		//we dont need board var to convert this formats
-		static std::string ConvertCLDMoveToPGNMove(uint16_t cldMove);
 		static std::string ConvertCLDMoveToPGNMove(std::pair<uint8_t, uint8_t> cldMove);
 		//we dont need board var to convert this formats
 		static std::pair<uint8_t, uint8_t> ConvertPGNMoveToCLDMove(const std::string& pgnMove);
 		
 		std::string ConvertCoreMoveToUCIMove(const Board::Move& move, Piece promotedType = NONE) const;
 		std::string ConvertCoreMoveToPGNMove(const Board::Move& move, Piece promotedType = NONE) const;
-		uint16_t ConvertCoreMoveToCLDMove(const Board::Move& move, Piece promotedType = NONE) const;
+		std::pair<uint8_t, uint8_t> ConvertCoreMoveToCLDMove(const Board::Move& move, Piece promotedType = NONE) const;
 
 		void ConvertUCIMoveToCoreMove(Board::Move& move, Piece& promotedType, const std::string& uciMove) const;
 		void ConvertPGNMoveToCoreMove(Board::Move& move, Piece& promotedType, const std::string& pgnMove) const;
-		void ConvertCLDMoveToCoreMove(Board::Move& move, Piece& promotedType, uint16_t cldMove) const;
+		void ConvertCLDMoveToCoreMove(Board::Move& move, Piece& promotedType, std::pair<uint8_t, uint8_t> cldMove) const;
 
 	private:
 		bool IsBoardValid() const;

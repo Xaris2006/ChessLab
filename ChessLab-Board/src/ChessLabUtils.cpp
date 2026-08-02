@@ -1,5 +1,6 @@
 #include "ChessLabUtils.h"
 
+#include "ChessCore/FileFormats/cld/CldFile.h"
 #include "ChessAPI/ChessAPI.h"
 #include "AppManagerChild.h"
 #include "Windows/WindowsUtils.h"
@@ -138,7 +139,7 @@ namespace ChessLab::Utils
 		lsIni >> name >> Panels::GetGamePropertiesPanel().IsPanelOpen();
 		lsIni >> name >> Panels::GetNotePanel().IsPanelOpen();
 		lsIni >> name >> Panels::GetMovePanel().IsPanelOpen();
-		lsIni >> name >> Panels::GetOpeningBookPanel().IsPanelOpen();
+		lsIni >> name >> Panels::GetReferencePanel().IsPanelOpen();
 		lsIni >> name >> Panels::GetBoardPanel().ShowPossibleMoves;
 		lsIni >> name >> Panels::GetBoardPanel().ShowTags;
 		lsIni >> name >> Panels::GetBoardPanel().ShowArrows;
@@ -153,7 +154,7 @@ namespace ChessLab::Utils
 		lsIni << "Game_Properties" << ' ' << Panels::GetGamePropertiesPanel().IsPanelOpen() << '\n';
 		lsIni << "Notes" << ' ' << Panels::GetNotePanel().IsPanelOpen() << '\n';
 		lsIni << "Moves" << ' ' << Panels::GetMovePanel().IsPanelOpen() << '\n';
-		lsIni << "Opening_Book" << ' ' << Panels::GetOpeningBookPanel().IsPanelOpen() << '\n';
+		lsIni << "Reference" << ' ' << Panels::GetReferencePanel().IsPanelOpen() << '\n';
 		lsIni << "Possible_Moves" << ' ' << Panels::GetBoardPanel().ShowPossibleMoves << '\n';
 		lsIni << "Tags" << ' ' << Panels::GetBoardPanel().ShowTags << '\n';
 		lsIni << "Arrows" << ' ' << Panels::GetBoardPanel().ShowArrows << '\n';
@@ -185,10 +186,14 @@ namespace ChessLab::Utils
 			{
 				ChessLab::Utils::SaveAs();
 			}
-			//if (ImGui::MenuItem("Remove Deleted and Save"))
-			//{
-			//	ChessAPI::DeleteGamesInFile();
-			//}
+			if (ImGui::MenuItem("Remove Deleted"))
+			{
+				std::string filepath = Windows::Utils::OpenFile(L"Any Database (*.pgn, *.cld)\0*.pgn;*.cld\0PGN Database (*.pgn)\0*.pgn\0Chess Lab Database (*.cld)\0*.cld\0\0");
+				if (!filepath.empty())
+				{
+					Chess::CldFile::RemoveDeletedGames(filepath);
+				}
+			}
 			ImGui::Separator();
 			if (ImGui::MenuItem("Exit", "Alt+F4"))
 			{
@@ -202,7 +207,7 @@ namespace ChessLab::Utils
 			if (ImGui::MenuItem("Game Properties", 0, &Panels::GetGamePropertiesPanel().IsPanelOpen())) {}
 			if (ImGui::MenuItem("Notes", 0, &Panels::GetNotePanel().IsPanelOpen())) {}
 			if (ImGui::MenuItem("Moves", 0, &Panels::GetMovePanel().IsPanelOpen())) {}
-			if (ImGui::MenuItem("Opening Book", 0, &Panels::GetOpeningBookPanel().IsPanelOpen())) {}
+			if (ImGui::MenuItem("Reference", 0, &Panels::GetReferencePanel().IsPanelOpen())) {}
 			ImGui::Separator();
 
 			if (ImGui::MenuItem("Update View Style"))

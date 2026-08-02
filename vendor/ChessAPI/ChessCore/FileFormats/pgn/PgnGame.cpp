@@ -363,10 +363,10 @@ namespace Chess
 					if (Parent->move.back().empty())
 						Parent->move.pop_back();
 
-					if (Parent->move.back().find('*') != std::string::npos)
+					if (!Parent->move.empty() && Parent->move.back().find('*') != std::string::npos)
 						Parent->move.pop_back();
 
-					if (Parent->move.back().find('-') != std::string::npos)
+					if (!Parent->move.empty() && Parent->move.back().find('-') != std::string::npos)
 					{
 						size_t zero = Parent->move.back().find('0');
 						size_t one = Parent->move.back().find('1');
@@ -390,23 +390,6 @@ namespace Chess
 				if (data[i] == '\n' && data[i - 1] == ' ' && data[i - 2] == '.')
 					continue;
 
-				if ((data[i] == ' ' || data[i] == '\n') && (data[i - 1] != '.' && data[i - 1] != ' ' && data[i - 1] != '\r' && data[i - 1] != '\n'))
-				{
-					if (!Parent->move.empty() && Parent->move.back().empty())
-					{
-						continue;
-					}
-
-					if (!Parent->move.empty())
-					{
-						if (Parent->move.back().back() == '.')
-							__debugbreak();
-					}
-
-					Parent->move.emplace_back("");
-					continue;
-				}
-
 				if (data[i] == '.' && data[i - 1] == '.')
 				{
 					Parent->move.back() = "";
@@ -417,8 +400,13 @@ namespace Chess
 
 				if (data[i] == '\n' || data[i] == ' ')
 				{
-					if (!Parent->move.back().empty() && Parent->move.back().back() == '.')
-						Parent->move.back() += ' ';
+					if (!Parent->move.back().empty())
+					{
+						if (Parent->move.back().back() == '.')
+							Parent->move.back() += ' ';
+						else if (Parent->move.back().back() != ' ')
+							Parent->move.emplace_back("");
+					}
 					
 					continue;
 				}

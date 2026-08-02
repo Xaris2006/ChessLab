@@ -24,7 +24,8 @@ namespace Panels {
 	static bool s_openFilePopup = false;
 	static bool s_openEmptyPopup = false;
 	static bool s_openRenamePopup = false;
-	static bool s_openNewPopup = false;
+	static bool s_openNewFolderPopup = false;
+	static bool s_openNewFilePopup = false;
 
 	void ContentBrowserPanel::OnAttach()
 	{
@@ -327,13 +328,21 @@ namespace Panels {
 
 		EmptyPopup();
 
-		if (s_openNewPopup)
+		if (s_openNewFolderPopup)
 		{
-			s_openNewPopup = false;
-			ImGui::OpenPopup("New File/Directory");
+			s_openNewFolderPopup = false;
+			ImGui::OpenPopup("New Folder");
 		}
 
-		NewPopup();
+		NewFolderPopup();
+
+		if (s_openNewFilePopup)
+		{
+			s_openNewFilePopup = false;
+			ImGui::OpenPopup("New File");
+		}
+
+		NewFilePopup();
 
 		ImGui::End();
 	}
@@ -472,7 +481,7 @@ namespace Panels {
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1f, 0.7f, 0.1f, 0.45f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.7f, 0.1f, 0.25f));
 
-			float actualSize = ImGui::CalcTextSize(" Merge ").x + ImGui::CalcTextSize(" Cansel ").x + ImGui::GetStyle().FramePadding.x * 3.0f;
+			float actualSize = ImGui::CalcTextSize(" Merge ").x + ImGui::CalcTextSize(" Cancel ").x + ImGui::GetStyle().FramePadding.x * 3.0f;
 			float avail = ImGui::GetContentRegionAvail().x;
 
 			float off = (avail - actualSize) * 0.5f;
@@ -494,7 +503,7 @@ namespace Panels {
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
 
-			if (ImGui::Button("Cansel"))
+			if (ImGui::Button("Cancel"))
 				m_filesToBeMerged.clear();
 
 			ImGui::PopStyleColor(3);
@@ -652,6 +661,35 @@ namespace Panels {
 
 			ImGui::BeginDisabled(Manager::AppManager::Get().IsAppOpen(s_path));
 
+			if (ImGui::Selectable("Copy"))
+			{
+				std::error_code ec;
+				std::filesystem::copy(s_path, s_path, ec);
+				if (ec)
+				{
+					std::ofstream ef("ErrorFile.txt");
+					ef << "func(std::filesystem::copy) " << ec << "path: " << s_path;
+					ef.close();
+				}
+
+				ImGui::CloseCurrentPopup();
+			}
+
+			if (ImGui::Selectable("Cut"))
+			{
+				std::error_code ec;
+				std::filesystem::copy(s_path, s_path, ec);
+				std::filesystem::remove(s_path, ec);
+				if (ec)
+				{
+					std::ofstream ef("ErrorFile.txt");
+					ef << "func(std::filesystem::remove) " << ec << "path: " << s_path;
+					ef.close();
+				}
+
+				ImGui::CloseCurrentPopup();
+			}
+
 			if (ImGui::Selectable("Delete"))
 			{
 				std::error_code ec;
@@ -675,34 +713,85 @@ namespace Panels {
 
 			ImGui::Separator();
 
-			ImGui::BeginDisabled(s_path.extension() == ".cld");
-
 			if (ImGui::BeginMenu("Convert To Cld"))
 			{
-				if (ImGui::Selectable("Cld Move Format"))
+				if (s_path.extension() == ".pgn")
 				{
-					Chess::PgnFile PgnFile;
-					PgnFile.OpenFile(s_path);
+					if (ImGui::Selectable("CLD encoding + Table"))
+					{
+						Chess::PgnFile PgnFile;
+						PgnFile.OpenFile(s_path);
 
-					s_path.replace_extension(".cld");
+						s_path.replace_extension(".cld");
 
-					Chess::ConvertToCld(PgnFile, s_path, Chess::CLD);
-					ImGui::CloseCurrentPopup();
+						Chess::ConvertToCld(PgnFile, s_path, Chess::CLD, true);
+						ImGui::CloseCurrentPopup();
+					}
+					if (ImGui::Selectable("CORE encoding + Table"))
+					{
+						Chess::PgnFile PgnFile;
+						PgnFile.OpenFile(s_path);
+
+						s_path.replace_extension(".cld");
+
+						Chess::ConvertToCld(PgnFile, s_path, Chess::CORE, true);
+						ImGui::CloseCurrentPopup();
+					}
+					if (ImGui::Selectable("CLD encoding"))
+					{
+						Chess::PgnFile PgnFile;
+						PgnFile.OpenFile(s_path);
+
+						s_path.replace_extension(".cld");
+
+						Chess::ConvertToCld(PgnFile, s_path, Chess::CLD, false);
+						ImGui::CloseCurrentPopup();
+					}
+					if (ImGui::Selectable("CORE encoding"))
+					{
+						Chess::PgnFile PgnFile;
+						PgnFile.OpenFile(s_path);
+
+						s_path.replace_extension(".cld");
+
+						Chess::ConvertToCld(PgnFile, s_path, Chess::CORE, false);
+						ImGui::CloseCurrentPopup();
+					}
 				}
-				if (ImGui::Selectable("Core Move Format"))
+				else if (s_path.extension() == ".cld")
 				{
-					Chess::PgnFile PgnFile;
-					PgnFile.OpenFile(s_path);
-
-					s_path.replace_extension(".cld");
-
-					Chess::ConvertToCld(PgnFile, s_path, Chess::CORE);
-					ImGui::CloseCurrentPopup();
+					if (ImGui::Selectable("CLD encoding + Table"))
+					{
+						Chess::CldFile CldFile;
+						CldFile.OpenFile(s_path);
+						CldFile.SaveFileAs(s_path, Chess::CLD, true);
+						ImGui::CloseCurrentPopup();
+					}
+					if (ImGui::Selectable("CORE encoding + Table"))
+					{
+						Chess::CldFile CldFile;
+						CldFile.OpenFile(s_path);
+						CldFile.SaveFileAs(s_path, Chess::CORE, true);
+						ImGui::CloseCurrentPopup();
+					}
+					if (ImGui::Selectable("CLD encoding"))
+					{
+						Chess::CldFile CldFile;
+						CldFile.OpenFile(s_path);
+						CldFile.SaveFileAs(s_path, Chess::CLD, false);
+						ImGui::CloseCurrentPopup();
+					}
+					if (ImGui::Selectable("CORE encoding"))
+					{
+						Chess::CldFile CldFile;
+						CldFile.OpenFile(s_path);
+						CldFile.SaveFileAs(s_path, Chess::CORE, false);
+						ImGui::CloseCurrentPopup();
+					}
 				}
 				ImGui::EndMenu();
 			}
 
-			ImGui::EndDisabled();
 			ImGui::BeginDisabled(s_path.extension() == ".pgn");
 
 			if (ImGui::Selectable("Convert To Pgn"))
@@ -739,14 +828,21 @@ namespace Panels {
 		{
 			if (ImGui::Selectable("New File"))
 			{
-				s_openNewPopup = true;
-				s_inputNName = u8"NewFile.pgn";
+				s_openNewFilePopup = true;
+				s_inputNName = u8"NewFile";
 				s_oldpath = m_CurrentDirectory;
 				ImGui::CloseCurrentPopup();
 			}
-			if (ImGui::Selectable("New Directory"))
+			if (ImGui::Selectable("New Folder"))
 			{
-				s_openNewPopup = true;
+				s_openNewFolderPopup = true;
+				s_inputNName = u8"DirectoryName";
+				s_oldpath = m_CurrentDirectory;
+				ImGui::CloseCurrentPopup();
+			}
+			if (ImGui::Selectable("Paste"))
+			{
+				s_openNewFolderPopup = true;
 				s_inputNName = u8"DirectoryName";
 				s_oldpath = m_CurrentDirectory;
 				ImGui::CloseCurrentPopup();
@@ -775,6 +871,13 @@ namespace Panels {
 			
 			ImGui::NewLine();
 
+			float actualSize = ImGui::CalcTextSize(" Rename ").x + ImGui::CalcTextSize(" Cancel ").x + ImGui::GetStyle().FramePadding.x * 3.0f;
+			float avail = ImGui::GetContentRegionAvail().x;
+
+			float off = (avail - actualSize) * 0.5f;
+			if (off > 0.0f)
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.7f, 0.1f, 0.65f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1f, 0.7f, 0.1f, 0.45f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.7f, 0.1f, 0.25f));
@@ -797,22 +900,29 @@ namespace Panels {
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.1f, 0.1f, 0.65f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
-			if (ImGui::Button("Cansel"))
+			if (ImGui::Button("Cancel"))
 				ImGui::CloseCurrentPopup();
 			ImGui::PopStyleColor(3);
 			ImGui::EndPopup();
 		}
 	}
 
-	void ContentBrowserPanel::NewPopup()
+	void ContentBrowserPanel::NewFolderPopup()
 	{
 		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
 		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-		if (ImGui::BeginPopupModal("New File/Directory", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
+		if (ImGui::BeginPopupModal("New Folder", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
 		{
 			ImGui::InputText("Name", &s_inputNName);
 
 			ImGui::NewLine();
+
+			float actualSize = ImGui::CalcTextSize(" Create ").x + ImGui::CalcTextSize(" Cancel ").x + ImGui::GetStyle().FramePadding.x * 3.0f;
+			float avail = ImGui::GetContentRegionAvail().x;
+
+			float off = (avail - actualSize) * 0.5f;
+			if (off > 0.0f)
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
 
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.7f, 0.1f, 0.65f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1f, 0.7f, 0.1f, 0.45f));
@@ -820,12 +930,7 @@ namespace Panels {
 			if (ImGui::Button("Create"))
 			{
 				std::filesystem::path nPath = std::filesystem::path() / s_oldpath / s_inputNName;
-				if (!nPath.extension().empty())
-				{
-					std::ofstream filepath(nPath.string());
-					filepath.close();
-				}
-				else
+				
 				{
 					std::error_code ec;
 					std::filesystem::create_directory(nPath, ec);
@@ -843,7 +948,123 @@ namespace Panels {
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.1f, 0.1f, 0.65f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
-			if (ImGui::Button("Cansel"))
+			if (ImGui::Button("Cancel"))
+				ImGui::CloseCurrentPopup();
+			ImGui::PopStyleColor(3);
+			ImGui::EndPopup();
+		}
+	}
+
+	void ContentBrowserPanel::NewFilePopup()
+	{
+		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+		if (ImGui::BeginPopupModal("New File", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
+		{
+			ImGui::InputText("Name", &s_inputNName);
+
+			ImGui::NewLine();
+
+			std::string items[] = { "PGN", "CLD" };
+			static int item_current_idx = 0;
+
+			if (ImGui::BeginCombo("Format", items[item_current_idx].c_str()))
+			{
+				for (int n = 0; n < 2; n++)
+				{
+					const bool is_selected = (item_current_idx == n);
+					if (ImGui::Selectable(items[n].c_str(), is_selected))
+						item_current_idx = n;
+				}
+				ImGui::EndCombo();
+			}
+
+			static int itemEncode_current_idx = 0;
+			static int itemTable_current_idx = 0;
+			
+			if (item_current_idx == 1)
+			{
+				ImGui::Separator();
+
+				std::string itemsEncode[] = { "CLD-STANDARD", "CORE-MACHINE" };
+
+				if (ImGui::BeginCombo("Encoding", itemsEncode[itemEncode_current_idx].c_str()))
+				{
+					for (int n = 0; n < 2; n++)
+					{
+						const bool is_selected = (itemEncode_current_idx == n);
+						if (ImGui::Selectable(itemsEncode[n].c_str(), is_selected))
+							itemEncode_current_idx = n;
+					}
+					ImGui::EndCombo();
+				}
+				
+				ImGui::SameLine();
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+				ImGui::Text("(?)");
+				ImGui::PopStyleColor();
+				if (ImGui::IsItemHovered())
+					ImGui::SetTooltip("CLD encoding is slower than CORE but more compatible");				
+
+				std::string itemsTable[] = { "On", "Off" };
+
+				if (ImGui::BeginCombo("Use Table", itemsTable[itemTable_current_idx].c_str()))
+				{
+					for (int n = 0; n < 2; n++)
+					{
+						const bool is_selected = (itemTable_current_idx == n);
+						if (ImGui::Selectable(itemsTable[n].c_str(), is_selected))
+							itemTable_current_idx = n;
+					}
+					ImGui::EndCombo();
+				}
+
+				ImGui::SameLine();
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+				ImGui::Text("(?)");
+				ImGui::PopStyleColor();
+				if (ImGui::IsItemHovered())
+					ImGui::SetTooltip("Using Tables is slightly slower but uses less memory (Recommended for large datasets)");				
+				
+				ImGui::Separator();
+			}
+
+			float actualSize = ImGui::CalcTextSize(" Create ").x + ImGui::CalcTextSize(" Cancel ").x + ImGui::GetStyle().FramePadding.x * 3.0f;
+			float avail = ImGui::GetContentRegionAvail().x;
+
+			float off = (avail - actualSize) * 0.5f;
+			if (off > 0.0f)
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.7f, 0.1f, 0.65f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1f, 0.7f, 0.1f, 0.45f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.7f, 0.1f, 0.25f));
+			if (ImGui::Button("Create"))
+			{
+				std::filesystem::path nPath = std::filesystem::path() / s_oldpath / s_inputNName;
+
+				if (item_current_idx == 0)
+				{
+					nPath.replace_extension(".pgn");
+					std::ofstream nfile(nPath, std::ios::trunc);
+					nfile.close();
+				}
+				else if (item_current_idx == 1)
+				{
+					nPath.replace_extension(".cld");
+					Chess::CldFile CldFile;
+					CldFile.CreateGame();
+					CldFile.SaveFileAs(nPath, itemEncode_current_idx == 0 ? Chess::CLD : Chess::CORE, itemTable_current_idx == 0 ? true : false);
+				}
+
+				ImGui::CloseCurrentPopup();
+			}
+			ImGui::PopStyleColor(3);
+			ImGui::SameLine();
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.1f, 0.1f, 0.65f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
+			if (ImGui::Button("Cancel"))
 				ImGui::CloseCurrentPopup();
 			ImGui::PopStyleColor(3);
 			ImGui::EndPopup();

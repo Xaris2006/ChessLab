@@ -4,15 +4,16 @@
 #include <filesystem>
 
 #include "ChessCore/GameManager.h"
-#include "ChessCore/FileFormats/base/ChessFile.h"
+#include "ChessCore/FileFormats/clr/ClrFile.h"
 
 namespace ChessAPI
 {
 	void Init();
+	void ShareClrFile(std::shared_ptr<Chess::ClrFile> file);
 
 	int GetActiveGameIndex();
 	std::vector<int>& GetOpenGameIndexes();
-	bool IsGameOpen(size_t index);
+	bool IsGameOpen(int index);
 	
 	void NewGameInFile();
 	void OpenChessGameInFile(int index);
@@ -23,6 +24,8 @@ namespace ChessAPI
 	Chess::GameManager& GetActiveGame();
 	std::filesystem::path& GetChessFilePath();
 	std::string& GetChessFileName();
+
+	Chess::PgnGame& GetPgnGameByIndex(int index);
 
 	int	GetBlockID(int BlockIndex);
 	

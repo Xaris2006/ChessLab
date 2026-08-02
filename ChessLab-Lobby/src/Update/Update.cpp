@@ -184,6 +184,8 @@ void Update::UI_DrawUpdateModal()
 
 		ImGui::EndGroup();
 
+		ImGui::NewLine();
+
 		{
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.7f, 0.1f, 0.65f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1f, 0.7f, 0.1f, 0.45f));
@@ -197,7 +199,7 @@ void Update::UI_DrawUpdateModal()
 				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
 
 
-			if (ImGui::Button("Update"))
+			if (ImGui::SmallButton("Update"))
 			{
 				m_UpdateModalOpen = false;
 				ImGui::CloseCurrentPopup();
@@ -215,7 +217,7 @@ void Update::UI_DrawUpdateModal()
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
 
-			if (ImGui::Button("Cansel"))
+			if (ImGui::SmallButton("Cancel"))
 			{
 				m_UpdateModalOpen = false;
 				ImGui::CloseCurrentPopup();

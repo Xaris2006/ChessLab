@@ -12,6 +12,7 @@
 
 #include "pgn/PgnGame.h"
 #include "cld/CldGame.h"
+#include "clr/ClrPairMoveHash.h"
 
 #include "SearchWork.h"
 #include "FileManager.h"
@@ -34,6 +35,14 @@ namespace Chess
 			std::shared_ptr<uint8_t> typeName,
 			std::shared_ptr<uint8_t> typeValue, 
 			std::shared_ptr<uint8_t> settings);
+		void AddClrFileReference(FileManager::FileID fileID,
+			std::shared_ptr<std::vector<size_t>> gamePointers,
+			std::shared_ptr<std::vector<std::string>> labelNames,
+			std::shared_ptr<std::vector<std::string>> labelValues,
+			std::shared_ptr<uint8_t> typeName,
+			std::shared_ptr<uint8_t> typeValue,
+			std::shared_ptr<uint8_t> settings,
+			std::shared_ptr<std::tuple<size_t, size_t, size_t, size_t, size_t, size_t, size_t>> searchGameIndexes);
 
 		void RemoveFileReference(FileManager::FileID fileID);
 		
@@ -45,7 +54,8 @@ namespace Chess
 		bool IsGameEdited(FileManager::FileID fileID, size_t index) const;
 
 		void ClearSearch(SearchID id);
-		void StartSearch(SearchID id, FileManager::FileID fileID, std::shared_ptr<std::pair<SearchOptions, SearchResult>> seachPtr);
+		void StartSearch(SearchID id, FileManager::FileID fileID, std::shared_ptr<std::pair<SearchOptions, SearchResult>> searchPtr);
+		void SetUpClrResults(SearchID id, std::shared_ptr<SearchResultMoveData> searchResults, std::shared_ptr<std::vector<size_t>> searchTopGames);
 
 	public:
 		static void ConvertCldMovePathToPgnMovePath(PgnGame::ChessMovesPath& pgnMovePath, const CldGame::CldMovesPath& cldMovePath, MoveEncoding encoding, int moveIndex = 0, bool reset = false);
@@ -78,6 +88,19 @@ namespace Chess
 			std::shared_ptr<uint8_t> settings;
 		};
 
+		struct ClrSharedData
+		{
+			std::shared_ptr<std::vector<size_t>> gamePointers;
+			std::shared_ptr<std::vector<std::string>> labelNames;
+			std::shared_ptr<std::vector<std::string>> labelValues;
+			std::shared_ptr<uint8_t> typeName;
+			std::shared_ptr<uint8_t> typeValue;
+			std::shared_ptr<uint8_t> settings;
+
+			std::shared_ptr<std::tuple<size_t, size_t, size_t, size_t, size_t, size_t, size_t>> searchGameIndexes;
+
+		};
+
 	private:
 		//make it shared ptr pgngames
 		std::unordered_map<std::pair<FileManager::FileID, size_t>, PgnGame, UUIDIndexHash> m_Games;
@@ -85,8 +108,10 @@ namespace Chess
 		std::unordered_map<FileManager::FileID, std::vector<size_t>> m_EditedGames;
 		std::unordered_map<FileManager::FileID, PgnSharedData> m_PgnData;
 		std::unordered_map<FileManager::FileID, CldSharedData> m_CldData;
-		
+		std::unordered_map<FileManager::FileID, ClrSharedData> m_ClrData;
 		std::unordered_map<SearchID, std::tuple<FileManager::FileID, std::shared_ptr<std::pair<SearchOptions, SearchResult>>, std::shared_ptr<std::mutex>, size_t>> m_Searches;
+		std::unordered_map<SearchID, std::shared_ptr<SearchResultMoveData>> m_ClrSearchResults;
+		std::unordered_map<SearchID, std::pair<std::shared_ptr<std::vector<size_t>>, std::vector<uint16_t>>> m_ClrSearchTopGames;
 
 		std::thread* m_ThreadFileHandler = nullptr;
 		bool m_endThread = true;

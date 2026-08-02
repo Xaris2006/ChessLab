@@ -13,8 +13,8 @@ static Panels::GamePropertiesPanel s_GamePropertiesPanel;
 static Panels::EnginePanel s_EnginePanel;
 static Panels::MovePanel s_MovePanel;
 static Panels::NotePanel s_NotePanel;
-static Panels::OpeningBookPanel s_OpeningBookPanel;
 static Panels::ContentBrowserPanel s_ContentBrowserPanel;
+static Panels::ReferencePanel s_ReferencePanel;
 
 static bool s_AlreadyOpenedPopupOpen = false;
 static bool s_AboutPopupOpen = false;
@@ -43,7 +43,16 @@ namespace Panels
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
 
-			if (Walnut::UI::ButtonCentered("Close"))
+			ImGuiStyle& style = ImGui::GetStyle();
+
+			float actualSize = ImGui::CalcTextSize("Close").x + style.FramePadding.x * 2.0f;
+			float avail = ImGui::GetContentRegionAvail().x;
+
+			float off = (avail - actualSize) * 0.5f;
+			if (off > 0.0f)
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+
+			if (ImGui::SmallButton("Close"))
 			{
 				s_AboutPopupOpen = false;
 				ImGui::CloseCurrentPopup();
@@ -168,19 +177,18 @@ namespace Panels
 	void OnDetach()
 	{
 		s_EnginePanel.OnDetach();
-		s_OpeningBookPanel.OnDetach();
 	}
 
 	void OnImGuiRender()
 	{
-		s_BoardPanel.OnImGuiRender();
 		s_DatabasePanel.OnImGuiRender();
 		s_GamePropertiesPanel.OnImGuiRender();
 		s_EnginePanel.OnImGuiRender();
 		s_NotePanel.OnImGuiRender();
-		s_OpeningBookPanel.OnImGuiRender();
 		s_ContentBrowserPanel.OnImGuiRender();
+		s_ReferencePanel.OnImGuiRender();
 		s_MovePanel.OnImGuiRender();
+		s_BoardPanel.OnImGuiRender();
 
 		if (s_AlreadyOpenedPopupOpen)
 			ImGui::OpenPopup("Error! File Is Already Opened");
@@ -293,14 +301,14 @@ namespace Panels
 		return s_NotePanel;
 	}
 
-	OpeningBookPanel& GetOpeningBookPanel()
-	{
-		return s_OpeningBookPanel;
-	}
-
 	ContentBrowserPanel& GetContentBrowserPanel()
 	{
 		return s_ContentBrowserPanel;
+	}
+
+	ReferencePanel& GetReferencePanel()
+	{
+		return s_ReferencePanel;
 	}
 
 	void OpenAlreadyOpenedPopup()

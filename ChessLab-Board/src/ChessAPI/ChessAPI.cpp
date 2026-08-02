@@ -15,9 +15,11 @@ static Chess::ChessFile* s_ChessFile;
 static std::filesystem::path s_FilePath;
 static std::string s_FileName;
 
-static std::unordered_map<size_t, Chess::GameManager> s_Games;
+static std::shared_ptr<Chess::ClrFile> s_ClrFile;
 
-static size_t s_ActiveGame = 0;
+static std::unordered_map<int64_t, Chess::GameManager> s_Games;
+
+static int64_t s_ActiveGame = 0;
 static std::vector<int> s_OpenGames;
 
 namespace ChessAPI
@@ -47,6 +49,11 @@ namespace ChessAPI
 		}
 	}
 
+	void ShareClrFile(std::shared_ptr<Chess::ClrFile> file)
+	{
+		s_ClrFile = file;
+	}
+
 	int GetActiveGameIndex()
 	{
 		return s_ActiveGame;
@@ -57,24 +64,37 @@ namespace ChessAPI
 		return s_OpenGames;
 	}
 
-	bool IsGameOpen(size_t index)
+	bool IsGameOpen(int index)
 	{
 		return s_Games.contains(index);
 	}
 
 	void OpenChessGameInFile(int index)
 	{
-		if (index >= s_ChessFile->GetSize() || index < 0)
-			return;
+		if (!s_Games.contains(index))
+		{			
+			if (index >= 0)
+			{
+				if (index >= s_ChessFile->GetSize())
+					return;
 
-		s_ActiveGame = index;
+				s_OpenGames.emplace_back(index);
+				s_ActiveGame = index;
+				s_Games[s_ActiveGame].InitPgnGame(s_ChessFile->operator[](s_ActiveGame));
+			}
+			else
+			{
+				if (index < -1 * s_ClrFile->GetSize())
+					return;
 
-		if (!s_Games.contains(s_ActiveGame))
-		{
-			s_OpenGames.emplace_back(index);
-
-			s_Games[s_ActiveGame].InitPgnGame(s_ChessFile->operator[](s_ActiveGame));
+				s_OpenGames.emplace_back(index);
+				s_ActiveGame = index;
+				auto& game = s_ClrFile->operator[](s_ActiveGame * -1 - 1);
+				s_Games[s_ActiveGame].InitPgnGame(game);
+			}
 		}
+		else
+			s_ActiveGame = index;
 	}
 
 	void NewGameInFile()
@@ -126,6 +146,11 @@ namespace ChessAPI
 	std::filesystem::path& GetChessFilePath()
 	{
 		return s_FilePath;
+	}
+
+	Chess::PgnGame& GetPgnGameByIndex(int index)
+	{
+		return s_Games[index].GetPgnGame();
 	}
 
 	int GetBlockID(int BlockIndex)

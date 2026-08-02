@@ -52,7 +52,16 @@ namespace Panels
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
 
-			if (Walnut::UI::ButtonCentered("Close"))
+			ImGuiStyle& style = ImGui::GetStyle();
+
+			float actualSize = ImGui::CalcTextSize("Close").x + style.FramePadding.x * 2.0f;
+			float avail = ImGui::GetContentRegionAvail().x;
+
+			float off = (avail - actualSize) * 0.5f;
+			if (off > 0.0f)
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+
+			if (ImGui::SmallButton("Close"))
 			{
 				s_AboutPopupOpen = false;
 				ImGui::CloseCurrentPopup();
@@ -84,7 +93,7 @@ namespace Panels
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
 
 			ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize("Close").x - 18);
-			if (ImGui::Button("Close"))
+			if (ImGui::SmallButton("Close"))
 			{
 				s_AlreadyOpenedPopupOpen = false;
 				ImGui::CloseCurrentPopup();
@@ -172,6 +181,7 @@ namespace Panels
 		auto& colors = ImGui::GetStyle().Colors;
 		colors[ImGuiCol_TableBorderLight] = ImColor(255, 225, 135, 80);
 		ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NavEnableKeyboard;
+		ImGui::GetStyle().WindowRounding = 10.0f;
 
 		glfwMaximizeWindow(Walnut::Application::Get().GetWindowHandle());
 		glfwFocusWindow(Walnut::Application::Get().GetWindowHandle());

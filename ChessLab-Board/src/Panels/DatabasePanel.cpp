@@ -553,6 +553,7 @@ namespace Panels
 									.And("White", m_name_to_search)
 									.And("ECO", m_eco_to_search)
 									.And("Date", m_date_to_search)
+									//.And("WhiteElo", "?")
 									.EndOption();
 							}
 							if (m_name_black || !m_name_white)
@@ -561,6 +562,7 @@ namespace Panels
 									.And("Black", m_name_to_search)
 									.And("ECO", m_eco_to_search)
 									.And("Date", m_date_to_search)
+									//.And("BlackElo", "?")
 									.EndOption();
 							}
 						}

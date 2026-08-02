@@ -2,6 +2,10 @@
 
 #include "../MoveTables.h"
 
+#include "../../Board.h"
+
+#include "../ChessFileManager.h"
+
 namespace Chess
 {
 	CldGame::~CldGame()
@@ -47,16 +51,11 @@ namespace Chess
 		}
 
 		return 0;
-
-		//return m_Labels.contains(name);
 	}
 
 
 	void CldGame::RemoveLabel(size_t name)
 	{
-		//if (m_Labels.contains(name))
-		//	m_Labels.erase(name);
-
 		for (int i = 0; i < m_Labels.size(); i++)
 		{
 			if (m_Labels[i].first == name)
@@ -69,11 +68,6 @@ namespace Chess
 
 	size_t& CldGame::operator[](size_t label)
 	{
-		//if (!m_Labels.contains(label))
-		//	m_Labels[label] = 0;
-
-		//return m_Labels[label];
-
 		for (int i = 0; i < m_Labels.size(); i++)
 		{
 			if (m_Labels[i].first == label)
@@ -85,8 +79,6 @@ namespace Chess
 
 	size_t CldGame::At(size_t label) const
 	{
-		//return m_Labels.at(label);
-
 		for (int i = 0; i < m_Labels.size(); i++)
 		{
 			if (m_Labels[i].first == label)
@@ -96,7 +88,7 @@ namespace Chess
 		return 0;
 	}
 
-	void CldGame::GetData(std::vector<uint8_t>& data, uint8_t nameType, uint8_t valueType) const
+	void CldGame::GetData(std::vector<uint8_t>& data, uint8_t nameType, uint8_t valueType, bool useTable) const
 	{
 		data.clear();
 		data.resize(m_Labels.size() * (nameType + valueType) + 4, UINT8_MAX);
@@ -138,7 +130,7 @@ namespace Chess
 			}
 		}
 				
-		WriteMoves(data, m_MovesPath);
+		WriteMoves(data, m_MovesPath, useTable);
 	}
 
 	void CldGame::GetDataRead(std::vector<uint8_t>& data) const
@@ -197,28 +189,9 @@ namespace Chess
 				labelValueToAdd = *(uint32_t*)&data[i + nameType];
 			}
 			
-			//m_Labels.try_emplace(labelNameToAdd, labelValueToAdd);
 			m_Labels.emplace_back(labelNameToAdd, labelValueToAdd);
 		}
 		
-		//switch ((nameType << 4) | valueType)
-		//{
-		//	// Common combinations (Compile distinct blazing fast loops for each)
-		//case (1 << 4) | 1: ParseLabelsContainer<uint8_t, uint8_t>(data, movesStartIndex, readLabels, m_Labels); break;
-		//case (1 << 4) | 2: ParseLabelsContainer<uint8_t, uint16_t>(data, movesStartIndex, readLabels, m_Labels); break;
-		//case (1 << 4) | 4: ParseLabelsContainer<uint8_t, uint32_t>(data, movesStartIndex, readLabels, m_Labels); break;
-		//
-		//case (2 << 4) | 1: ParseLabelsContainer<uint16_t, uint8_t>(data, movesStartIndex, readLabels, m_Labels); break;
-		//case (2 << 4) | 2: ParseLabelsContainer<uint16_t, uint16_t>(data, movesStartIndex, readLabels, m_Labels); break;
-		//case (2 << 4) | 4: ParseLabelsContainer<uint16_t, uint32_t>(data, movesStartIndex, readLabels, m_Labels); break;
-		//
-		//case (4 << 4) | 1: ParseLabelsContainer<uint32_t, uint8_t>(data, movesStartIndex, readLabels, m_Labels); break;
-		//case (4 << 4) | 2: ParseLabelsContainer<uint32_t, uint16_t>(data, movesStartIndex, readLabels, m_Labels); break;
-		//case (4 << 4) | 4: ParseLabelsContainer<uint32_t, uint32_t>(data, movesStartIndex, readLabels, m_Labels); break;
-		//
-		//default: break; // Handle invalid types if necessary
-		//}
-
 		if (!readMoves)
 			return;
 		
@@ -236,6 +209,7 @@ namespace Chess
 		
 		bool detailsOpen = false;
 		uint8_t startMovePart = 64;
+		uint16_t convertedMove = 0;
 
 		for (size_t i = movesStartIndex; i < data.size(); i++)
 		{
@@ -338,7 +312,8 @@ namespace Chess
 							lastIndex = indexN;
 					}
 
-					Parent->details[detailIndex].note = std::string(realNote.begin(), realNote.begin() + lastIndex + 1);
+					if (realNote.size() > lastIndex + 1)
+						Parent->details[detailIndex].note = std::string(realNote.begin(), realNote.begin() + lastIndex + 1);
 
 					detailsOpen = false;
 					continue;
@@ -383,8 +358,7 @@ namespace Chess
 			else
 			{
 				//table move
-				uint16_t convertedMove = 0;
-				
+
 				if (encoding == MoveEncoding::CLD)
 					convertedMove = GetMoveByIndex("3STCLDE", curData, moves->size() - Parent->children.size());
 				else if (encoding == MoveEncoding::CORE)
@@ -402,7 +376,7 @@ namespace Chess
 		m_MovesPath.ReloadChildren();
 	}
 
-	void CldGame::WriteMoves(std::vector<uint8_t>& data, CldMovesPath movePath) const
+	void CldGame::WriteMoves(std::vector<uint8_t>& data, CldMovesPath movePath, bool useTable) const
 	{
 		const uint8_t child = 255;
 		const uint8_t regulaMove = 64;
@@ -451,20 +425,28 @@ namespace Chess
 			}
 			else
 			{
-				uint8_t convertedMove = 0;
+				if (useTable)
+				{
+					uint8_t convertedMove = 0;
 
-				if (m_Encoding == MoveEncoding::CLD)
-					convertedMove = GetMoveIntex("3STCLDE", *(uint16_t*)&movePath.move[i], i - index);
-				else if (m_Encoding == MoveEncoding::CORE)
-					convertedMove = GetMoveIntex("3STCOREE", *(uint16_t*)&movePath.move[i], i - index);
+					if (m_Encoding == MoveEncoding::CLD)
+						convertedMove = GetMoveIntex("3STCLDE", *(uint16_t*)&movePath.move[i], i - index);
+					else if (m_Encoding == MoveEncoding::CORE)
+						convertedMove = GetMoveIntex("3STCOREE", *(uint16_t*)&movePath.move[i], i - index);
 
-				if (convertedMove == 0)
+					if (convertedMove == 0)
+					{
+						data.emplace_back(movePath.move[i].first);
+						data.emplace_back(movePath.move[i].second);
+					}
+					else
+						data.emplace_back(convertedMove);
+				}
+				else
 				{
 					data.emplace_back(movePath.move[i].first);
 					data.emplace_back(movePath.move[i].second);
 				}
-				else
-					data.emplace_back(convertedMove);
 
 				if (movePath.details.contains(i) && (movePath.details.at(i).note != "" || !movePath.details.at(i).cmds.empty()))
 				{
@@ -492,6 +474,158 @@ namespace Chess
 
 					data.emplace_back(detail);
 				}
+			}
+		}
+	}
+
+	void CldGame::ConvertEncoding(MoveEncoding encoding, std::string startFen)
+	{
+		if (m_Encoding == encoding || encoding == PGN)
+			return;
+
+		if (encoding == CLD)
+		{
+			CldMovesPath newMovesPath;
+			ConvertCldMovePathCoreEToCldMovePathCldE(newMovesPath, m_MovesPath);
+
+			m_MovesPath = newMovesPath;
+		}
+		else if (encoding == CORE)
+		{
+			CldMovesPath newMovesPath;
+			ConvertCldMovePathCldEToCldMovePathCoreE(newMovesPath, m_MovesPath);
+
+			m_MovesPath = newMovesPath;
+		}
+
+		m_Encoding = encoding;
+	}
+
+	void CldGame::ConvertCldMovePathCoreEToCldMovePathCldE(CldGame::CldMovesPath& cldMovePathCldE, const CldGame::CldMovesPath& cldMovePathCoreE, bool reset, std::string startFen)
+	{
+		static Board staticBoard;
+
+		if (reset)
+			staticBoard.NewPosition(startFen);
+
+		Board myBoard = staticBoard;
+		Board::Move prevMove;
+		Piece prevProm = NONE;
+
+		if (cldMovePathCoreE.details.contains(-1))
+		{
+			auto& detail = cldMovePathCldE.details[-1];
+			detail.cmds = cldMovePathCldE.details.at(-1).cmds;
+			detail.note = cldMovePathCldE.details.at(-1).note;
+		}
+
+		size_t index = 0;
+
+		for (int i = 0; i < cldMovePathCoreE.move.size(); i++)
+		{
+			const std::pair<uint8_t, uint8_t>* move = &cldMovePathCoreE.move[i];
+
+			if (move->first == UINT8_MAX)
+			{
+				Board oldBoard = staticBoard;
+
+				cldMovePathCldE.move.emplace_back(255ui8, 255ui8);
+
+				ConvertCldMovePathCoreEToCldMovePathCldE(cldMovePathCldE.children.emplace_back(), cldMovePathCoreE.children[index], false);
+				index++;
+
+				staticBoard = oldBoard;
+
+				continue;
+			}
+
+			Board::Move coreMove;
+			Piece promType = NONE;
+
+			coreMove.index = move->first;
+			coreMove.move = uint8_t(move->second >> 2) - coreMove.index;
+			promType = Piece((move->second & 0b00000011) + 1);
+
+			cldMovePathCldE.move.emplace_back(myBoard.ConvertCoreMoveToCLDMove(coreMove, promType));
+			
+			myBoard.MakeMove(coreMove, promType);
+
+			if (prevMove.move != 0)
+			{
+				staticBoard.MakeMove(prevMove, prevProm);
+				prevMove = coreMove;
+				prevProm = promType;
+			}
+			
+
+			if (cldMovePathCoreE.details.contains(i))
+			{
+				auto& detail = cldMovePathCldE.details[i];
+				detail.cmds = cldMovePathCldE.details.at(i).cmds;
+				detail.note = cldMovePathCldE.details.at(i).note;
+			}
+		}
+	}
+
+	void CldGame::ConvertCldMovePathCldEToCldMovePathCoreE(CldGame::CldMovesPath& cldMovePathCoreE, const CldGame::CldMovesPath& cldMovePathCldE, bool reset, std::string startFen)
+	{
+		static Board staticBoard;
+
+		if (reset)
+			staticBoard.NewPosition(startFen);
+
+		Board myBoard = staticBoard;
+		Board::Move prevMove = { 0, 0 };
+		Piece prevProm = NONE;
+
+		if (cldMovePathCldE.details.contains(-1))
+		{
+			auto& detail = cldMovePathCoreE.details[-1];
+			detail.cmds = cldMovePathCoreE.details.at(-1).cmds;
+			detail.note = cldMovePathCoreE.details.at(-1).note;
+		}
+
+		size_t index = 0;
+
+		for (int i = 0; i < cldMovePathCldE.move.size(); i++)
+		{
+			const std::pair<uint8_t, uint8_t>* move = &cldMovePathCldE.move[i];
+
+			if (move->first == UINT8_MAX)
+			{
+				Board oldBoard = staticBoard;
+
+				cldMovePathCoreE.move.emplace_back(255ui8, 255ui8);
+
+				ConvertCldMovePathCldEToCldMovePathCoreE(cldMovePathCoreE.children.emplace_back(), cldMovePathCldE.children[index], false);
+				index++;
+
+				staticBoard = oldBoard;
+
+				continue;
+			}
+
+			Board::Move coreMove;
+			Piece promType = NONE;
+			myBoard.ConvertCLDMoveToCoreMove(coreMove, promType, *move);
+
+			uint8_t firstPart = coreMove.index;
+			uint8_t secondPart = ((coreMove.index + coreMove.move) << 2) | (0b00000011 & (promType - 1));
+
+			cldMovePathCoreE.move.emplace_back(std::make_pair(firstPart, secondPart));
+
+			if (myBoard.MakeMove(coreMove, promType) != Board::SUCCESS)
+				break;
+			if (prevMove.move != 0)
+				staticBoard.MakeMove(prevMove, prevProm);
+			prevMove = coreMove;
+			prevProm = promType;
+
+			if (cldMovePathCldE.details.contains(i))
+			{
+				auto& detail = cldMovePathCoreE.details[i];
+				detail.cmds = cldMovePathCoreE.details.at(i).cmds;
+				detail.note = cldMovePathCoreE.details.at(i).note;
 			}
 		}
 	}

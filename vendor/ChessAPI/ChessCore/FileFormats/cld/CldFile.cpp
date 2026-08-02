@@ -91,12 +91,15 @@ namespace Chess
 	void CldFile::SaveFile(const std::filesystem::path& path, float* persentage)
 	{
 		std::filesystem::path oldPath = "";
+		FileManager::FileID nID = m_ID;
+
+		MoveEncoding oldEncoding = (((*m_Settings) & 0x01) == 0x01 ? CORE : CLD);
+		bool oldUseTable = (((*m_Settings) & 0x02) == 0x02 ? false : true);
 
 		if (FileManager::Get().HasFile(m_ID))
 			oldPath = FileManager::Get().GetFilePath(m_ID);
 
 		bool diffFile = path.lexically_normal() != oldPath.lexically_normal();
-		FileManager::FileID nID = m_ID;
 
 		if (diffFile)
 		{
@@ -128,11 +131,9 @@ namespace Chess
 		std::vector<size_t> editedGames;
 		ChessFileManager::Get().GetEditedGames(m_ID, editedGames);
 
-		if (editedGames.empty() && !diffFile)
-			return;
-
 		if (editedGames.empty())
 		{
+			if (diffFile)
 			{
 				std::ifstream source(FileManager::Get().GetFilePath(m_ID), std::ios::binary);
 				std::ofstream destination(path, std::ios::binary);
@@ -199,7 +200,8 @@ namespace Chess
 				EcldGames[i][indexName] = indexValue;
 			}
 
-			ChessFileManager::ConvertPgnMovePathToCldMovePath(EcldGames[i].GetMovePathbyRef(), eGame.GetMovePathbyRef(), (*m_Settings) % 2 == 0 ? MoveEncoding::CLD : MoveEncoding::CORE, true);
+			EcldGames[i].SetEncoding(oldEncoding);
+			ChessFileManager::ConvertPgnMovePathToCldMovePath(EcldGames[i].GetMovePathbyRef(), eGame.GetMovePathbyRef(), oldEncoding, true);
 		}
 
 		std::vector<uint8_t> bufferNameNew, bufferValueNew;
@@ -230,7 +232,7 @@ namespace Chess
 			
 			std::ofstream destination(cachePath / "helper", std::ios::binary, std::ios::trunc);
 			std::ofstream destinationGames(cachePath / "helperGames", std::ios::binary, std::ios::trunc);
-
+			
 			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, (*m_Settings), 0x00, 0x01, 0x04 };
 			uint64_t indexName = m_LabelNamesPointer;
 			uint64_t indexValue = m_LabelValuesPointer + bufferNameNew.size();
@@ -331,7 +333,7 @@ namespace Chess
 					else if (i > 0 && editedGames[i] - 1 == editedGames[i - 1])
 					{
 						std::vector<uint8_t> data;
-						EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue));
+						EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue), oldUseTable);
 						NDataPointers->emplace_back(NDataPointers->back() + data.size());
 					}
 					else
@@ -339,7 +341,7 @@ namespace Chess
 				}
 
 				std::vector<uint8_t> data;
-				EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue));
+				EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue), oldUseTable);
 				NPointersIndex += data.size();
 				destinationGames.write((char*)data.data(), data.size());
 			}
@@ -355,6 +357,486 @@ namespace Chess
 			destination.close();
 			destinationGames.close();
 			source.close();
+		}
+		else
+		{
+			std::ofstream destination(cachePath / "helper", std::ios::binary, std::ios::trunc);
+			std::ofstream destinationGames(cachePath / "helperGames", std::ios::binary, std::ios::trunc);
+
+			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, (*m_Settings), 0x00, 0x01, 0x04 };
+			m_LabelNamesPointer = 40;
+			m_LabelValuesPointer = m_LabelNamesPointer + bufferNameNew.size();
+			m_GamePointersPointer = m_LabelValuesPointer + bufferValueNew.size();
+			//check if we have no games
+			size_t numberOfGames = GetSize();
+
+			destination.write((char*)title, 8);
+			destination.write((char*)&m_LabelNamesPointer, 8);
+			destination.write((char*)&m_LabelValuesPointer, 8);
+			destination.write((char*)&m_GamePointersPointer, 8);
+			destination.write((char*)&numberOfGames, 8);
+
+			if (bufferNameNew.size() > 0)
+				destination.write((char*)bufferNameNew.data(), bufferNameNew.size());
+
+			if (bufferValueNew.size() > 0)
+				destination.write((char*)bufferValueNew.data(), bufferValueNew.size());
+
+			if (persentage)
+				*persentage = 0.4f;
+
+			size_t lastIndex = 0;
+			size_t NPointersIndex = m_GamePointersPointer + GetSize() * 8;
+
+			if (GetSize())
+				NDataPointers->emplace_back(NPointersIndex);
+
+			for (size_t i = 0; i < EcldGames.size(); i++)
+			{
+				if (editedGames[i])
+				{
+					std::vector<uint8_t> data;
+					EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue), oldUseTable);
+					destinationGames.write((char*)data.data(), data.size());
+					NDataPointers->emplace_back(NDataPointers->back() + data.size());
+				}
+			}
+
+			NDataPointers->pop_back();
+
+			destination.write((char*)NDataPointers->data(), NDataPointers->size() * 8);
+
+			destination.close();
+			destinationGames.close();
+		}
+
+		if (persentage)
+			*persentage = 0.9f;
+
+		{
+			std::ifstream source(cachePath / "helper", std::ios::binary);
+			std::ifstream sourceGames(cachePath / "helperGames", std::ios::binary);
+			std::ofstream destination(path, std::ios::binary);
+
+			destination << source.rdbuf() << sourceGames.rdbuf();
+
+			source.close();
+			sourceGames.close();
+			destination.close();
+		}
+
+		{
+			m_GamePointers = NDataPointers;
+			m_AddedGamesCount = 0;
+
+			ChessFileManager::Get().RemoveFileReference(m_ID);
+
+			if (diffFile)
+			{
+				FileManager::Get().RemoveFile(m_ID);
+				m_ID = nID;
+			}
+
+			ChessFileManager::Get().AddCldFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue, m_Settings);
+		}
+	}
+
+	void CldFile::SaveFileAs(const std::filesystem::path& path, MoveEncoding encoding, bool useTable, float* persentage)
+	{
+		std::filesystem::path oldPath = "";
+		FileManager::FileID nID = m_ID;
+		MoveEncoding oldEncoding = (((*m_Settings) & 0x01) == 0x01 ? CORE : CLD);
+		bool oldUseTable = (((*m_Settings) & 0x02) == 0x02 ? false : true);
+
+		if (FileManager::Get().HasFile(m_ID))
+			oldPath = FileManager::Get().GetFilePath(m_ID);
+
+		bool diffFile = path.lexically_normal() != oldPath.lexically_normal();
+
+		if (diffFile)
+		{
+			std::ofstream testfile(path, std::ios::trunc);
+			testfile.close();
+
+			nID = FileManager::Get().AddFile(path);
+		}
+
+		for (int si = 0; si < m_Searches.size(); si++)
+			StopSearch(si);
+
+		auto cachePath = FileManager::Get().GetCachePath(nID);
+
+		{
+			std::ofstream outfile(cachePath / "thisfile.dpgn", std::ios::binary | std::ios::trunc);
+
+			for (auto& gameDeleted : m_DeletedGames)
+				outfile.write((char*)&gameDeleted, 8);
+
+			outfile.close();
+		}
+
+		SaveSearchIndexes(cachePath);
+
+		if (persentage)
+			*persentage = 0.1f;
+
+		std::vector<size_t> editedGames;
+		ChessFileManager::Get().GetEditedGames(m_ID, editedGames);
+
+		bool noChanges = editedGames.empty() && oldEncoding == encoding && oldUseTable == useTable;
+
+		if (noChanges)
+		{
+			if (diffFile)
+			{
+				std::ifstream source(FileManager::Get().GetFilePath(m_ID), std::ios::binary);
+				std::ofstream destination(path, std::ios::binary);
+
+				destination << source.rdbuf();
+
+				source.close();
+				destination.close();
+			}
+
+			return;
+		}
+
+		size_t fenIndex = -1;
+
+		for (size_t j = 0; j < m_LabelNames->size(); j++)
+		{
+			if ((*m_LabelNames)[j] == "FEN")
+			{
+				fenIndex = j;
+				break;
+			}
+		}
+
+		if (fenIndex == -1)
+		{
+			fenIndex = m_LabelNames->size();
+			m_LabelNames->emplace_back("FEN");
+		}
+
+		size_t oldSizeName = m_LabelNames->size();
+		size_t oldSizeValue = m_LabelValues->size();
+
+		std::vector<CldGame> EcldGames;
+		EcldGames.resize(editedGames.size());
+
+		for (size_t i = 0; i < editedGames.size(); i++)
+		{
+			if (persentage)
+			{
+				*persentage = std::min(0.1f + float(i / (double)editedGames.size()) * 0.1f, 0.2f);
+			}
+
+			PgnGame& eGame = ChessFileManager::Get().GetGame(m_ID, editedGames[i]);
+			auto labels = eGame.GetLabelNames();
+
+			for (auto& label : labels)
+			{
+				size_t indexName = -1;
+				for (size_t j = 0; j < m_LabelNames->size(); j++)
+				{
+					if ((*m_LabelNames)[j] == label)
+					{
+						indexName = j;
+						break;
+					}
+				}
+
+				if (indexName == -1)
+				{
+					indexName = m_LabelNames->size();
+					m_LabelNames->emplace_back(label);
+				}
+
+				size_t indexValue = -1;
+				for (size_t j = 0; j < m_LabelValues->size(); j++)
+				{
+					if ((*m_LabelValues)[j] == eGame[label])
+					{
+						indexValue = j;
+						break;
+					}
+				}
+
+				if (indexValue == -1)
+				{
+					indexValue = m_LabelValues->size();
+					m_LabelValues->emplace_back(eGame[label]);
+				}
+
+				EcldGames[i][indexName] = indexValue;
+			}
+
+			ChessFileManager::ConvertPgnMovePathToCldMovePath(EcldGames[i].GetMovePathbyRef(), eGame.GetMovePathbyRef(), encoding, true);
+		}
+
+		std::vector<uint8_t> bufferNameNew, bufferValueNew;
+
+		for (size_t i = oldSizeName; i < m_LabelNames->size(); i++)
+		{
+			for (char c : (*m_LabelNames)[i])
+				bufferNameNew.emplace_back((uint8_t)c);
+			bufferNameNew.emplace_back(0);
+		}
+
+		for (size_t i = oldSizeValue; i < m_LabelValues->size(); i++)
+		{
+			for (char c : (*m_LabelValues)[i])
+				bufferValueNew.emplace_back((uint8_t)c);
+			bufferValueNew.emplace_back(0);
+		}
+
+		if (persentage)
+			*persentage = 0.3f;
+
+		std::shared_ptr<std::vector<size_t>> NDataPointers = std::make_shared<std::vector<size_t>>();
+		NDataPointers->reserve(GetSize());
+
+		if (FileManager::Get().HasFile(m_ID))
+		{
+			std::ifstream source(FileManager::Get().GetFilePath(m_ID), std::ios::binary);
+
+			std::ofstream destination(cachePath / "helper", std::ios::binary, std::ios::trunc);
+			std::ofstream destinationGames(cachePath / "helperGames", std::ios::binary, std::ios::trunc);
+			
+			if (encoding == MoveEncoding::CLD)
+				*m_Settings &= ~0x01;
+			else if (encoding == MoveEncoding::CORE)
+				*m_Settings |= 0x01;
+
+			if (useTable)
+				*m_Settings &= ~0x02;
+			else
+				*m_Settings |= 0x02;
+
+			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, (*m_Settings), 0x00, 0x01, 0x04 };
+			uint64_t indexName = m_LabelNamesPointer;
+			uint64_t indexValue = m_LabelValuesPointer + bufferNameNew.size();
+			//check if we have no games
+			uint64_t indexGamePointers = m_GamePointersPointer + bufferNameNew.size() + bufferValueNew.size();
+			size_t numberOfGames = GetSize();
+
+			destination.write((char*)title, 8);
+			destination.write((char*)&indexName, 8);
+			destination.write((char*)&indexValue, 8);
+			destination.write((char*)&indexGamePointers, 8);
+			destination.write((char*)&numberOfGames, 8);
+
+			std::vector<uint8_t> buffer;
+
+			buffer.resize(m_LabelValuesPointer - m_LabelNamesPointer);
+			source.seekg(m_LabelNamesPointer);
+			source.read((char*)buffer.data(), buffer.size());
+			destination.write((char*)buffer.data(), buffer.size());
+			if (bufferNameNew.size() > 0)
+				destination.write((char*)bufferNameNew.data(), bufferNameNew.size());
+
+			buffer.resize(m_GamePointersPointer - m_LabelValuesPointer);
+			source.seekg(m_LabelValuesPointer);
+			source.read((char*)buffer.data(), buffer.size());
+			destination.write((char*)buffer.data(), buffer.size());
+			if (bufferValueNew.size() > 0)
+				destination.write((char*)bufferValueNew.data(), bufferValueNew.size());
+
+			if (persentage)
+				*persentage = 0.4f;
+
+			m_LabelValuesPointer = indexValue;
+			m_GamePointersPointer = indexGamePointers;
+
+			size_t lastIndex = 0;
+			size_t NPointersIndex = indexGamePointers + GetSize() * 8;
+
+			if (oldEncoding == encoding && oldUseTable == useTable)
+			{
+				auto loadFileByChunk = [this, &source, &destinationGames, &lastIndex, &NPointersIndex, &NDataPointers](size_t endPoint, size_t gameIndex)
+					{
+						if (m_GamePointers->empty())
+							return;
+
+						const std::streamsize chunkSize = 1024 * 1024;
+
+						std::vector<char> buffer(chunkSize);
+						std::streamsize remaining = endPoint - (*m_GamePointers)[lastIndex];
+
+						source.seekg((*m_GamePointers)[lastIndex]);
+						//outfile.seekp(std::ios::app);
+
+						while (remaining > 0)
+						{
+							std::streamsize currentChunk = std::min(remaining, chunkSize);
+
+							source.read(buffer.data(), currentChunk);
+							//std::streamsize bytesRead = source.gcount();
+							//if (bytesRead == 0)
+							//	continue;
+
+							//outfile.write(buffer.data(), bytesRead);
+							destinationGames.write(buffer.data(), currentChunk);
+
+							//remaining -= bytesRead;
+							remaining -= currentChunk;
+						}
+
+						for (int i = 0; i < gameIndex - lastIndex; i++)
+							NDataPointers->emplace_back((*m_GamePointers)[lastIndex + i] - (*m_GamePointers)[lastIndex] + NPointersIndex);
+
+						NPointersIndex += (endPoint - (*m_GamePointers)[lastIndex]);
+					};
+
+				for (size_t i = 0; i < editedGames.size(); i++)
+				{
+					if (persentage)
+					{
+						*persentage = std::min(0.4f + float(i / (double)editedGames.size()) * 0.4f, 0.8f);
+					}
+
+					if (editedGames[i] > lastIndex && editedGames[i] < m_GamePointers->size())
+						loadFileByChunk((*m_GamePointers)[editedGames[i]], editedGames[i]);
+
+					if (editedGames[i] == m_GamePointers->size())
+					{
+						source.seekg(0, std::ios::end);
+						loadFileByChunk((size_t)source.tellg(), m_GamePointers->size());
+					}
+
+					lastIndex = editedGames[i] + 1;
+
+					if (NDataPointers->empty())
+						NDataPointers->emplace_back(NPointersIndex);
+					else
+					{
+						if (editedGames[i] == m_GamePointers->size())
+							NDataPointers->emplace_back(NPointersIndex);
+						else if (i > 0 && editedGames[i] - 1 == editedGames[i - 1])
+						{
+							std::vector<uint8_t> data;
+							EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue), oldUseTable);
+							destinationGames.write((char*)data.data(), data.size());
+						}
+						else
+							NDataPointers->emplace_back(NDataPointers->back() + (*m_GamePointers)[editedGames[i]] - (*m_GamePointers)[editedGames[i] - 1]);
+					}
+
+					std::vector<uint8_t> data;
+					EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue), oldUseTable);
+					NPointersIndex += data.size();
+					destinationGames.write((char*)data.data(), data.size());
+				}
+
+				if (editedGames.back() < m_GamePointers->size() - 1)
+				{
+					source.seekg(0, std::ios::end);
+					loadFileByChunk((size_t)source.tellg(), m_GamePointers->size());
+				}
+			}
+			else
+			{
+				if (GetSize())
+					NDataPointers->emplace_back(NPointersIndex);
+
+				for (size_t i = 0; i < m_GamePointers->size(); i++)
+				{
+					std::vector<uint8_t> data;
+					FileManager::Get().ReadBuffer(m_ID, (*m_GamePointers)[i], ((i + 1 < m_GamePointers->size()) ? ((*m_GamePointers)[i + 1] - (*m_GamePointers)[i]) : SIZE_MAX), (std::vector<uint8_t>&)data);
+
+					CldGame cldCGame;
+					cldCGame.Parse(data, oldEncoding, (*m_typeName), (*m_typeValue), true, true, true, true);
+
+					std::string startFen;
+					if (cldCGame.IsLabelExist(fenIndex))
+						startFen = (*m_LabelValues)[cldCGame[fenIndex]];
+
+					cldCGame.ConvertEncoding(encoding, startFen);
+					cldCGame.GetData(data, (*m_typeName), (*m_typeValue), useTable);
+					destinationGames.write((char*)data.data(), data.size());
+					NDataPointers->emplace_back(NDataPointers->back() + data.size());
+				}
+
+				for (size_t i = 0; i < EcldGames.size(); i++)
+				{
+					if (editedGames[i] >= m_GamePointers->size())
+					{
+						std::vector<uint8_t> data;
+						EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue), useTable);
+						destinationGames.write((char*)data.data(), data.size());
+						NDataPointers->emplace_back(NDataPointers->back() + data.size());
+					}
+				}
+
+				NDataPointers->pop_back();
+			}
+
+			destination.write((char*)NDataPointers->data(), NDataPointers->size() * 8);
+
+			destination.close();
+			destinationGames.close();
+			source.close();
+		}
+		else
+		{
+			std::ofstream destination(cachePath / "helper", std::ios::binary, std::ios::trunc);
+			std::ofstream destinationGames(cachePath / "helperGames", std::ios::binary, std::ios::trunc);
+
+			if (encoding == MoveEncoding::CLD)
+				*m_Settings &= ~0x01;
+			else if (encoding == MoveEncoding::CORE)
+				*m_Settings |= 0x01;
+
+			if (useTable)
+				*m_Settings &= ~0x02;
+			else
+				*m_Settings |= 0x02;
+
+			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, (*m_Settings), 0x00, 0x01, 0x04 };
+			m_LabelNamesPointer = 40;
+			m_LabelValuesPointer = m_LabelNamesPointer + bufferNameNew.size();
+			m_GamePointersPointer = m_LabelValuesPointer + bufferValueNew.size();
+			//check if we have no games
+			size_t numberOfGames = GetSize();
+
+			destination.write((char*)title, 8);
+			destination.write((char*)&m_LabelNamesPointer, 8);
+			destination.write((char*)&m_LabelValuesPointer, 8);
+			destination.write((char*)&m_GamePointersPointer, 8);
+			destination.write((char*)&numberOfGames, 8);
+
+			if (bufferNameNew.size() > 0)
+				destination.write((char*)bufferNameNew.data(), bufferNameNew.size());
+
+			if (bufferValueNew.size() > 0)
+				destination.write((char*)bufferValueNew.data(), bufferValueNew.size());
+
+			if (persentage)
+				*persentage = 0.4f;
+
+			size_t lastIndex = 0;
+			size_t NPointersIndex = m_GamePointersPointer + GetSize() * 8;
+				
+			if (GetSize())
+				NDataPointers->emplace_back(NPointersIndex);
+
+			for (size_t i = 0; i < EcldGames.size(); i++)
+			{
+				if (editedGames[i])
+				{
+					std::vector<uint8_t> data;
+					EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue), useTable);
+					destinationGames.write((char*)data.data(), data.size());
+					NDataPointers->emplace_back(NDataPointers->back() + data.size());
+				}
+			}
+
+			NDataPointers->pop_back();			
+
+			destination.write((char*)NDataPointers->data(), NDataPointers->size() * 8);
+
+			destination.close();
+			destinationGames.close();
 		}
 
 		if (persentage)
@@ -412,55 +894,55 @@ namespace Chess
 		m_GamePointersPointer = *(uint64_t*)&buffer[24];
 		size_t numberOfGames = *(uint64_t*)&buffer[32];
 		
-		if (version != 0x01)
-			return;
-
-		if ((*m_Settings) != 0x00 && (*m_Settings) != 0x01)
-			return;
-
+		if (version == 0x01)
 		{
-			std::vector<uint8_t> bufferNames;
-			FileManager::Get().ReadBuffer(m_ID, m_LabelNamesPointer, m_LabelValuesPointer - m_LabelNamesPointer, bufferNames);
+			//if ((*m_Settings) != 0x00 && (*m_Settings) != 0x01)
+			//	return;
 
-			std::string name;
-			for (size_t i = 0; i < bufferNames.size(); i++)
 			{
-				if (bufferNames[i] == 0)
+				std::vector<uint8_t> bufferNames;
+				FileManager::Get().ReadBuffer(m_ID, m_LabelNamesPointer, m_LabelValuesPointer - m_LabelNamesPointer, bufferNames);
+
+				std::string name;
+				for (size_t i = 0; i < bufferNames.size(); i++)
 				{
-					m_LabelNames->emplace_back(name);
-					name.clear();
-					continue;
+					if (bufferNames[i] == 0)
+					{
+						m_LabelNames->emplace_back(name);
+						name.clear();
+						continue;
+					}
+
+					name += (char)bufferNames[i];
 				}
-
-				name += (char)bufferNames[i];
 			}
-		}
 
-		if (persentage)
-			*persentage = 0.2f;
+			if (persentage)
+				*persentage = 0.2f;
 
-		{
-			std::vector<uint8_t> bufferValues;
-			FileManager::Get().ReadBuffer(m_ID, m_LabelValuesPointer, m_GamePointersPointer - m_LabelValuesPointer, bufferValues);
-
-			std::string value;
-			for (size_t i = 0; i < bufferValues.size(); i++)
 			{
-				if (bufferValues[i] == 0)
+				std::vector<uint8_t> bufferValues;
+				FileManager::Get().ReadBuffer(m_ID, m_LabelValuesPointer, m_GamePointersPointer - m_LabelValuesPointer, bufferValues);
+
+				std::string value;
+				for (size_t i = 0; i < bufferValues.size(); i++)
 				{
-					m_LabelValues->emplace_back(value);
-					value.clear();
-					continue;
+					if (bufferValues[i] == 0)
+					{
+						m_LabelValues->emplace_back(value);
+						value.clear();
+						continue;
+					}
+
+					value += (char)bufferValues[i];
 				}
-
-				value += (char)bufferValues[i];
 			}
+
+			if (persentage)
+				*persentage = 0.6f;
+
+			FileManager::Get().ReadBuffer(m_ID, m_GamePointersPointer, numberOfGames * 8, (*m_GamePointers));
 		}
-
-		if (persentage)
-			*persentage = 0.6f;
-
-		FileManager::Get().ReadBuffer(m_ID, m_GamePointersPointer, numberOfGames * 8, (*m_GamePointers));
 	}
 
 	FileManager::FileID CldFile::GetID() const
@@ -588,10 +1070,10 @@ namespace Chess
 
 			for (int i = 0; i < DeletedGamesSorted.size(); i++)
 			{
-				if (file.m_GamePointers->size() == DeletedGamesSorted[i] + 1)
+				if (file.m_GamePointers->size() <= DeletedGamesSorted[i] + 1)
 					break;
 
-				if (i == 0 && DeletedGamesSorted[i] == 0)
+				if (DeletedGamesSorted[i] == 0)
 					continue;
 
 				if (i > 0 && DeletedGamesSorted[i] - 1 == DeletedGamesSorted[i - 1])
@@ -647,8 +1129,8 @@ namespace Chess
 				for (int j = DeletedGamesSorted.back() + 2; j < file.m_GamePointers->size(); j++)
 					NewDataPointers.emplace_back((*file.m_GamePointers)[j] - (*file.m_GamePointers)[j - 1] + NewDataPointers.back());
 			}
-
-			NewDataPointers.pop_back();
+			else
+				NewDataPointers.pop_back();
 
 			source.close();
 			outfile.close();
@@ -658,7 +1140,7 @@ namespace Chess
 			std::ifstream source(FileManager::Get().GetFilePath(file.m_ID), std::ios::binary);
 			std::ofstream outfile(cachePath / "helper", std::ios::binary, std::ios::trunc);
 
-			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, 0x00, 0x00, 0x01, 0x04 };
+			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, (*file.m_Settings), 0x00, 0x01, 0x04 };
 			size_t numberOfGames = NewDataPointers.size();
 
 			outfile.write((char*)title, 8);

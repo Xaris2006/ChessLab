@@ -118,6 +118,8 @@ void BoardPanel::OnAttach()
 
 void BoardPanel::OnImGuiRender()
 {
+	auto MousePos = FindMousePos();
+
 	ImGui::Begin("Game", 0, ImGuiWindowFlags_NoScrollbar);
 
 	if (IsLoadingPopupOpen())
@@ -151,18 +153,38 @@ void BoardPanel::OnImGuiRender()
 			auto flagUnsaved = ImGuiTabItemFlags_None;
 			auto flagActive = ImGuiTabItemFlags_None;
 
-			if (ChessAPI::GetChessFile().IsGameEdited(opened[n]))
+			if (ChessAPI::GetChessFile().IsGameEdited(opened[n]) && opened[n] >= 0)
 				flagUnsaved = ImGuiTabItemFlags_UnsavedDocument;
 
 			if (activeTab)
 				flagActive = ImGuiTabItemFlags_SetSelected;
 
+			std::string tabName;
+
+			if (opened[n] >= 0)
+				tabName = std::to_string(opened[n] + 1) + ": ";
+			else
+			{
+				ImGui::PushStyleColor(ImGuiCol_Tab, ImColor(135, 225, 255, 50).Value);
+				ImGui::PushStyleColor(ImGuiCol_TabHovered, ImColor(135, 225, 255, 80).Value);
+				ImGui::PushStyleColor(ImGuiCol_TabActive, ImColor(135, 225, 255, 110).Value);
+				ImGui::PushStyleColor(ImGuiCol_TabUnfocused, ImColor(135, 225, 255, 50).Value);
+				ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, ImColor(135, 225, 255, 80).Value);
+			}
+			
+			tabName += ChessAPI::GetPgnGameByIndex(opened[n])["White"] + " - " + ChessAPI::GetPgnGameByIndex(opened[n])["Black"];
+			
 			//rewrite
-			if (ImGui::BeginTabItem((std::to_string(opened[n] + 1) + ": " + ChessAPI::GetChessFile()[opened[n]]["White"] + " - " + ChessAPI::GetChessFile()[opened[n]]["Black"]).c_str(),
+			if (ImGui::BeginTabItem(tabName.c_str(),
 				crossAddress, flagActive | flagUnsaved))
 			{
 				activeTab = true;
 				ImGui::EndTabItem();
+			}
+
+			if (opened[n] < 0)
+			{
+				ImGui::PopStyleColor(5);
 			}
 			
 			ImGui::PopID();
@@ -179,492 +201,6 @@ void BoardPanel::OnImGuiRender()
 		}
 		
 		ImGui::EndTabBar();
-	}
-
-
-	if (tabRemove != -1)
-	{
-		if (ChessAPI::GetActiveGameIndex() == opened[tabRemove])
-			ChessAPI::OpenChessGameInFile(opened[(0 == tabRemove ? 1 : 0)]);
-	
-		ChessAPI::CloseOpenGame(opened[tabRemove]);
-		tabRemove = -1;
-	}
-
-
-	auto mif = (std::vector<int>)ChessAPI::GetActiveGame().GetLastMoveKey();
-	auto& cmds = ChessAPI::GetActiveGame().GetNote(mif).cmds;
-
-	for (int i = 0; i < 8; i++)
-	{
-		for (int j = 0; j < 8; j++)
-		{
-			s_tags[i][j] = 0;
-		}
-	}
-	
-	s_arrows.clear();
-
-	if (cmds.contains("csl"))
-	{
-		static const std::string hor = "abcdefgh";
-		static const std::string ver = "12345678";
-		static const std::string type = " RGY";
-		
-		std::string clsCmd = cmds["csl"];
-
-		for (int i = 0; i < clsCmd.size(); i++)
-		{
-			if (clsCmd[i] == ',')
-				continue;
-
-			char t = clsCmd[i];
-			char h = clsCmd[++i];
-			char v = clsCmd[++i];
-
-			if(!m_reverse)
-				s_tags[7 - ver.find(v)][hor.find(h)] = type.find(t);
-			else
-				s_tags[ver.find(v)][7 - hor.find(h)] = type.find(t);
-		}
-
-	}
-
-	if (cmds.contains("cal"))
-	{
-		static const std::string hor = "abcdefgh";
-		static const std::string ver = "12345678";
-		static const std::string type = " RGY";
-		
-		std::string calCmd = cmds["cal"];
-
-		for (int i = 0; i < calCmd.size(); i++)
-		{
-			if (calCmd[i] == ',')
-				continue;
-			
-			char t = calCmd[i];
-			char hs = calCmd[++i];
-			char vs = calCmd[++i];
-			char he = calCmd[++i];
-			char ve = calCmd[++i];
-
-			if (!m_reverse)
-			{
-				ArrowsData adata;
-				adata.type = type.find(t);
-				adata.end = ImVec2(7 - ver.find(ve), hor.find(he));
-				adata.start = ImVec2(7 - ver.find(vs), hor.find(hs));
-				s_arrows.emplace_back(adata);
-			}
-			else
-			{
-				ArrowsData adata;
-				adata.type = type.find(t);
-				adata.end = ImVec2(ver.find(ve), 7 - hor.find(he));
-				adata.start = ImVec2(ver.find(vs), 7 - hor.find(hs));
-				s_arrows.emplace_back(adata);
-			}
-		}
-
-	}
-
-	if (!ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
-	{
-		if (!ImGui::IsAnyMouseDown())
-		{
-			if (ImGui::IsKeyPressed(ImGuiKey_RightArrow))
-			{
-				m_NextMove = true;
-			}
-			if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow))
-			{
-				ChessAPI::GetActiveGame().GoPreviusMove();
-			}
-		}
-		
-		{
-			static const std::string hor = "abcdefgh";
-			static const std::string ver = "12345678";
-			
-			bool redKey = ImGui::IsKeyDown(ImGuiKey_R);
-			bool greenKey = ImGui::IsKeyDown(ImGuiKey_G);
-			bool blueKey = ImGui::IsKeyDown(ImGuiKey_B);
-			bool magicKey = redKey + greenKey + blueKey;
-
-			bool rMouseClicked = ImGui::IsMouseClicked(ImGuiMouseButton_Right) || (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)));
-			bool rMouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Right) || (ImGui::IsMouseDown(ImGuiMouseButton_Left) && (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)));
-			bool rMouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Right) || (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)));
-
-			bool doArrow = false;
-			bool doTag = false;
-
-			static bool start = false;
-
-			auto MousePos = FindMousePos();
-
-			if (rMouseClicked && magicKey
-				&& MousePos.x > -1 && MousePos.y > -1
-				&& MousePos.x < 8 && MousePos.y < 8)
-			{
-				start = true;
-				s_startPressedPos = MousePos;
-			}
-
-			if (rMouseReleased && start)
-			{
-				if (MousePos.x > -1 && MousePos.y > -1
-					&& MousePos.x < 8 && MousePos.y < 8
-					&& magicKey)
-				{
-					if (MousePos.x == s_startPressedPos.x
-						&& MousePos.y == s_startPressedPos.y)
-					{
-						doTag = true;
-					}
-					else
-						doArrow = true;
-				}
-				else
-				{
-					start = false;
-					s_startPressedPos = ImVec2(-1, -1);
-				}
-			}
-
-			if (doTag)
-			{
-				auto& CslCmd = cmds["csl"];
-
-				if (redKey)
-				{
-					auto MousePos = FindMousePos();
-
-					std::string vh = "";
-
-					if (!m_reverse)
-					{
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-					else
-					{
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-
-					int indexVH = CslCmd.find(vh);
-					if (indexVH != std::string::npos)
-					{
-						if (CslCmd[indexVH - 1] == 'R')
-						{
-							bool first = false;
-							if (indexVH == 1)
-								first = true;
-
-							if (!first)
-								CslCmd.erase(indexVH - 2, 4);
-							else
-							{
-								if (CslCmd.size() == 1 + 2)
-									CslCmd.erase(indexVH - 1, 3);
-								else
-									CslCmd.erase(indexVH - 1, 4);
-
-								//bool last = false;
-								//if (CslCmd[indexVH + 2] == CslCmd.size())
-								//	last = true;
-								//
-								//if (last)
-								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
-								//else
-								//	CslCmd.erase(indexVH - 1, 4);
-							}
-						}
-						else
-							CslCmd[indexVH - 1] = 'R';
-					}
-					else
-					{
-						if (CslCmd.empty())
-							CslCmd = ('R' + vh);
-						else
-							CslCmd += (",R" + vh);
-					}					
-				}
-				if (greenKey)
-				{
-					auto MousePos = FindMousePos();
-
-					std::string vh = "";
-
-					if (!m_reverse)
-					{
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-					else
-					{
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-
-					int indexVH = CslCmd.find(vh);
-					if (indexVH != std::string::npos)
-					{
-						if (CslCmd[indexVH - 1] == 'G')
-						{
-							bool first = false;
-							if (indexVH == 1)
-								first = true;
-
-							if (!first)
-								CslCmd.erase(indexVH - 2, 4);
-							else
-							{
-								if (CslCmd.size() == 1 + 2)
-									CslCmd.erase(indexVH - 1, 3);
-								else
-									CslCmd.erase(indexVH - 1, 4);
-
-								//bool last = false;
-								//if (CslCmd[indexVH + 2] == CslCmd.size())
-								//	last = true;
-								//
-								//if (last)
-								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
-								//else
-								//	CslCmd.erase(indexVH - 1, 4);
-							}
-						}
-						else
-							CslCmd[indexVH - 1] = 'G';
-					}
-					else
-					{
-						if (CslCmd.empty())
-							CslCmd = ('G' + vh);
-						else
-							CslCmd += (",G" + vh);
-					}
-				}
-				if (blueKey)
-				{
-					auto MousePos = FindMousePos();
-
-					std::string vh = "";
-
-					if (!m_reverse)
-					{
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-					else
-					{
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-
-					int indexVH = CslCmd.find(vh);
-					if (indexVH != std::string::npos)
-					{
-						if (CslCmd[indexVH - 1] == 'Y')
-						{
-							bool first = false;
-							if (indexVH == 1)
-								first = true;
-
-							if (!first)
-								CslCmd.erase(indexVH - 2, 4);
-							else
-							{
-								if (CslCmd.size() == 1 + 2)
-									CslCmd.erase(indexVH - 1, 3);
-								else
-									CslCmd.erase(indexVH - 1, 4);
-
-								//bool last = false;
-								//if (CslCmd[indexVH + 2] == CslCmd.size())
-								//	last = true;
-								//
-								//if (last)
-								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
-								//else
-								//	CslCmd.erase(indexVH - 1, 4);
-							}
-						}
-						else
-							CslCmd[indexVH - 1] = 'Y';
-					}
-					else
-					{
-						if (CslCmd.empty())
-							CslCmd = ('Y' + vh);
-						else
-							CslCmd += (",Y" + vh);
-					}
-				}
-			}
-
-			if (doArrow)
-			{
-				auto& CalCmd = cmds["cal"];
-
-				if (redKey)
-				{
-					auto MousePos = FindMousePos();
-
-					std::string vh = "";
-
-					if (!m_reverse)
-					{
-						vh += hor[(int)s_startPressedPos.x];
-						vh += ver[(int)s_startPressedPos.y];
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-					else
-					{
-						vh += hor[(int)s_startPressedPos.x];
-						vh += ver[(int)s_startPressedPos.y];
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-
-					int indexVH = CalCmd.find(vh);
-					if (indexVH != std::string::npos)
-					{
-						if (CalCmd[indexVH - 1] == 'R')
-						{
-							bool first = false;
-							if (indexVH == 1)
-								first = true;
-
-							if (!first)
-								CalCmd.erase(indexVH - 2, 6);
-							else
-							{
-								if (CalCmd.size() == 1 + 2 + 2)
-									CalCmd.erase(indexVH - 1, 1 + 2 + 2);
-								else
-									CalCmd.erase(indexVH - 1, 1 + 2 + 2 + 1);
-							}
-						}
-						else
-							CalCmd[indexVH - 1] = 'R';
-					}
-					else
-					{
-						if (CalCmd.empty())
-							CalCmd = ('R' + vh);
-						else
-							CalCmd += (",R" + vh);
-					}
-				}
-				else if (greenKey)
-				{
-					auto MousePos = FindMousePos();
-
-					std::string vh = "";
-
-					if (!m_reverse)
-					{
-						vh += hor[(int)s_startPressedPos.x];
-						vh += ver[(int)s_startPressedPos.y];
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-					else
-					{
-						vh += hor[(int)s_startPressedPos.x];
-						vh += ver[(int)s_startPressedPos.y];
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-
-					int indexVH = CalCmd.find(vh);
-					if (indexVH != std::string::npos)
-					{
-						if (CalCmd[indexVH - 1] == 'G')
-						{
-							bool first = false;
-							if (indexVH == 1)
-								first = true;
-
-							if (!first)
-								CalCmd.erase(indexVH - 2, 6);
-							else
-							{
-								if (CalCmd.size() == 1 + 2 + 2)
-									CalCmd.erase(indexVH - 1, 1 + 2 + 2);
-								else
-									CalCmd.erase(indexVH - 1, 1 + 2 + 2 + 1);
-							}
-						}
-						else
-							CalCmd[indexVH - 1] = 'G';
-					}
-					else
-					{
-						if (CalCmd.empty())
-							CalCmd = ('G' + vh);
-						else
-							CalCmd += (",G" + vh);
-					}
-				}
-				else if (blueKey)
-				{
-					auto MousePos = FindMousePos();
-
-					std::string vh = "";
-
-					if (!m_reverse)
-					{
-						vh += hor[(int)s_startPressedPos.x];
-						vh += ver[(int)s_startPressedPos.y];
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-					else
-					{
-						vh += hor[(int)s_startPressedPos.x];
-						vh += ver[(int)s_startPressedPos.y];
-						vh += hor[(int)MousePos.x];
-						vh += ver[(int)MousePos.y];
-					}
-
-					int indexVH = CalCmd.find(vh);
-					if (indexVH != std::string::npos)
-					{
-						if (CalCmd[indexVH - 1] == 'Y')
-						{
-							bool first = false;
-							if (indexVH == 1)
-								first = true;
-
-							if (!first)
-								CalCmd.erase(indexVH - 2, 6);
-							else
-							{
-								if (CalCmd.size() == 1 + 2 + 2)
-									CalCmd.erase(indexVH - 1, 1 + 2 + 2);
-								else
-									CalCmd.erase(indexVH - 1, 1 + 2 + 2 + 1);
-							}
-						}
-						else
-							CalCmd[indexVH - 1] = 'Y';
-					}
-					else
-					{
-						if (CalCmd.empty())
-							CalCmd = ('Y' + vh);
-						else
-							CalCmd += (",Y" + vh);
-					}
-				}
-			}
-		}
 	}
 
 	m_size = ImGui::GetWindowHeight() - ImGui::GetCursorPosY() - 4 * ImGui::GetStyle().ItemSpacing.y;
@@ -715,7 +251,7 @@ void BoardPanel::OnImGuiRender()
 	if(ShowArrows)
 		RenderArrows();
 
-	auto MousePos = FindMousePos();
+	MousePos = FindMousePos();
 
 	ImVec2 bsize = { m_size / 10, m_size / 10 };
 
@@ -900,8 +436,476 @@ void BoardPanel::OnImGuiRender()
 		OpenEditor();
 	}
 
-	ImGui::End();
+	auto mif = (std::vector<int>)ChessAPI::GetActiveGame().GetLastMoveKey();
+	auto& cmds = ChessAPI::GetActiveGame().GetNote(mif).cmds;
 
+	for (int i = 0; i < 8; i++)
+	{
+		for (int j = 0; j < 8; j++)
+		{
+			s_tags[i][j] = 0;
+		}
+	}
+
+	s_arrows.clear();
+
+	if (&cmds && cmds.contains("csl"))
+	{
+		static const std::string hor = "abcdefgh";
+		static const std::string ver = "12345678";
+		static const std::string type = " RGY";
+
+		std::string clsCmd = cmds["csl"];
+
+		for (int i = 0; i < clsCmd.size(); i++)
+		{
+			if (clsCmd[i] == ',')
+				continue;
+
+			char t = clsCmd[i];
+			char h = clsCmd[++i];
+			char v = clsCmd[++i];
+
+			if (!m_reverse)
+				s_tags[7 - ver.find(v)][hor.find(h)] = type.find(t);
+			else
+				s_tags[ver.find(v)][7 - hor.find(h)] = type.find(t);
+		}
+	}
+
+	if (&cmds && cmds.contains("cal"))
+	{
+		static const std::string hor = "abcdefgh";
+		static const std::string ver = "12345678";
+		static const std::string type = " RGY";
+
+		std::string calCmd = cmds["cal"];
+
+		for (int i = 0; i < calCmd.size(); i++)
+		{
+			if (calCmd[i] == ',')
+				continue;
+
+			char t = calCmd[i];
+			char hs = calCmd[++i];
+			char vs = calCmd[++i];
+			char he = calCmd[++i];
+			char ve = calCmd[++i];
+
+			if (!m_reverse)
+			{
+				ArrowsData adata;
+				adata.type = type.find(t);
+				adata.end = ImVec2(7 - ver.find(ve), hor.find(he));
+				adata.start = ImVec2(7 - ver.find(vs), hor.find(hs));
+				s_arrows.emplace_back(adata);
+			}
+			else
+			{
+				ArrowsData adata;
+				adata.type = type.find(t);
+				adata.end = ImVec2(ver.find(ve), 7 - hor.find(he));
+				adata.start = ImVec2(ver.find(vs), 7 - hor.find(hs));
+				s_arrows.emplace_back(adata);
+			}
+		}
+
+	}
+
+	if (!ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
+	{
+		if (!ImGui::IsAnyMouseDown())
+		{
+			if (ImGui::IsKeyPressed(ImGuiKey_RightArrow))
+			{
+				m_NextMove = true;
+			}
+			if (ImGui::IsKeyPressed(ImGuiKey_LeftArrow))
+			{
+				ChessAPI::GetActiveGame().GoPreviusMove();
+			}
+		}
+
+		{
+			static const std::string hor = "abcdefgh";
+			static const std::string ver = "12345678";
+
+			bool redKey = ImGui::IsKeyDown(ImGuiKey_R);
+			bool greenKey = ImGui::IsKeyDown(ImGuiKey_G);
+			bool blueKey = ImGui::IsKeyDown(ImGuiKey_B);
+			bool magicKey = redKey + greenKey + blueKey;
+
+			bool rMouseClicked = ImGui::IsMouseClicked(ImGuiMouseButton_Right) || (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)));
+			bool rMouseDown = ImGui::IsMouseDown(ImGuiMouseButton_Right) || (ImGui::IsMouseDown(ImGuiMouseButton_Left) && (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)));
+			bool rMouseReleased = ImGui::IsMouseReleased(ImGuiMouseButton_Right) || (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)));
+
+			bool doArrow = false;
+			bool doTag = false;
+
+			static bool start = false;
+
+			if (rMouseClicked && magicKey
+				&& MousePos.x > -1 && MousePos.y > -1
+				&& MousePos.x < 8 && MousePos.y < 8)
+			{
+				start = true;
+				s_startPressedPos = MousePos;
+			}
+
+			if (rMouseReleased && start)
+			{
+				if (MousePos.x > -1 && MousePos.y > -1
+					&& MousePos.x < 8 && MousePos.y < 8
+					&& magicKey)
+				{
+					if (MousePos.x == s_startPressedPos.x
+						&& MousePos.y == s_startPressedPos.y)
+					{
+						doTag = true;
+					}
+					else
+						doArrow = true;
+				}
+				else
+				{
+					start = false;
+					s_startPressedPos = ImVec2(-1, -1);
+				}
+			}
+
+			if (doTag)
+			{
+				auto& CslCmd = cmds["csl"];
+
+				if (redKey)
+				{
+					std::string vh = "";
+
+					if (!m_reverse)
+					{
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+					else
+					{
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+
+					int indexVH = CslCmd.find(vh);
+					if (indexVH != std::string::npos)
+					{
+						if (CslCmd[indexVH - 1] == 'R')
+						{
+							bool first = false;
+							if (indexVH == 1)
+								first = true;
+
+							if (!first)
+								CslCmd.erase(indexVH - 2, 4);
+							else
+							{
+								if (CslCmd.size() == 1 + 2)
+									CslCmd.erase(indexVH - 1, 3);
+								else
+									CslCmd.erase(indexVH - 1, 4);
+
+								//bool last = false;
+								//if (CslCmd[indexVH + 2] == CslCmd.size())
+								//	last = true;
+								//
+								//if (last)
+								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
+								//else
+								//	CslCmd.erase(indexVH - 1, 4);
+							}
+						}
+						else
+							CslCmd[indexVH - 1] = 'R';
+					}
+					else
+					{
+						if (CslCmd.empty())
+							CslCmd = ('R' + vh);
+						else
+							CslCmd += (",R" + vh);
+					}
+				}
+				if (greenKey)
+				{
+					std::string vh = "";
+
+					if (!m_reverse)
+					{
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+					else
+					{
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+
+					int indexVH = CslCmd.find(vh);
+					if (indexVH != std::string::npos)
+					{
+						if (CslCmd[indexVH - 1] == 'G')
+						{
+							bool first = false;
+							if (indexVH == 1)
+								first = true;
+
+							if (!first)
+								CslCmd.erase(indexVH - 2, 4);
+							else
+							{
+								if (CslCmd.size() == 1 + 2)
+									CslCmd.erase(indexVH - 1, 3);
+								else
+									CslCmd.erase(indexVH - 1, 4);
+
+								//bool last = false;
+								//if (CslCmd[indexVH + 2] == CslCmd.size())
+								//	last = true;
+								//
+								//if (last)
+								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
+								//else
+								//	CslCmd.erase(indexVH - 1, 4);
+							}
+						}
+						else
+							CslCmd[indexVH - 1] = 'G';
+					}
+					else
+					{
+						if (CslCmd.empty())
+							CslCmd = ('G' + vh);
+						else
+							CslCmd += (",G" + vh);
+					}
+				}
+				if (blueKey)
+				{
+					std::string vh = "";
+
+					if (!m_reverse)
+					{
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+					else
+					{
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+
+					int indexVH = CslCmd.find(vh);
+					if (indexVH != std::string::npos)
+					{
+						if (CslCmd[indexVH - 1] == 'Y')
+						{
+							bool first = false;
+							if (indexVH == 1)
+								first = true;
+
+							if (!first)
+								CslCmd.erase(indexVH - 2, 4);
+							else
+							{
+								if (CslCmd.size() == 1 + 2)
+									CslCmd.erase(indexVH - 1, 3);
+								else
+									CslCmd.erase(indexVH - 1, 4);
+
+								//bool last = false;
+								//if (CslCmd[indexVH + 2] == CslCmd.size())
+								//	last = true;
+								//
+								//if (last)
+								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
+								//else
+								//	CslCmd.erase(indexVH - 1, 4);
+							}
+						}
+						else
+							CslCmd[indexVH - 1] = 'Y';
+					}
+					else
+					{
+						if (CslCmd.empty())
+							CslCmd = ('Y' + vh);
+						else
+							CslCmd += (",Y" + vh);
+					}
+				}
+			}
+
+			if (doArrow)
+			{
+				auto& CalCmd = cmds["cal"];
+
+				if (redKey)
+				{
+					std::string vh = "";
+
+					if (!m_reverse)
+					{
+						vh += hor[(int)s_startPressedPos.x];
+						vh += ver[(int)s_startPressedPos.y];
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+					else
+					{
+						vh += hor[(int)s_startPressedPos.x];
+						vh += ver[(int)s_startPressedPos.y];
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+
+					int indexVH = CalCmd.find(vh);
+					if (indexVH != std::string::npos)
+					{
+						if (CalCmd[indexVH - 1] == 'R')
+						{
+							bool first = false;
+							if (indexVH == 1)
+								first = true;
+
+							if (!first)
+								CalCmd.erase(indexVH - 2, 6);
+							else
+							{
+								if (CalCmd.size() == 1 + 2 + 2)
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2);
+								else
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2 + 1);
+							}
+						}
+						else
+							CalCmd[indexVH - 1] = 'R';
+					}
+					else
+					{
+						if (CalCmd.empty())
+							CalCmd = ('R' + vh);
+						else
+							CalCmd += (",R" + vh);
+					}
+				}
+				else if (greenKey)
+				{
+					std::string vh = "";
+
+					if (!m_reverse)
+					{
+						vh += hor[(int)s_startPressedPos.x];
+						vh += ver[(int)s_startPressedPos.y];
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+					else
+					{
+						vh += hor[(int)s_startPressedPos.x];
+						vh += ver[(int)s_startPressedPos.y];
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+
+					int indexVH = CalCmd.find(vh);
+					if (indexVH != std::string::npos)
+					{
+						if (CalCmd[indexVH - 1] == 'G')
+						{
+							bool first = false;
+							if (indexVH == 1)
+								first = true;
+
+							if (!first)
+								CalCmd.erase(indexVH - 2, 6);
+							else
+							{
+								if (CalCmd.size() == 1 + 2 + 2)
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2);
+								else
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2 + 1);
+							}
+						}
+						else
+							CalCmd[indexVH - 1] = 'G';
+					}
+					else
+					{
+						if (CalCmd.empty())
+							CalCmd = ('G' + vh);
+						else
+							CalCmd += (",G" + vh);
+					}
+				}
+				else if (blueKey)
+				{
+					std::string vh = "";
+
+					if (!m_reverse)
+					{
+						vh += hor[(int)s_startPressedPos.x];
+						vh += ver[(int)s_startPressedPos.y];
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+					else
+					{
+						vh += hor[(int)s_startPressedPos.x];
+						vh += ver[(int)s_startPressedPos.y];
+						vh += hor[(int)MousePos.x];
+						vh += ver[(int)MousePos.y];
+					}
+
+					int indexVH = CalCmd.find(vh);
+					if (indexVH != std::string::npos)
+					{
+						if (CalCmd[indexVH - 1] == 'Y')
+						{
+							bool first = false;
+							if (indexVH == 1)
+								first = true;
+
+							if (!first)
+								CalCmd.erase(indexVH - 2, 6);
+							else
+							{
+								if (CalCmd.size() == 1 + 2 + 2)
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2);
+								else
+									CalCmd.erase(indexVH - 1, 1 + 2 + 2 + 1);
+							}
+						}
+						else
+							CalCmd[indexVH - 1] = 'Y';
+					}
+					else
+					{
+						if (CalCmd.empty())
+							CalCmd = ('Y' + vh);
+						else
+							CalCmd += (",Y" + vh);
+					}
+				}
+			}
+		}
+	}
+
+	if (tabRemove != -1)
+	{
+		if (ChessAPI::GetActiveGameIndex() == opened[tabRemove])
+			ChessAPI::OpenChessGameInFile(opened[(0 == tabRemove ? 1 : 0)]);
+
+		ChessAPI::CloseOpenGame(opened[tabRemove]);
+		tabRemove = -1;
+	}
+
+	ImGui::End();
 }
 
 void BoardPanel::RenderPlayerColorBox()
@@ -1032,8 +1036,10 @@ void BoardPanel::RenderArrows()
 	ImVec2 bsize = { m_size / 10, m_size / 10 };
 	float BoxSize = 100.5f / 900.0f * m_size;
 
-	for(auto& arrowD : s_arrows)
+	for(int i = 0; i < s_arrows.size(); i++)
 	{
+		auto& arrowD = s_arrows[i];
+
 		auto arrow = m_RedArrow;
 		auto colorLine = IM_COL32(161, 7, 13, 170);
 		if (arrowD.type == 2)
@@ -1041,7 +1047,7 @@ void BoardPanel::RenderArrows()
 			arrow = m_GreenArrow;
 			colorLine = IM_COL32(30, 172, 8, 170);
 		}
-		else if (arrowD.type == 3)
+		else if (arrowD.type == 3 || arrowD.type == 4)
 		{
 			arrow = m_BlueArrow;
 			colorLine = IM_COL32(0, 172, 234, 170);
@@ -1253,7 +1259,7 @@ void BoardPanel::NextMovePopup()
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
 
-		if (ImGui::Button("Cansel"))
+		if (ImGui::Button("Cancel"))
 		{
 			ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NavEnableKeyboard;
 			ImGui::CloseCurrentPopup();
@@ -1333,7 +1339,7 @@ void BoardPanel::NewVariantPopup()
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
 
-		if (ImGui::Button("Cansel")
+		if (ImGui::Button("Cancel")
 			|| (!ImGui::IsItemFocused() && ImGui::IsKeyPressed(ImGuiKey_LeftArrow)))
 		{
 			auto movePath = ChessAPI::GetActiveGame().GetLastMoveKey();
@@ -1571,7 +1577,7 @@ void BoardPanel::EditorPopup()
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1, 0.7, 0.1, 0.50));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1, 0.7, 0.1, 0.35));
 
-			if (ImGui::Button("New Position"))
+			if (ImGui::SmallButton("New Position"))
 			{
 				Chess::PgnGame gamePgn;
 				Chess::GameManager gameNew;
@@ -1614,7 +1620,7 @@ void BoardPanel::EditorPopup()
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7, 0.1, 0.1, 0.65));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7, 0.1, 0.1, 0.5));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7, 0.1, 0.1, 0.35));
-			if (ImGui::Button("Empty Board"))
+			if (ImGui::SmallButton("Empty Board"))
 			{
 				for (int i = 0; i < 8; i++)
 				{
@@ -1739,14 +1745,14 @@ void BoardPanel::EditorPopup()
 			if (off > 0.0f)
 				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
 
-			if (ImGui::Button("Copy"))
+			if (ImGui::SmallButton("Copy"))
 			{
 				ImGui::SetClipboardText(("CLF" + currentFEN).c_str());
 			}
 
 			ImGui::SameLine();
 
-			if (ImGui::Button("Paste"))
+			if (ImGui::SmallButton("Paste"))
 			{
 				auto clipboardText = ImGui::GetClipboardText();
 
@@ -1809,7 +1815,7 @@ void BoardPanel::EditorPopup()
 
 			}
 			ImGui::SameLine();
-			if (ImGui::Button("Create New Game"))
+			if (ImGui::Button("New Game"))
 			{
 				std::string fen;
 				if (CheckBoard(fen))
@@ -1833,22 +1839,6 @@ void BoardPanel::EditorPopup()
 				}
 			}
 
-			ImGui::SameLine();
-
-			if (ImGui::Button("Create New File"))
-			{
-				s_fen.clear();
-				if (CheckBoard(s_fen))
-				{
-					ImGui::OpenPopup("New Chess File");
-
-					ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = false;
-				}
-				else
-				{
-					ImGui::OpenPopup("Error");
-				}
-			}
 			ImGui::PopStyleColor(3);
 
 			ImGui::SetNextWindowSize(ImVec2(mainViewport->Size.x * 0.12, mainViewport->Size.y * 0.15), ImGuiCond_Appearing);
@@ -1877,71 +1867,13 @@ void BoardPanel::EditorPopup()
 				ImGui::EndPopup();
 			}
 
-			ImGui::SetNextWindowPos(mainViewport->GetWorkCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-			if (ImGui::BeginPopupModal("New Chess File", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
-			{
-				static std::string s_inputNName = "NewFile.pgn";
-				ImGui::InputText("Name", &s_inputNName);
-
-				ImGui::NewLine();
-
-				float actualSize = ImGui::CalcTextSize(" Create ").x + ImGui::CalcTextSize(" Cansel ").x + ImGui::GetStyle().FramePadding.x * 3.0f;
-				float avail = ImGui::GetContentRegionAvail().x;
-
-				float off = (avail - actualSize) * 0.5f;
-				if (off > 0.0f)
-					ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
-
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1, 0.7, 0.1, 0.65));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.1, 0.7, 0.1, 0.5));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1, 0.7, 0.1, 0.35));
-				if (ImGui::Button("Create"))
-				{
-					std::filesystem::path nPath = std::filesystem::path() / "chess_working_directory" / s_inputNName;
-					nPath.replace_extension(".pgn");
-
-					std::string strNPath = nPath.string();
-
-					bool anwser = AppManagerChild::IsChessFileAvail(strNPath);
-
-					if (anwser)
-					{
-						Chess::PgnFile NPgnFile;
-						NPgnFile.CreateGame();
-						NPgnFile[0]["FEN"] = s_fen;
-						NPgnFile.SaveFile(strNPath);
-
-						AppManagerChild::OpenChessFileInOtherApp(strNPath);
-						ImGui::ClosePopupToLevel(0, true);
-					}
-					else
-					{
-						ImGui::ClosePopupToLevel(0, true);
-						Panels::OpenAlreadyOpenedPopup();
-					}
-
-				}
-				ImGui::PopStyleColor(3);
-
-				ImGui::SameLine();
-
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7, 0.1, 0.1, 0.65));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7, 0.1, 0.1, 0.5));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7, 0.1, 0.1, 0.35));
-				if (ImGui::Button("Cansel"))
-					ImGui::CloseCurrentPopup();
-				ImGui::PopStyleColor(3);
-
-				ImGui::EndPopup();
-			}
-
 			ImGui::SameLine();
 
-			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Cansel").x - ImGui::GetStyle().FramePadding.x * 2.0f);
+			ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize("Cancel").x - ImGui::GetStyle().FramePadding.x * 2.0f);
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7, 0.1, 0.1, 0.65));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7, 0.1, 0.1, 0.5));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7, 0.1, 0.1, 0.35));
-			if (ImGui::Button("Cansel"))
+			if (ImGui::Button("Cancel"))
 			{
 				ImGui::CloseCurrentPopup();
 				ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = false;
@@ -1993,4 +1925,13 @@ void BoardPanel::OpenEditor(const std::string& newFEN)
 		}
 	}
 }
+
+void BoardPanel::ShowArrowAt(int xPos, int yPos, int xDir, int yDir)
+{
+	if (!m_reverse)
+		s_arrows.emplace_back(ArrowsData{ 4, ImVec2(7 - yPos, xPos), ImVec2(7 - yDir, xDir) });
+	else
+		s_arrows.emplace_back(ArrowsData{ 4, ImVec2(yPos, 7 - xPos), ImVec2(yDir, 7 - xDir) });
+}
+
 }

@@ -90,7 +90,6 @@ namespace Chess
 		//path: ECO pgn file path
 		//std::string GetECO(const std::string& path) const;
 		Chess::PgnGame::Detail& GetNote(const MoveKey& moveKey);
-		//PropOfMovesPath GetMovesByData() const;
 
 		PgnGame::ChessMovesPath& GetCurrentPgnMovePath();
 		PgnGame::ChessMovesPath GetMovesByStr() const;
@@ -113,6 +112,7 @@ namespace Chess
 		void DeleteMove(const MoveKey& moveKey); //or the whole variation if moveKey.last == 0
 
 		PgnGame& GetPgnGame() { return *m_pgnGame; }
+		Board GetBoard() { return m_Board; }
 
 	private:
 		void ConvertMoveDataToPGNMove(const MoveData& move, std::string& strmove) const;

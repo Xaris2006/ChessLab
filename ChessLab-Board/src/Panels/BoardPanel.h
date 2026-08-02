@@ -27,6 +27,8 @@ namespace Panels
 		bool IsEditorOpen() const { return m_OpenEditor; }
 		bool IsMoveChooseOpen() const { return m_IsMoveChooseOpen; }
 
+		void ShowArrowAt(int xPos, int yPos, int xDir, int yDir);
+
 	public:
 		bool ShowPossibleMoves = true;
 		bool ShowTags = true;

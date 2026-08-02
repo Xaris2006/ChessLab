@@ -184,31 +184,31 @@ namespace Chess
 		std::vector<size_t> editedGames;
 		ChessFileManager::Get().GetEditedGames(m_ID, editedGames);
 
-		if (editedGames.empty() && !diffFile)
-			return;
-	
 		if (editedGames.empty())
 		{
-			auto fileHash = HashFile(FileManager::Get().GetFilePath(m_ID), persentage);
-
+			if (diffFile)
 			{
-				std::ifstream source(FileManager::Get().GetFilePath(m_ID), std::ios::binary);
-				std::ofstream destination(path, std::ios::binary);
+				auto fileHash = HashFile(FileManager::Get().GetFilePath(m_ID), persentage);
 
-				destination << source.rdbuf();
+				{
+					std::ifstream source(FileManager::Get().GetFilePath(m_ID), std::ios::binary);
+					std::ofstream destination(path, std::ios::binary);
 
-				source.close();
-				destination.close();
-			}
-			{
-				std::ofstream outfile(cachePath / "thisfile.ppgn", std::ios::binary);
-				outfile.write((char*)m_DataPointers->data(), m_DataPointers->size() * 8);
-				outfile.close();
-			}
-			{
-				std::ofstream outfile(cachePath / "thisfile.hpgn", std::ios::binary);
-				outfile.write((char*)fileHash.data(), HASH_LENGTH);
-				outfile.close();
+					destination << source.rdbuf();
+
+					source.close();
+					destination.close();
+				}
+				{
+					std::ofstream outfile(cachePath / "thisfile.ppgn", std::ios::binary);
+					outfile.write((char*)m_DataPointers->data(), m_DataPointers->size() * 8);
+					outfile.close();
+				}
+				{
+					std::ofstream outfile(cachePath / "thisfile.hpgn", std::ios::binary);
+					outfile.write((char*)fileHash.data(), HASH_LENGTH);
+					outfile.close();
+				}
 			}
 
 			if (persentage)

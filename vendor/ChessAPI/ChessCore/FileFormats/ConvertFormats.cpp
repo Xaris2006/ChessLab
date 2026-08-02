@@ -36,7 +36,7 @@ namespace Chess
 		pointerFile.close();
 	}
 
-	void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination, MoveEncoding encoding, float* persentage)
+	void ConvertToCld(const PgnFile& pgnFile, const std::filesystem::path& destination, MoveEncoding encoding, bool useTable, float* persentage)
 	{
 		if (destination.extension().string() != ".cld")
 			return;
@@ -59,7 +59,6 @@ namespace Chess
 		std::vector<std::string> labelNames, labelValues;
 		std::unordered_map<std::string, size_t> labelNamesMap, labelValuesMap;
 		uint8_t typeName = 1, typeValue = 4;
-
 
 		gameIndexes.reserve(pgnFile.GetSize());
 		gameIndexes.emplace_back(0);
@@ -89,7 +88,8 @@ namespace Chess
 
 				cldGameToAdd.Clear();
 
-				if (pgnGame.IsLabelExist("Variant") && pgnGame["Variant"] == "chess960")
+				if ((pgnGame.IsLabelExist("Variant") && pgnGame["Variant"] == "chess960")
+					|| (pgnGame.IsLabelExist("Event") && pgnGame["Event"].find("Random") != std::string::npos))
 					continue;
 
 				auto labels = pgnGame.GetLabelNames();
@@ -126,7 +126,7 @@ namespace Chess
 				ChessFileManager::ConvertPgnMovePathToCldMovePath(cldGameToAdd.GetMovePathbyRef(), pgnGame.GetMovePathbyRef(), encoding, true);
 				static size_t count = 0;
 				count++;
-				cldGameToAdd.GetData(dataToWrite, typeName, typeValue);
+				cldGameToAdd.GetData(dataToWrite, typeName, typeValue, useTable);
 				gameIndexes.emplace_back(dataToWrite.size() + gameIndexes.back());
 
 				helpOutfile.write((char*)dataToWrite.data(), dataToWrite.size());
@@ -157,8 +157,15 @@ namespace Chess
 
 		uint8_t settings = 0;
 
-		if (encoding == MoveEncoding::CORE)
-			settings += 1;
+		if (encoding == MoveEncoding::CLD)
+			settings &= ~0x01;
+		else if (encoding == MoveEncoding::CORE)
+			settings |= 0x01;
+
+		if (useTable)
+			settings &= ~0x02;
+		else
+			settings |= 0x02;
 
 		const uint8_t title[8] = { 'C', 'L', 'D', 0x01, settings, 0x00, typeName, typeValue };
 		uint64_t indexName = 40;

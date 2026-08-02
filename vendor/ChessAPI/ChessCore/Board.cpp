@@ -236,6 +236,47 @@ namespace Chess
 		return pos;
 	}
 
+	std::array<uint8_t, 149> Board::GetBinFixedFen() const
+	{
+		std::array<uint8_t, 149> pos;
+		pos.fill(0);
+		
+		*(uint64_t*)&pos[0] = m_WhitePieces.Data();
+		*(uint64_t*)&pos[8] = m_BlackPieces.Data();
+		*(uint64_t*)&pos[16] = m_mapWhitePieces[KING].Data();
+		*(uint64_t*)&pos[24] = m_mapBlackPieces[KING].Data();
+		*(uint64_t*)&pos[32] = m_mapWhitePieces[QUEEN].Data();
+		*(uint64_t*)&pos[40] = m_mapBlackPieces[QUEEN].Data();
+		*(uint64_t*)&pos[48] = m_mapWhitePieces[ROOK].Data();
+		*(uint64_t*)&pos[56] = m_mapBlackPieces[ROOK].Data();
+		*(uint64_t*)&pos[64] = m_mapWhitePieces[BISHOP].Data();
+		*(uint64_t*)&pos[72] = m_mapBlackPieces[BISHOP].Data();
+		*(uint64_t*)&pos[80] = m_mapWhitePieces[KNIGHT].Data();
+		*(uint64_t*)&pos[88] = m_mapBlackPieces[KNIGHT].Data();
+		*(uint64_t*)&pos[96] = m_mapWhitePieces[PAWN].Data();
+		*(uint64_t*)&pos[104] = m_mapBlackPieces[PAWN].Data();
+
+		if (m_K)
+			pos[112] |= 0b00000001;
+		if (m_Q)
+			pos[112] |= 0b00000010;
+		if (m_k)
+			pos[112] |= 0b00000100;
+		if (m_q)
+			pos[112] |= 0b00001000;
+		if (m_PlayerToPlay == WHITE)
+			pos[112] |= 0b00010000;
+
+		pos[113] = m_LastMovedPieceIndex == -1 ? 8 : m_LastMovedPieceIndex;
+		pos[114] = m_FiftyMoveCounter;
+		*(uint16_t*)&pos[115] = m_BlackMovesCounter;
+
+		for (int i = 0; i < 32; i++)
+			pos[117 + i] = m_BoardPieces[i * 2] << 4 | m_BoardPieces[i * 2 + 1];
+	
+		return pos;
+	}
+
 	uint64_t Board::GetHash(bool recalculate) const
 	{
 		if (!recalculate && m_Hash != 0)
@@ -431,6 +472,46 @@ namespace Chess
 	bool Board::NewPosition(const std::vector<uint8_t>& ffen)
 	{
 		return false;
+	}
+
+	bool Board::NewPosition(const std::array<uint8_t, 149>& bffen, uint64_t fenHash)
+	{
+		m_WhitePieces.Data() = *(uint64_t*)&bffen[0];
+		m_BlackPieces.Data() = *(uint64_t*)&bffen[8];
+		m_mapWhitePieces[KING].Data() = *(uint64_t*)&bffen[16];
+		m_mapBlackPieces[KING].Data() = *(uint64_t*)&bffen[24];
+		m_mapWhitePieces[QUEEN].Data() = *(uint64_t*)&bffen[32];
+		m_mapBlackPieces[QUEEN].Data() = *(uint64_t*)&bffen[40];
+		m_mapWhitePieces[ROOK].Data() = *(uint64_t*)&bffen[48];
+		m_mapBlackPieces[ROOK].Data() = *(uint64_t*)&bffen[56];
+		m_mapWhitePieces[BISHOP].Data() = *(uint64_t*)&bffen[64];
+		m_mapBlackPieces[BISHOP].Data() = *(uint64_t*)&bffen[72];
+		m_mapWhitePieces[KNIGHT].Data() = *(uint64_t*)&bffen[80];
+		m_mapBlackPieces[KNIGHT].Data() = *(uint64_t*)&bffen[88];
+		m_mapWhitePieces[PAWN].Data() = *(uint64_t*)&bffen[96];
+		m_mapBlackPieces[PAWN].Data() = *(uint64_t*)&bffen[104];
+		
+		m_K = (bffen[112] & 0b00000001) != 0;
+		m_Q = (bffen[112] & 0b00000010) != 0;
+		m_k = (bffen[112] & 0b00000100) != 0;
+		m_q = (bffen[112] & 0b00001000) != 0;
+		m_PlayerToPlay = (bffen[112] & 0b00010000) != 0 ? WHITE : BLACK;
+
+		m_LastMovedPieceIndex = bffen[113] == 8 ? -1 : bffen[113];
+
+		m_FiftyMoveCounter = bffen[114];
+
+		m_BlackMovesCounter = *(uint16_t*)&bffen[115];
+
+		for (int i = 0; i < 32; i++)
+		{
+			m_BoardPieces[i * 2] = (Piece)(bffen[117 + i] >> 4);
+			m_BoardPieces[i * 2 + 1] = (Piece)(bffen[117 + i] & 0b00001111);
+		}
+
+		m_Hash = fenHash != 0 ? fenHash : GetHash(true);
+
+		return true;
 	}
 
 	void Board::GetAvailableMoves(std::vector<Move>& moves) const
@@ -836,6 +917,9 @@ namespace Chess
 		Piece type = NONE, enemyType = NONE;
 		int direction = move.index + move.move;
 
+		if (move.index > 63 || move.index < 0 || direction > 63 || direction < 0)
+			return MOVEERROR;
+
 		type = m_BoardPieces[move.index];
 		enemyType = m_BoardPieces[direction];
 
@@ -850,15 +934,18 @@ namespace Chess
 		}
 
 		//safe
-		//if (type == PAWN && ((direction / 8) == 0 || (direction / 8) == 7) && (piecePromotion > QUEEN || piecePromotion == PAWN))
-		//	return PROMOTION;
+		if (type == PAWN && ((direction / 8) == 0 || (direction / 8) == 7) && (piecePromotion > QUEEN || piecePromotion == PAWN))
+			return PROMOTION;
 
 		//Roke
 		if (type == KING && std::abs(move.move) == 2)
 		{
 			if (MakeMove(Move((move.move > 0 ? (move.index + 3ui8) : (move.index - 4ui8)), (move.move > 0 ? -2 : 3))) != SUCCESS)
 				return MOVEERROR;//safe
+
 			m_PlayerToPlay = nextToPlay;
+			m_Hash ^= s_rhn_64[s_stages[12]];
+
 			if (m_PlayerToPlay == BLACK)
 				m_BlackMovesCounter--;
 			m_FiftyMoveCounter--;
@@ -917,7 +1004,7 @@ namespace Chess
 			}
 
 			//Promosion
-			if (piecePromotion < KING && piecePromotion > PAWN && type == PAWN && direction == 7)
+			if (piecePromotion < KING && piecePromotion > PAWN && type == PAWN && direction / 8 == 7)
 			{
 				BitBoard::ApplyMaskMany_Flip(m_mapWhitePieces[PAWN], m_mapWhitePieces[piecePromotion], direction);
 				m_Hash ^= s_rhn_64[s_stages[PAWN + 6 * WHITE] + direction] ^ s_rhn_64[s_stages[piecePromotion + 6 * WHITE] + direction];
@@ -974,7 +1061,7 @@ namespace Chess
 			}
 
 			//Promosion
-			if (piecePromotion < KING && piecePromotion > PAWN && type == PAWN && direction == 0)
+			if (piecePromotion < KING && piecePromotion > PAWN && type == PAWN && direction / 8 == 0)
 			{
 				BitBoard::ApplyMaskMany_Flip(m_mapBlackPieces[PAWN], m_mapBlackPieces[piecePromotion], direction);
 				m_Hash ^= s_rhn_64[s_stages[PAWN + 6 * BLACK] + direction] ^ s_rhn_64[s_stages[piecePromotion + 6 * BLACK] + direction];
@@ -2409,7 +2496,7 @@ namespace Chess
 		return ConvertCoreMoveToUCIMove(moveCore, promotedType);
 	}
 
-	std::string Board::ConvertCLDMoveToUCIMove(uint16_t cldMove) const
+	std::string Board::ConvertCLDMoveToUCIMove(std::pair<uint8_t, uint8_t> cldMove) const
 	{
 		Move moveCore;
 		Piece promotedType;
@@ -2660,14 +2747,7 @@ namespace Chess
 		return moveToReturn;
 	}
 
-	std::string Board::ConvertCLDMoveToPGNMove(uint16_t cldMove)
-	{
-		std::pair<uint8_t, uint8_t>* move = (std::pair<uint8_t, uint8_t>*)(void*) & cldMove;
-
-		return ConvertCLDMoveToPGNMove(*move);
-	}
-
-	uint16_t Board::ConvertUCIMoveToCLDMove(const std::string& uciMove) const
+	std::pair<uint8_t, uint8_t> Board::ConvertUCIMoveToCLDMove(const std::string& uciMove) const
 	{
 		Move moveCore;
 		Piece promotedType;
@@ -3114,13 +3194,13 @@ namespace Chess
 		return strmove;
 	}
 
-	uint16_t Board::ConvertCoreMoveToCLDMove(const Board::Move& move, Piece promotedType) const
+	std::pair<uint8_t, uint8_t> Board::ConvertCoreMoveToCLDMove(const Board::Move& move, Piece promotedType) const
 	{
 		const uint8_t converter[] = { 0, 1, 0, 2, 3 };
 
-		uint8_t firstPart, secondPart;
+		uint8_t firstPart = 0, secondPart = 0;
 
-		bool xPos = false, yPos = false, taking = false, Prom = false;
+		bool xPos = false, yPos = false, taking = false;
 		Piece pieceToMove = GetPieceType(move.index);
 		Piece pieceOnDirection = GetPieceType(move.index + move.move);
 
@@ -3139,11 +3219,10 @@ namespace Chess
 		}
 		else
 		{
-			Prom = promotedType != NONE;
 			taking = pieceOnDirection != NONE;
 
-			uint8_t dirX = move.index % 8;
-			uint8_t dirY = move.index / 8;
+			uint8_t dirX = (move.index + move.move) % 8;
+			uint8_t dirY = (move.index + move.move) / 8;
 
 			firstPart = (dirX << 3) | dirY;
 
@@ -3175,35 +3254,35 @@ namespace Chess
 
 				if (!xPos && !yPos)
 				{
-					if (pieceToMove == 'K')
+					if (pieceToMove == KING)
 					{
 						if (taking)
 							secondPart = 0b00100100;
 						else
 							secondPart = 0b00100000;
 					}
-					else if (pieceToMove == 'N')
+					else if (pieceToMove == KNIGHT)
 					{
 						if (taking)
 							secondPart = 0b00101100;
 						else
 							secondPart = 0b00101000;
 					}
-					else if (pieceToMove == 'B')
+					else if (pieceToMove == BISHOP)
 					{
 						if (taking)
 							secondPart = 0b00101101;
 						else
 							secondPart = 0b00101001;
 					}
-					else if (pieceToMove == 'R')
+					else if (pieceToMove == ROOK)
 					{
 						if (taking)
 							secondPart = 0b00101110;
 						else
 							secondPart = 0b00101010;
 					}
-					else if (pieceToMove == 'Q')
+					else if (pieceToMove == QUEEN)
 					{
 						if (taking)
 							secondPart = 0b00101111;
@@ -3229,14 +3308,12 @@ namespace Chess
 				}
 				else if (xPos && yPos && !taking)
 				{
-					int xDiff = dirX - move.move % 8;
-					int yDiff = dirY - move.move / 8;
+					int xDiff = move.index % 8;
+					int yDiff = move.index / 8;
 
-					if (pieceToMove == 'N')
-					{
+					if (pieceToMove == KNIGHT)
 						secondPart = 0b11000000 | ((converter[xDiff + 2] + (0 ? yDiff > 0 : 4)) << 2);
-					}
-					else if (pieceToMove == 'B')
+					else if (pieceToMove == BISHOP)
 					{
 						if (std::abs(xDiff) > 2)
 						{
@@ -3258,11 +3335,9 @@ namespace Chess
 							}
 						}
 						else
-						{
 							secondPart = 0b11000001 | ((converter[xDiff + 2] + (yDiff > 0 ? 0 : 4)) << 2);
-						}
 					}
-					else if (pieceToMove == 'Q')
+					else if (pieceToMove == QUEEN)
 					{
 						if (std::abs(xDiff) > 2)
 						{
@@ -3284,21 +3359,17 @@ namespace Chess
 							}
 						}
 						else
-						{
 							secondPart = 0b11000011 | ((converter[xDiff + 2] + (yDiff > 0 ? 0 : 4)) << 2);
-						}
 					}
 				}
 				else if (xPos && yPos && taking)
 				{
-					int xDiff = dirX - move.move % 8;
-					int yDiff = dirY - move.move / 8;
+					int xDiff = move.index % 8;
+					int yDiff = move.index / 8;
 
-					if (pieceToMove == 'N')
-					{
+					if (pieceToMove == KNIGHT)
 						secondPart = 0b11100000 | ((converter[xDiff + 2] + (yDiff > 0 ? 0 : 4)) << 2);
-					}
-					else if (pieceToMove == 'B')
+					else if (pieceToMove == BISHOP)
 					{
 						if (std::abs(xDiff) > 2)
 						{
@@ -3320,11 +3391,9 @@ namespace Chess
 							}
 						}
 						else
-						{
 							secondPart = 0b11100001 | ((converter[xDiff + 2] + (yDiff > 0 ? 0 : 4)) << 2);
-						}
 					}
-					else if (pieceToMove == 'Q')
+					else if (pieceToMove == QUEEN)
 					{
 						if (std::abs(xDiff) > 2)
 						{
@@ -3346,29 +3415,21 @@ namespace Chess
 							}
 						}
 						else
-						{
 							secondPart = 0b11100011 | ((converter[xDiff + 2] + (yDiff > 0 ? 0 : 4)) << 2);
-						}
 					}
 				}
 			}
 			else
 			{
 				if (move.index % 8 != (move.index + move.move) % 8)
-				{
 					taking = true;
-				}
 
 				if (taking)
-				{
 					secondPart = 0b00000000 | ((move.index % 8) << 2);
-				}
 				else
-				{
 					secondPart = 0b00000000 | (dirX << 2);
-				}
 
-				if (Prom)
+				if (((move.index + move.move) / 8 == 0 || (move.index + move.move) / 8 == 7))
 				{
 					if (promotedType == BISHOP)
 						secondPart |= 1;
@@ -3380,7 +3441,7 @@ namespace Chess
 			}
 		}
 
-		return (firstPart << 8) | secondPart;
+		return std::make_pair(firstPart, secondPart);
 	}
 
 	void Board::ConvertUCIMoveToCoreMove(Board::Move& move, Piece& promotedType, const std::string& uciMove) const
@@ -3521,15 +3582,14 @@ namespace Chess
 		move = possibleIndexMoves[0];
 	}
 
-	void Board::ConvertCLDMoveToCoreMove(Board::Move& move, Piece& promotedType, uint16_t cldMove) const
+	void Board::ConvertCLDMoveToCoreMove(Board::Move& move, Piece& promotedType, std::pair<uint8_t, uint8_t> cldMove) const
 	{
 		Piece typeToMove = NONE;
-		std::pair<uint8_t, uint8_t>* moveCldPair = (std::pair<uint8_t, uint8_t>*)(void*) & cldMove;
 
-		uint8_t moveDir = moveCldPair->first & 0b00111111;
-		uint8_t movePartOne = (moveCldPair->second & 0b11100000) >> 5;
-		uint8_t movePartSecond = (moveCldPair->second & 0b00011100) >> 2;
-		uint8_t movePartThird = moveCldPair->second & 0b00000011;
+		uint8_t moveDir = cldMove.first & 0b00111111;
+		uint8_t movePartOne = (cldMove.second & 0b11100000) >> 5;
+		uint8_t movePartSecond = (cldMove.second & 0b00011100) >> 2;
+		uint8_t movePartThird = cldMove.second & 0b00000011;
 
 		int dirX = (moveDir >> 3);
 		int dirY = (moveDir & 0b00000111);
@@ -3546,7 +3606,7 @@ namespace Chess
 				posX = movePartSecond;
 			}
 
-			if (dirX == '1' || dirY == '8')
+			if (dirX == 0 || dirY == 7)
 			{
 				promotedType = (Piece)(movePartThird + 1);
 			}

@@ -4,6 +4,7 @@
 
 #include "pgn/PgnGame.h"
 #include "cld/CldGame.h"
+#include "FileManager.h"
 
 #include <memory>
 #include <unordered_set>
@@ -42,6 +43,7 @@ namespace Chess
 	public:
 		bool IsGameValid(PgnGame& game);
 		bool IsGameValid(CldGame& game);
+		int IsGameValidClr(CldGame& game);
 
 		SearchOptions& StartOption();
 		SearchOptions& And(const std::string& name, const std::string& value, size_t pos = std::string::npos);
@@ -54,6 +56,7 @@ namespace Chess
 		bool IsMovesUsed() const { return m_MovesUsed; }
 
 		void InitCldSearch(std::shared_ptr<std::vector<std::string>> labelNames, std::shared_ptr<std::vector<std::string>> labelValues);
+		void InitClrSearch(FileManager::FileID fileID, std::shared_ptr<std::vector<std::string>> labelNames, std::shared_ptr<std::vector<std::string>> labelValues);
 		void Clear() { m_PgnOptions.clear(); m_CldOptions.clear(); m_LabelUsed = false; m_MovesUsed = false; }
 
 		void SetOptionByData(const std::vector<uint8_t>& data);
@@ -67,7 +70,7 @@ namespace Chess
 	private:
 		std::vector<std::unordered_map<std::string, std::variant<TextOption, NumberOption, RangeNumberOption, BoardOption>>> m_PgnOptions;
 		std::vector<std::unordered_map<size_t, std::unordered_set<size_t>>> m_CldOptions;
-
+		
 		bool m_LabelUsed = false;
 		bool m_MovesUsed = false;
 	};

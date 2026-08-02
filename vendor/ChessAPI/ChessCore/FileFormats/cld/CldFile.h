@@ -12,6 +12,7 @@ namespace Chess
 
 		virtual void OpenFile(const std::filesystem::path& path, float* persentage = nullptr) override;
 		virtual void SaveFile(const std::filesystem::path& path, float* persentage = nullptr) override;
+		void SaveFileAs(const std::filesystem::path& path, MoveEncoding encoding, bool useTable, float* persentage = nullptr);
 
 		virtual FileManager::FileID GetID() const override;
 		virtual size_t GetSize() const override;

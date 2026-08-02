@@ -37,7 +37,7 @@ namespace Panels
 
 		ImGuiStyle& style = ImGui::GetStyle();
 
-		if (ChessAPI::GetChessFileName() == "New Game")
+		if (ChessAPI::GetChessFileName() == "New Game" && ChessAPI::GetActiveGameIndex() >= 0)
 		{
 			float size = ImGui::CalcTextSize("New Game").x + style.FramePadding.x * 2.0f;
 			float avail = ImGui::GetContentRegionAvail().x;
