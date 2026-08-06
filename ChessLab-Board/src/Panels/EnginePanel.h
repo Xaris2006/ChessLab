@@ -6,6 +6,7 @@
 #include <thread>
 #include <atomic>
 #include <array>
+#include <filesystem>
 
 #include "Walnut/Image.h"
 
@@ -20,12 +21,12 @@ namespace Panels {
 		void OnImGuiRender();
 		void Reset();
 
-		std::string GetDefaultEngine() const;
+		std::filesystem::path GetDefaultEngine() const;
 
-		void OpenEngine(const std::string& programpath);
+		void OpenEngine(const std::filesystem::path& programPath);
 		void CloseEngine();
 		bool IsEngineOpen() const;
-		std::vector<std::string>& GetAvailEngines();
+		std::vector<std::filesystem::path>& GetAvailEngines();
 
 		bool IsBarOpen() const { return m_IsBarOpen; }
 		float GetBarValue() const { return m_BarValue; }
@@ -61,8 +62,8 @@ namespace Panels {
 		bool m_LimitStrength = false;
 		int m_Elo = 1400;
 
-		std::string m_DefaultEngine = "";
-		std::vector<std::string> m_AvailEngines;
+		std::filesystem::path m_DefaultEngine = "";
+		std::vector<std::filesystem::path> m_AvailEngines;
 
 		std::shared_ptr<Walnut::Image> m_IconPlay;
 		std::shared_ptr<Walnut::Image> m_IconStop;

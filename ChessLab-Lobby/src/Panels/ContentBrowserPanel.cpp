@@ -2,6 +2,7 @@
 
 #include "Walnut/Application.h"
 #include "Walnut/UI/UI.h"
+#include "Walnut/ImGui/ImGuiTheme.h"
 
 #include "../Manager/AppManager.h"
 
@@ -13,6 +14,18 @@
 
 //#include <atlstr.h>
 #include <shlobj.h>
+
+static void DrawImage(const std::shared_ptr<Walnut::Image>& image,
+	ImVec4 tintNormal, ImVec4 tintHovered, ImVec4 tintPressed,
+	ImVec2 size)
+{
+	if (ImGui::IsItemActive())
+		ImGui::Image((ImTextureID)image->GetRendererID(), size, ImVec2(0, 0), ImVec2(1, 1), tintPressed);
+	else if (ImGui::IsItemHovered())
+		ImGui::Image((ImTextureID)image->GetRendererID(), size, ImVec2(0, 0), ImVec2(1, 1), tintHovered);
+	else
+		ImGui::Image((ImTextureID)image->GetRendererID(), size, ImVec2(0, 0), ImVec2(1, 1), tintNormal);
+}
 
 namespace Panels {
 
@@ -37,6 +50,7 @@ namespace Panels {
 		m_FileIconCLD   = std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/FileIconCLD.png");
 		m_FileIconCOB	= std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/FileIconCOB.png");
 		m_BackArrow		= std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/previous.png");
+		m_IconSearch	= std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/search.png");
 
 		s_textColor = ImGui::GetStyle().Colors[ImGuiCol_Text];
 	}
@@ -102,34 +116,49 @@ namespace Panels {
 			int indexEnd = 0;
 			while (semiPath.has_parent_path() && semiPath.has_filename())
 			{
-				DirectoryNames.push_back(semiPath.filename().string());
+				DirectoryNames.push_back(semiPath.filename().u8string());
 				semiPath = semiPath.parent_path();
 				indexEnd++;
 			}
 
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-			if (ImGui::ImageButton((ImTextureID)m_BackArrow->GetRendererID(), { ImGui::CalcTextSize("C").y + ImGui::GetStyle().ItemSpacing.y, ImGui::CalcTextSize("C").y + ImGui::GetStyle().ItemSpacing.y })
-				&& m_CurrentDirectory.has_filename())
 			{
-				m_CurrentDirectory = m_CurrentDirectory.parent_path();
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::CalcTextSize("  ").x);
+
+				const ImVec4 RMbuttonColN = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.0f));
+				const ImVec4 RMbuttonColH = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.2f));
+				const ImVec4 RMbuttonColP = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::Theme::textDarker);
+				const float RMbuttonSize = ImGui::CalcTextSize("C").y + ImGui::GetStyle().ItemSpacing.y;
+
+				auto oldCursorPos = ImGui::GetCursorPos();
+				if (ImGui::InvisibleButton("backArrow", { RMbuttonSize, RMbuttonSize }) && m_CurrentDirectory.has_filename())
+				{
+					m_CurrentDirectory = m_CurrentDirectory.parent_path();
+				}
+				ImGui::SetCursorPos(oldCursorPos);
+
+				DrawImage(m_BackArrow, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonSize, RMbuttonSize));
 			}
-			ImGui::PopStyleColor();
+			
+			ImGui::SameLine(0, ImGui::CalcTextSize("  ").x);
+			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + ImGui::GetStyle().ItemSpacing.y / 2);
 
-			ImGui::SameLine(0, ImGui::CalcTextSize(" <-  ").x);
-
-			if (ImGui::Button(semiPath.root_name().string().c_str()))
+			if (ImGui::SmallButton(semiPath.root_name().string().c_str()))
 			{
 				m_CurrentDirectory = m_CurrentDirectory.root_path();
 				goto DirectoryChange;
 			}
+
 			ImGui::SameLine();
+			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + ImGui::GetStyle().ItemSpacing.y / 2);
 			ImGui::Text(">");
 
 			for (int i = indexEnd - 1; i > -1; i--)
 			{
 				ImGui::SameLine();
+				ImGui::SetCursorPosY(ImGui::GetCursorPosY() + ImGui::GetStyle().ItemSpacing.y / 2);
+
 				ImGui::PushID(i);
-				if (ImGui::Button(DirectoryNames[i].c_str()))
+				if (ImGui::SmallButton(DirectoryNames[i].c_str()))
 				{
 					for (int j = 0; j < i; j++)
 					{
@@ -139,30 +168,32 @@ namespace Panels {
 					goto DirectoryChange;
 				}
 				ImGui::PopID();
+
 				ImGui::SameLine();
+				ImGui::SetCursorPosY(ImGui::GetCursorPosY() + ImGui::GetStyle().ItemSpacing.y / 2);
 				ImGui::Text(">");
 			}
 
 			ImGui::Separator();
-
-			ImGui::PushStyleColor(ImGuiCol_Text, { 0.38, 0.67, 0, 1 });
-			ImGui::PushFont(Walnut::Application::Get().GetFont("Bold"));
-
-			float oldCursorY;
-			oldCursorY = ImGui::GetCursorPosY();
-			ImGui::SetCursorPosY(oldCursorY + 5);
-
-			ImGui::Text("Search");
-
-			ImGui::PopFont();
-			ImGui::PopStyleColor();
-
-			ImGui::SameLine();
-
-			ImGui::SetCursorPosY(oldCursorY);
-
+			
 			static ImGuiTextFilter filter;
-			filter.Draw("##SearchFilter", ImGui::GetContentRegionAvail().x / 3);
+			{
+				float filterWidth = ImGui::GetContentRegionAvail().x / 3.0f;
+				float oldCursorY = ImGui::GetCursorPosY();
+				const float IconSize = ImGui::CalcTextSize("C").y + ImGui::GetStyle().ItemSpacing.y;
+				const ImVec4 IconCol = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.0f));
+
+				ImGui::SetCursorPosY(ImGui::GetCursorPosY() + ImGui::GetStyle().ItemSpacing.y / 2.0f);
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x / 2.0f 
+					- filterWidth / 2.0f - ImGui::GetStyle().ItemSpacing.x - IconSize / 2.0f);
+
+				DrawImage(m_IconSearch, IconCol, IconCol, IconCol, ImVec2(IconSize, IconSize));
+
+				ImGui::SameLine();
+				ImGui::SetCursorPosY(oldCursorY);
+
+				filter.Draw("##SearchFilter", filterWidth);
+			}
 
 			ImGui::Separator();
 			ImGui::NewLine();
@@ -172,15 +203,12 @@ namespace Panels {
 			if (ImGui::IsWindowHovered() && !ImGui::IsAnyItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
 				s_openEmptyPopup = true;
 			
-			static float padding = 32.0f;
 			static float thumbnailSize = 128.0f;
-			static float cellSize;
-			cellSize = thumbnailSize + padding;
-
+			
 			static float panelWidth;
 			panelWidth = ImGui::GetContentRegionAvail().x;
 			static int columnCount;
-			columnCount = (int)(panelWidth / cellSize);
+			columnCount = (int)(panelWidth / (thumbnailSize + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().ItemSpacing.x * 2.0f));
 			if (columnCount < 1)
 				columnCount = 1;
 
@@ -191,8 +219,7 @@ namespace Panels {
 			for (auto& directoryEntry : std::filesystem::directory_iterator(m_CurrentDirectory))
 			{
 				const auto& path = directoryEntry.path();
-				std::string filenameU8String = path.filename().u8string();
-				std::string filenameString = std::string(filenameU8String.begin(), filenameU8String.end());
+				std::string filenameString = path.filename().u8string();
 
 				if (!filter.PassFilter(filenameString.c_str()))
 					continue;
@@ -269,15 +296,35 @@ namespace Panels {
 				if(extensionIndex != std::string::npos)
 					filenameString.erase(extensionIndex);
 
-				float actualSize = ImGui::CalcTextSize(filenameString.c_str()).x + style.FramePadding.x * 2.0f;
-				float avail = ImGui::GetContentRegionAvail().x;
+				if (Manager::AppManager::Get().IsAppOpen(path))
+				{
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.53f, 0.53f, 1.0f, 0.6f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.53f, 0.53f, 1.0f, 0.6f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.53f, 0.53f, 1.0f, 0.6f));
+				}
+				else
+				{
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
+				}
 
-				float off = (avail - actualSize) * 0.5f;
-				if (off > 0.0f)
-					ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+				if (ImGui::CalcTextSize(filenameString.c_str()).x > 0.9 * thumbnailSize)
+				{
+					std::string filenameShort(filenameString.data(), filenameString.size() * 0.9 * thumbnailSize / ImGui::CalcTextSize(filenameString.c_str()).x);
+					filenameShort += "...";
+					Walnut::UI::ButtonCentered(filenameShort.c_str());
 
-				ImGui::TextWrapped(filenameString.c_str());
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::SetTooltip(filenameString.c_str());
+					}
+				}
+				else
+					Walnut::UI::ButtonCentered(filenameString.c_str());
+				ImGui::PopStyleColor(3);
 
+				ImGui::SetColumnWidth(-1, thumbnailSize + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().ItemSpacing.x * 2.0f);
 				ImGui::NextColumn();
 
 				ImGui::PopID();
@@ -315,7 +362,7 @@ namespace Panels {
 		if (s_openRenamePopup)
 		{
 			s_openRenamePopup = false;
-			ImGui::OpenPopup("Rename Popup");
+			ImGui::OpenPopup("Rename");
 		}
 
 		RenamePopup();
@@ -391,11 +438,11 @@ namespace Panels {
 						ImGui::Text("%d", i + 1);
 					else if (column == 1)
 					{
-						ImGui::Text(m_filesToBeMerged[i].filename().string().c_str());
+						ImGui::Text(m_filesToBeMerged[i].filename().u8string().c_str());
 					}
 					else if (column == 2)
 					{
-						ImGui::Text(m_filesToBeMerged[i].string().c_str());
+						ImGui::Text(m_filesToBeMerged[i].u8string().c_str());
 					}
 					else
 					{
@@ -438,7 +485,7 @@ namespace Panels {
 				bool alreadyAdded = false;
 				
 				if (m_filesToBeMerged.empty())
-					m_mergedName = spath.filename().string();
+					m_mergedName = spath.filename().u8string();
 				else
 				{
 					for (auto& other : m_filesToBeMerged)
@@ -462,7 +509,7 @@ namespace Panels {
 
 		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 0.58f, 0.97f, 1.0f));
 
-		ImGui::Text(("Creation Path: " + m_BaseDirectory.string() + '\\').c_str());
+		ImGui::Text(("Creation Path: " + m_BaseDirectory.u8string() + '\\').c_str());
 
 		ImGui::PopStyleColor();
 
@@ -489,7 +536,7 @@ namespace Panels {
 				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
 			if (ImGui::Button("Merge"))
 			{
-				MergeFiles(m_BaseDirectory / m_mergedName, m_filesToBeMerged);
+				MergeFiles(m_BaseDirectory / std::filesystem::u8path(m_mergedName), m_filesToBeMerged);
 				m_filesToBeMerged.clear();
 			}
 
@@ -537,9 +584,6 @@ namespace Panels {
 		ImGui::PushFont(Walnut::Application::Get().GetFont("Bold"));
 		
 		std::string directoryString = directory.filename().u8string();
-
-		//std::string directoryU8String = directory.filename().u8string();
-		//std::string directoryString = std::string(directoryU8String.begin(), directoryU8String.end());
 
 		if (ImGui::TreeNodeEx(directoryString.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_OpenOnArrow))
 			openTree = true;
@@ -609,7 +653,7 @@ namespace Panels {
 			if (ImGui::Selectable("Open"))
 			{
 				//Bug when open file it does not reset the other panels
-				if (s_path.extension().string() != ".pgn" && s_path.extension().string() != ".cld")
+				if (s_path.extension().u8string() != ".pgn" && s_path.extension().u8string() != ".cld")
 				{
 					//printf("Could not load {0} - not a chess file", s_path.filename().u8string());
 				}
@@ -631,12 +675,12 @@ namespace Panels {
 
 			ImGui::BeginDisabled(Manager::AppManager::Get().IsAppOpen(s_path));
 			
-			if (s_path.extension().string() == ".pgn" && ImGui::Selectable("Merge..."))
+			if (s_path.extension().u8string() == ".pgn" && ImGui::Selectable("Merge..."))
 			{
 				bool alreadyAdded = false;
 
 				if (m_filesToBeMerged.empty())
-					m_mergedName = s_path.filename().string();
+					m_mergedName = s_path.filename().u8string();
 				else
 				{
 					for (auto& other : m_filesToBeMerged)
@@ -663,29 +707,14 @@ namespace Panels {
 
 			if (ImGui::Selectable("Copy"))
 			{
-				std::error_code ec;
-				std::filesystem::copy(s_path, s_path, ec);
-				if (ec)
-				{
-					std::ofstream ef("ErrorFile.txt");
-					ef << "func(std::filesystem::copy) " << ec << "path: " << s_path;
-					ef.close();
-				}
+				ImGui::SetClipboardText(("CLY" + s_path.u8string()).c_str());
 
 				ImGui::CloseCurrentPopup();
 			}
 
 			if (ImGui::Selectable("Cut"))
 			{
-				std::error_code ec;
-				std::filesystem::copy(s_path, s_path, ec);
-				std::filesystem::remove(s_path, ec);
-				if (ec)
-				{
-					std::ofstream ef("ErrorFile.txt");
-					ef << "func(std::filesystem::remove) " << ec << "path: " << s_path;
-					ef.close();
-				}
+				ImGui::SetClipboardText(("CLU" + s_path.u8string()).c_str());
 
 				ImGui::CloseCurrentPopup();
 			}
@@ -694,12 +723,6 @@ namespace Panels {
 			{
 				std::error_code ec;
 				std::filesystem::remove(s_path, ec);
-				if (ec)
-				{
-					std::ofstream ef("ErrorFile.txt");
-					ef << "func(std::filesystem::remove) " << ec << "path: " << s_path;
-					ef.close();
-				}
 				
 				ImGui::CloseCurrentPopup();
 			}
@@ -813,7 +836,7 @@ namespace Panels {
 
 			if (ImGui::Selectable("Open Explorer"))
 			{
-				std::string cmd = "explorer " + s_path.parent_path().string();
+				std::string cmd = "explorer " + s_path.parent_path().u8string();
 				std::system(cmd.c_str());
 				ImGui::CloseCurrentPopup();
 			}
@@ -829,22 +852,73 @@ namespace Panels {
 			if (ImGui::Selectable("New File"))
 			{
 				s_openNewFilePopup = true;
-				s_inputNName = u8"NewFile";
+				s_inputNName = "NewFile";
 				s_oldpath = m_CurrentDirectory;
 				ImGui::CloseCurrentPopup();
 			}
 			if (ImGui::Selectable("New Folder"))
 			{
 				s_openNewFolderPopup = true;
-				s_inputNName = u8"DirectoryName";
+				s_inputNName = "DirectoryName";
 				s_oldpath = m_CurrentDirectory;
 				ImGui::CloseCurrentPopup();
 			}
 			if (ImGui::Selectable("Paste"))
 			{
-				s_openNewFolderPopup = true;
-				s_inputNName = u8"DirectoryName";
-				s_oldpath = m_CurrentDirectory;
+				auto buffer = ImGui::GetClipboardText();
+
+				if (buffer)
+				{
+					std::string bufferStr(buffer);
+
+					if (bufferStr.size() >= 4)
+					{
+						std::string_view bufferTitle(bufferStr.data(), 3);
+
+						if (bufferTitle == "CLY")
+						{							
+							//copy
+							std::filesystem::path bufferPath = std::filesystem::u8path(bufferStr.data() + 3);
+							std::filesystem::path nFilename = bufferPath.filename();
+							std::error_code ec;
+							
+							if (std::filesystem::exists(m_CurrentDirectory / bufferPath.filename(), ec))
+							{
+								auto localNow = std::chrono::zoned_time{ std::chrono::current_zone(), std::chrono::system_clock::now() };
+								std::string addOn = std::format("-{:%Y_%m_%d-%H_%M_%S}",
+									std::chrono::floor<std::chrono::seconds>(localNow.get_local_time()));
+								nFilename = std::filesystem::u8path(nFilename.stem().u8string() + addOn + nFilename.extension().u8string());
+							}
+
+							if (!ec)
+								std::filesystem::copy(bufferPath, m_CurrentDirectory / nFilename, std::filesystem::copy_options::overwrite_existing, ec);
+						}
+						else if (bufferTitle == "CLU")
+						{
+							//cut
+							std::filesystem::path bufferPath = std::filesystem::u8path(bufferStr.data() + 3);
+							std::filesystem::path nFilename = bufferPath.filename();
+							std::error_code ec;
+
+							if (std::filesystem::exists(m_CurrentDirectory / bufferPath.filename(), ec))
+							{
+								auto localNow = std::chrono::zoned_time{ std::chrono::current_zone(), std::chrono::system_clock::now() };
+								std::string addOn = std::format("-{:%Y_%m_%d-%H_%M_%S}",
+									std::chrono::floor<std::chrono::seconds>(localNow.get_local_time()));
+								nFilename = std::filesystem::u8path(nFilename.stem().u8string() + addOn + nFilename.extension().u8string());
+							}
+
+							if (!ec)
+								std::filesystem::copy(bufferPath, m_CurrentDirectory / nFilename, std::filesystem::copy_options::overwrite_existing, ec);
+							
+							if (!ec)
+								std::filesystem::remove(bufferPath, ec);
+
+							ImGui::SetClipboardText("");
+						}
+					}
+				}
+
 				ImGui::CloseCurrentPopup();
 			}
 
@@ -852,7 +926,7 @@ namespace Panels {
 
 			if (ImGui::Selectable("Open Explorer"))
 			{
-				std::string cmd = "explorer " + m_CurrentDirectory.string();
+				std::string cmd = "explorer " + m_CurrentDirectory.u8string();
 				std::system(cmd.c_str());
 				ImGui::CloseCurrentPopup();
 			}
@@ -865,7 +939,11 @@ namespace Panels {
 	{
 		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
 		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-		if (ImGui::BeginPopupModal("Rename Popup", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+		bool isOpen = ImGui::BeginPopupModal("Rename", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
+		ImGui::PopStyleColor();
+
+		if (isOpen)
 		{
 			ImGui::InputText("Name", &s_inputNName);
 			
@@ -883,16 +961,11 @@ namespace Panels {
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.7f, 0.1f, 0.25f));
 			if (ImGui::Button("Rename"))
 			{
-				std::string fileNpath = s_oldpath.u8string().substr(0, s_oldpath.u8string().size() - s_oldpath.filename().u8string().size() - 1) + '\\' + s_inputNName;
+				std::filesystem::path fileNpath = s_oldpath.parent_path() / std::filesystem::u8path(s_inputNName);
 				
 				std::error_code ec;
 				std::filesystem::rename(s_oldpath, fileNpath, ec);
-				if (ec)
-				{
-					std::ofstream ef("ErrorFile.txt");
-					ef << "func(std::filesystem::rename) " << ec << "path: " << s_oldpath << " to: " << fileNpath;
-					ef.close();
-				}
+
 				ImGui::CloseCurrentPopup();
 			}
 			ImGui::PopStyleColor(3);
@@ -911,7 +984,11 @@ namespace Panels {
 	{
 		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
 		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-		if (ImGui::BeginPopupModal("New Folder", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+		bool isOpen = ImGui::BeginPopupModal("New Folder", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
+		ImGui::PopStyleColor();
+
+		if (isOpen)
 		{
 			ImGui::InputText("Name", &s_inputNName);
 
@@ -929,18 +1006,10 @@ namespace Panels {
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.7f, 0.1f, 0.25f));
 			if (ImGui::Button("Create"))
 			{
-				std::filesystem::path nPath = std::filesystem::path() / s_oldpath / s_inputNName;
+				std::filesystem::path nPath = std::filesystem::path() / s_oldpath / std::filesystem::u8path(s_inputNName);
+				std::error_code ec;
+				std::filesystem::create_directory(nPath, ec);
 				
-				{
-					std::error_code ec;
-					std::filesystem::create_directory(nPath, ec);
-					if (ec)
-					{
-						std::ofstream ef("ErrorFile.txt");
-						ef << "func(std::filesystem::create_directory) " << ec << "path: " << nPath;
-						ef.close();
-					}
-				}
 				ImGui::CloseCurrentPopup();
 			}
 			ImGui::PopStyleColor(3);
@@ -959,7 +1028,11 @@ namespace Panels {
 	{
 		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
 		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-		if (ImGui::BeginPopupModal("New File", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+		bool isOpen = ImGui::BeginPopupModal("New File", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
+		ImGui::PopStyleColor();
+
+		if (isOpen)
 		{
 			ImGui::InputText("Name", &s_inputNName);
 
@@ -1041,8 +1114,8 @@ namespace Panels {
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.7f, 0.1f, 0.25f));
 			if (ImGui::Button("Create"))
 			{
-				std::filesystem::path nPath = std::filesystem::path() / s_oldpath / s_inputNName;
-
+				std::filesystem::path nPath = std::filesystem::path() / s_oldpath / std::filesystem::u8path(s_inputNName);
+				
 				if (item_current_idx == 0)
 				{
 					nPath.replace_extension(".pgn");

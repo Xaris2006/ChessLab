@@ -9,14 +9,14 @@
 #include "Walnut/ImGui/ImGuiTheme.h"
 #include "Walnut/timer.h"
 
-
+#include "ChessCore/FileFormats/cld/CldFile.h"
 #include "../ChessLabUtils.h"
 #include "../Panels.h"
 
 static Walnut::Timer s_timer;
 static float s_time = 0.0f;
 
-void DrawImage(const std::shared_ptr<Walnut::Image>& image,
+static void DrawImage(const std::shared_ptr<Walnut::Image>& image,
 	ImVec4 tintNormal, ImVec4 tintHovered, ImVec4 tintPressed,
 	ImVec2 size)
 {
@@ -58,6 +58,7 @@ namespace Panels
 		m_IconPasteGame = std::make_shared<Walnut::Image>("Resources/Icons/paste.png");
 		m_IconEditor = std::make_shared<Walnut::Image>("Resources/Icons/editor.png");
 		m_IconSearch = std::make_shared<Walnut::Image>("Resources/Icons/search.png");
+		m_IconInfo = std::make_shared<Walnut::Image>("Resources/Icons/info.png");
 	}
 
 	void DatabasePanel::Reset()
@@ -86,7 +87,7 @@ namespace Panels
 
 		Chess::ChessFile& chessfile = ChessAPI::GetChessFile();
 		
-		ImGui::Begin("Database");
+		ImGui::Begin("Database", 0, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
 		if (Panels::IsLoadingPopupOpen())
 		{
@@ -96,6 +97,29 @@ namespace Panels
 
 		ImGui::TextWrapped(ChessAPI::GetChessFileName().c_str());
 		
+		{
+			ImGui::SameLine();
+			float size = ImGui::GetFontSize();
+			const ImVec4 InfobuttonColN = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.0f));
+			const ImVec4 InfobuttonColH = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.2f));
+			const ImVec4 InfobuttonColP = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::Theme::textDarker);
+			const float InfobuttonWidth = size * 1.0f;
+			const float InfobuttonHeight = size * 1.0f;
+			ImVec2 oldCursorPos;
+
+			{
+				oldCursorPos = ImGui::GetCursorPos();
+				if (ImGui::InvisibleButton("Info", ImVec2(InfobuttonWidth, InfobuttonHeight)))
+					m_OpenInfoPopup = true;
+				ImGui::SetCursorPos(oldCursorPos);
+
+				DrawImage(m_IconInfo, InfobuttonColN, InfobuttonColH, InfobuttonColP, ImVec2(InfobuttonWidth, InfobuttonHeight));
+
+				if (ImGui::IsItemHovered())
+					ImGui::SetTooltip("Info");
+			}
+		}
+
 		m_searchTables.resize(chessfile.GetSearchesCount());
 
 		if (ImGui::BeginTabBar("Tables", (!nfile ? ImGuiTabBarFlags_AutoSelectNewTabs : ImGuiTabBarFlags_None) | ImGuiTabBarFlags_Reorderable | ImGuiTabBarFlags_FittingPolicyResizeDown))
@@ -205,6 +229,10 @@ namespace Panels
 					s_oldSearchFocus = i;
 
 					ImGui::BeginDisabled(chessfile.GetSearch(i)->second.Persentage > 0 && chessfile.GetSearch(i)->second.Persentage < 1);
+
+					DrawTools(i);
+
+					ImGui::Separator();
 
 					ImGui::SetNextItemWidth(ImGui::CalcTextSize("12345678911131517").x);
 					ImGui::InputText("Table Name", name);
@@ -469,12 +497,10 @@ namespace Panels
 
 								if (buffer)
 								{
-									m_fen_to_search = buffer;
+									std::string bufferStr(buffer);
 
-									if (m_fen_to_search.size() < 4 || m_fen_to_search.substr(0, 3) != "CLF")
-										m_fen_to_search.clear();
-									else
-										m_fen_to_search = m_fen_to_search.substr(3);								
+									if (bufferStr.size() > 4 && bufferStr.substr(0, 3) == "CLF")
+										m_fen_to_search = bufferStr.substr(3);
 								}
 							}
 
@@ -645,137 +671,11 @@ namespace Panels
 
 					ImGui::Separator();
 
-					ImGui::BeginDisabled(chessfile.GetSearch(i)->second.Persentage > 0 && chessfile.GetSearch(i)->second.Persentage < 1);
-					
-					ImGui::BeginDisabled(std::ranges::find(m_searchTables[i]->second.PossitiveIndexes, ChessAPI::GetActiveGameIndex()) == m_searchTables[i]->second.PossitiveIndexes.end());
-
-					const ImVec4 RMbuttonColN = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.0f));
-					const ImVec4 RMbuttonColH = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.2f));
-					const ImVec4 RMbuttonColP = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::Theme::textDarker);
-					const float RMbuttonWidth = size * 0.9f;
-					const float RMbuttonHeight = size * 0.9f;
-
-					bool IsDeleted = chessfile.IsGameDeleted(ChessAPI::GetActiveGameIndex());
-					ImVec2 oldCursorPos;
-
-					if (!IsDeleted)
-					{
-						oldCursorPos = ImGui::GetCursorPos();
-						if (ImGui::InvisibleButton("delete", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-						{
-							for (auto index : m_pressedIndexes)
-								chessfile.DeleteGame(index);
-						}
-						ImGui::SetCursorPos(oldCursorPos);
-
-						DrawImage(m_IconDelete, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-						
-						if (ImGui::IsItemHovered())
-							ImGui::SetTooltip("Delete");
-					}
-					else
-					{
-						oldCursorPos = ImGui::GetCursorPos();
-						if (ImGui::InvisibleButton("restore", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-						{
-							for (auto index : m_pressedIndexes)
-								chessfile.RecoverGame(index);
-						}
-						ImGui::SetCursorPos(oldCursorPos);
-
-						DrawImage(m_IconRestore, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-						if (ImGui::IsItemHovered())
-							ImGui::SetTooltip("Restore");
-					}
-
-					ImGui::EndDisabled();
-
-					ImGui::SameLine(0, RMbuttonWidth * 1.5);
-					
-					{
-						oldCursorPos = ImGui::GetCursorPos();
-						if (ImGui::InvisibleButton("deleteAll", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-						{
-							for (auto index : m_searchTables[i]->second.PossitiveIndexes)
-								if (!chessfile.IsGameDeleted(index))
-									chessfile.DeleteGame(index);
-						}
-						ImGui::SetCursorPos(oldCursorPos);
-
-						DrawImage(m_IconDeleteAll, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-						if (ImGui::IsItemHovered())
-							ImGui::SetTooltip("Delete All");
-					}
-
-					ImGui::SameLine();
-
-					{
-						oldCursorPos = ImGui::GetCursorPos();
-						if (ImGui::InvisibleButton("restoreAll", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-						{
-							for (auto index : m_searchTables[i]->second.PossitiveIndexes)
-								if (chessfile.IsGameDeleted(index))
-									chessfile.RecoverGame(index);
-						}
-						ImGui::SetCursorPos(oldCursorPos);
-
-						DrawImage(m_IconRestoreAll, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-						if (ImGui::IsItemHovered())
-							ImGui::SetTooltip("Restore All");
-					}					
-
-					ImGui::SameLine(0, RMbuttonWidth * 1.5);
-
-					ImGui::BeginDisabled(chessfile.GetSearch(i)->second.PossitiveIndexes.empty());
-
-					static size_t goToLine = 1;
-					bool goToLinePressed = false;
-
-					auto oldValueFPy = ImGui::GetStyle().FramePadding.y;
-					ImGui::GetStyle().FramePadding.y = RMbuttonHeight / 2 - ImGui::CalcTextSize("Go").y / 2;
-
-					ImGui::SetNextItemWidth(std::max(ImGui::CalcTextSize(std::format("{}12", chessfile.GetSize()).c_str()).x, 70.0f));
-					ImGui::DragScalar("##GoToLine", ImGuiDataType_U64, &goToLine, 1, 0, 0, "%d");
-
-					ImGui::GetStyle().FramePadding.y = oldValueFPy;
-
-					if (goToLine < 1 && !m_searchTables[i]->second.PossitiveIndexes.empty())
-						goToLine = 1;
-					else if (goToLine > m_searchTables[i]->second.PossitiveIndexes.size())
-						goToLine = m_searchTables[i]->second.PossitiveIndexes.size();
-
-					ImGui::SameLine();
-
-					{
-						ImGui::SetCursorPosY(ImGui::GetCursorPosY() + RMbuttonHeight * 0.3f / 2);
-						oldCursorPos = ImGui::GetCursorPos();
-						if (ImGui::InvisibleButton("GoToLine", ImVec2(RMbuttonWidth * 0.7f, RMbuttonHeight * 0.7f)))
-						{
-							m_pressedIndexes.insert(m_searchTables[i]->second.PossitiveIndexes[goToLine - 1]);
-							goToLinePressed = true;
-						}
-						ImGui::SetCursorPos(oldCursorPos);
-
-						DrawImage(m_IconSearch, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth * 0.7f, RMbuttonHeight * 0.7f));
-
-						if (ImGui::IsItemHovered())
-							ImGui::SetTooltip("Go to Line");
-
-						ImGui::SetCursorPosY(ImGui::GetCursorPosY() + RMbuttonHeight * 0.3f / 2);
-					}
-
-					ImGui::EndDisabled();
-					ImGui::EndDisabled();
-					ImGui::Separator();
-
 					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4());
 					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4());
 					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4());
 
-					if (ImGui::BeginTable("searchTable", 12,
+					if (ImGui::BeginTable("searchTable", 11,
 						ImGuiTableFlags_ScrollY | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInner))
 					{
 						ImGui::TableSetupScrollFreeze(1, 1);
@@ -784,15 +684,20 @@ namespace Panels
 						ImGui::TableSetupColumn("##edited", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize);
 						ImGui::TableSetupColumn("##deleted", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize); 
 						
-						for (int i = 0; i < m_important_prop.size() - 2; i++)
-							ImGui::TableSetupColumn(m_important_prop[i].c_str());
+						ImGui::TableSetupColumn(m_important_prop[0].c_str(), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoResize);
+						ImGui::TableSetupColumn(m_important_prop[1].c_str(), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize);
+						ImGui::TableSetupColumn(m_important_prop[2].c_str(), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoResize);
+						ImGui::TableSetupColumn(m_important_prop[3].c_str(), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize);
+						for (int i = 4; i < m_important_prop.size() - 3; i++)
+							ImGui::TableSetupColumn(m_important_prop[i].c_str(), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize);
+
 						ImGui::TableHeadersRow();
 
 						ImGuiListClipper clipper;
 						clipper.Begin(m_searchTables[i]->second.PossitiveIndexes.size());
 
-						if (goToLinePressed)
-							clipper.ForceDisplayRangeByIndices(goToLine - 1, goToLine);
+						if (m_GoToLinePressed)
+							clipper.ForceDisplayRangeByIndices(m_GoToLine - 1, m_GoToLine);
 
 						while (clipper.Step())
 						{
@@ -891,10 +796,10 @@ namespace Panels
 										ImGui::PopID();
 									}
 
-									if (goToLinePressed && row == goToLine - 1)
+									if (m_GoToLinePressed && row == m_GoToLine - 1)
 									{
 										ImGui::SetScrollHereY();
-										goToLinePressed = false;
+										m_GoToLinePressed = false;
 									}
 								}
 							}
@@ -918,224 +823,7 @@ namespace Panels
 
 			if (ImGui::BeginTabItem("Main", 0, ImGuiTabItemFlags_Leading | (nfile ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None)))
 			{
-				float size = ImGui::GetFrameHeight();
-				const ImVec4 RMbuttonColN = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.0f));
-				const ImVec4 RMbuttonColH = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.2f));
-				const ImVec4 RMbuttonColP = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::Theme::textDarker);
-				const float RMbuttonWidth = size * 0.9f;
-				const float RMbuttonHeight = size * 0.9f;
-				ImVec2 oldCursorPos;
-
-				{
-					oldCursorPos = ImGui::GetCursorPos();
-					if (ImGui::InvisibleButton("New Game", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-						ChessAPI::NewGameInFile();
-					ImGui::SetCursorPos(oldCursorPos);
-
-					DrawImage(m_IconAdd, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-					if (ImGui::IsItemHovered())
-						ImGui::SetTooltip("New Game");
-				}
-
-				ImGui::SameLine();
-
-				{
-					oldCursorPos = ImGui::GetCursorPos();
-					if (ImGui::InvisibleButton("Save", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-					{
-						ChessLab::Utils::Save();
-					}
-					ImGui::SetCursorPos(oldCursorPos);
-
-					DrawImage(m_IconSave, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-					if (ImGui::IsItemHovered())
-						ImGui::SetTooltip("Save");
-				}
-
-				ImGui::SameLine();
-
-				{
-					oldCursorPos = ImGui::GetCursorPos();
-					if (ImGui::InvisibleButton("Save As", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-					{
-						ChessLab::Utils::SaveAs();
-					}
-					ImGui::SetCursorPos(oldCursorPos);
-
-					DrawImage(m_IconSaveAs, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-					if (ImGui::IsItemHovered())
-						ImGui::SetTooltip("Save As");
-				}
-
-				ImGui::SameLine(0, RMbuttonWidth * 1.5);
-
-				{
-					oldCursorPos = ImGui::GetCursorPos();
-					if (ImGui::InvisibleButton("delete", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-					{
-						for (auto index : m_pressedIndexes)
-							chessfile.DeleteGame(index);
-					}
-					ImGui::SetCursorPos(oldCursorPos);
-
-					DrawImage(m_IconDelete, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-					if (ImGui::IsItemHovered())
-						ImGui::SetTooltip("Delete");
-				}
-
-				ImGui::SameLine();
-								
-				{
-					oldCursorPos = ImGui::GetCursorPos();
-					if (ImGui::InvisibleButton("restore", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-					{
-						for (auto index : m_pressedIndexes)
-							chessfile.RecoverGame(index);
-					}
-					ImGui::SetCursorPos(oldCursorPos);
-
-					DrawImage(m_IconRestore, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-					if (ImGui::IsItemHovered())
-						ImGui::SetTooltip("Restore");
-				}
-
-				ImGui::SameLine();
-				
-				{
-					oldCursorPos = ImGui::GetCursorPos();
-					if (ImGui::InvisibleButton("deleteAll", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-					{
-						for (size_t index = 0; index < chessfile.GetSize(); index++)
-							chessfile.DeleteGame(index);
-					}
-					ImGui::SetCursorPos(oldCursorPos);
-
-					DrawImage(m_IconDeleteAll, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-					if (ImGui::IsItemHovered())
-						ImGui::SetTooltip("Delete All");
-				}
-
-				ImGui::SameLine();
-
-				{
-					oldCursorPos = ImGui::GetCursorPos();
-					if (ImGui::InvisibleButton("restoreAll", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-					{
-						for (size_t index = 0; index < chessfile.GetSize(); index++)
-							chessfile.RecoverGame(index);
-					}
-					ImGui::SetCursorPos(oldCursorPos);
-
-					DrawImage(m_IconRestoreAll, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-					if (ImGui::IsItemHovered())
-						ImGui::SetTooltip("Restore All");
-				}
-
-				ImGui::SameLine(0, RMbuttonWidth * 1.5);
-
-				{
-					oldCursorPos = ImGui::GetCursorPos();
-					if (ImGui::InvisibleButton("Copy Game", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-					{
-						ImGui::SetClipboardText(ChessAPI::GetActiveGame().GetPgnGame().GetData().c_str());
-					}
-					ImGui::SetCursorPos(oldCursorPos);
-
-					DrawImage(m_IconCopyGame, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-					if (ImGui::IsItemHovered())
-						ImGui::SetTooltip("Copy Game");
-				}
-
-				ImGui::SameLine();
-
-				{
-					oldCursorPos = ImGui::GetCursorPos();
-					if (ImGui::InvisibleButton("Paste Game", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-					{
-						auto buffer = ImGui::GetClipboardText();
-
-						if (buffer)
-						{
-							std::string fenToAdd = buffer;
-
-							if (fenToAdd.size() >= 4 && fenToAdd.substr(0, 3) == "CLG")
-							{
-								ChessAPI::NewGameInFile();
-								ChessAPI::GetPgnGame().Parse(fenToAdd.substr(3));
-							}								
-						}
-					}
-					ImGui::SetCursorPos(oldCursorPos);
-
-					DrawImage(m_IconPasteGame, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-					if (ImGui::IsItemHovered())
-						ImGui::SetTooltip("Paste Game");
-				}
-
-				ImGui::SameLine(0, RMbuttonWidth * 1.5);
-
-				{
-					oldCursorPos = ImGui::GetCursorPos();
-					if (ImGui::InvisibleButton("Editor", ImVec2(RMbuttonWidth, RMbuttonHeight)))
-					{
-						Panels::GetBoardPanel().OpenEditor();
-					}
-					ImGui::SetCursorPos(oldCursorPos);
-
-					DrawImage(m_IconEditor, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
-
-					if (ImGui::IsItemHovered())
-						ImGui::SetTooltip("Editor");
-				}
-
-				ImGui::SameLine(0, RMbuttonWidth * 1.5);
-
-				static size_t goToLine = 1;
-				bool goToLinePressed = false;
-
-				auto oldValueFPy = ImGui::GetStyle().FramePadding.y;
-				ImGui::GetStyle().FramePadding.y = RMbuttonHeight / 2 - ImGui::CalcTextSize("Go").y / 2;
-
-				ImGui::SetNextItemWidth(std::max(ImGui::CalcTextSize(std::format("{}12", chessfile.GetSize()).c_str()).x, 70.0f));
-				ImGui::DragScalar("##GoToLine", ImGuiDataType_U64, &goToLine, 1, 0, 0, "%d");
-								
-				ImGui::GetStyle().FramePadding.y = oldValueFPy;
-
-				if (goToLine < 1)
-					goToLine = 1;
-				else if (goToLine > chessfile.GetSize())
-					goToLine = chessfile.GetSize();
-
-				ImGui::SameLine();
-
-				{
-					ImGui::SetCursorPosY(ImGui::GetCursorPosY() + RMbuttonHeight * 0.3f / 2);
-					oldCursorPos = ImGui::GetCursorPos();
-					if (ImGui::InvisibleButton("GoToLine", ImVec2(RMbuttonWidth * 0.7f, RMbuttonHeight * 0.7f)))
-					{
-						m_pressedIndexes.insert(goToLine - 1);
-						goToLinePressed = true;
-					}
-					ImGui::SetCursorPos(oldCursorPos);
-
-					DrawImage(m_IconSearch, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth * 0.7f, RMbuttonHeight * 0.7f));
-
-					if (ImGui::IsItemHovered())
-						ImGui::SetTooltip("Go to Line");
-
-					ImGui::SetCursorPosY(ImGui::GetCursorPosY() + RMbuttonHeight * 0.3f / 2);
-				}
-
-				ImGui::Separator();
+				DrawTools();
 
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4());
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4());
@@ -1149,15 +837,20 @@ namespace Panels
 					ImGui::TableSetupColumn("##edited", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize);
 					ImGui::TableSetupColumn("##deleted", ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize);
 
-					for (int i = 0; i < m_important_prop.size() - 2; i++)
-						ImGui::TableSetupColumn(m_important_prop[i].c_str());
+					ImGui::TableSetupColumn(m_important_prop[0].c_str(), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoResize);
+					ImGui::TableSetupColumn(m_important_prop[1].c_str(), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize);
+					ImGui::TableSetupColumn(m_important_prop[2].c_str(), ImGuiTableColumnFlags_WidthStretch | ImGuiTableColumnFlags_NoResize);
+					ImGui::TableSetupColumn(m_important_prop[3].c_str(), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize);
+					for (int i = 4; i < m_important_prop.size() - 3; i++)
+						ImGui::TableSetupColumn(m_important_prop[i].c_str(), ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoResize);
+					ImGui::TableSetupColumn(m_important_prop[7].c_str(), ImGuiTableColumnFlags_WidthStretch);
 					ImGui::TableHeadersRow();
 
 					ImGuiListClipper clipper;
 					clipper.Begin(chessfile.GetSize());
 
-					if (goToLinePressed)
-						clipper.ForceDisplayRangeByIndices(goToLine - 1, goToLine);
+					if (m_GoToLinePressed)
+						clipper.ForceDisplayRangeByIndices(m_GoToLine - 1, m_GoToLine);
 
 					while (clipper.Step())
 					{
@@ -1246,10 +939,10 @@ namespace Panels
 									ImGui::PopID();
 								}
 
-								if (goToLinePressed && row == goToLine - 1)
+								if (m_GoToLinePressed && row == m_GoToLine - 1)
 								{
 									ImGui::SetScrollHereY();
-									goToLinePressed = false;
+									m_GoToLinePressed = false;
 								}
 							}
 						}
@@ -1275,6 +968,11 @@ namespace Panels
 			ImGui::OpenPopup("Game Popup");
 
 		GamePopup();
+
+		if (m_OpenInfoPopup)
+			ImGui::OpenPopup("Info");
+
+		InfoPopup();
 
 		ImGui::End();
 	}
@@ -1322,7 +1020,7 @@ namespace Panels
 						if (ChessAPI::IsGameOpen(index))
 						{
 							ChessAPI::OpenChessGameInFile(index);
-							ChessAPI::GetActiveGame().InitPgnGame(ChessAPI::GetChessFile()[index]);
+							ChessAPI::GetActiveGame().InitPgnGame(pgnGame);
 							ChessAPI::GetChessFile().RemoveFromEdited(index);
 						}
 					}
@@ -1336,17 +1034,420 @@ namespace Panels
 
 			if (ImGui::Selectable("Copy"))
 			{
-				ImGui::SetClipboardText(ChessAPI::GetActiveGame().GetPgnGame().GetData().c_str());
+				std::string gameData = "CLG";
+
+				for (auto index : m_pressedIndexes)
+					gameData += (ChessAPI::GetChessFile()[index].GetData() + (char)0x03);
+
+				ImGui::SetClipboardText(gameData.c_str());
 
 				ImGui::CloseCurrentPopup();
 			}
 			
-			if (ImGui::Selectable("Replace"))
+			ImGui::EndPopup();
+		}
+	}
+
+	void DatabasePanel::InfoPopup()
+	{
+		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+		bool isOpen = ImGui::BeginPopupModal("Info", 0, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::PopStyleColor();
+
+		if (isOpen)
+		{
+			ImVec4 bcolor = { 0, 0.66, 0.95, 1 };
+			ImVec4 gcolor = { 0.38, 0.67, 0, 1 };
+
+			ImGui::Image((ImTextureID)m_IconInfo->GetRendererID(), { 48, 48 });
+
+			ImGui::SameLine();
+			Walnut::UI::ShiftCursorX(20.0f);
+
+			auto fileName = ChessAPI::GetChessFileName();
+			auto filePath = ChessAPI::GetChessFilePath();
+			auto fileSize = 0;
+			auto fileGames = ChessAPI::GetChessFile().GetSize();
+
+			if (!filePath.empty())
 			{
+				std::error_code ec;
+				fileSize = std::filesystem::file_size(filePath, ec);
+			}
+
+			ImGui::BeginGroup();
+			ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+			ImGui::Text("Name:");
+			ImGui::PopStyleColor();
+			ImGui::SameLine();
+			ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+			ImGui::Text(fileName.c_str());
+			ImGui::PopStyleColor();
+
+			if (!filePath.empty())
+			{
+				ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+				ImGui::Text(std::format("Path:").c_str());
+				ImGui::PopStyleColor();
+				ImGui::SameLine();
+				ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+
+				std::string pathToShow = filePath.u8string();
+				if (pathToShow.size() > 50)
+					pathToShow = pathToShow.substr(0, 30) + "...";
+				
+				if (ImGui::SmallButton(pathToShow.c_str()))
+				{
+					std::string cmd = "explorer " + filePath.parent_path().u8string();
+					std::system(cmd.c_str());
+				}
+
+				if (ImGui::IsItemHovered())
+					ImGui::SetTooltip(filePath.u8string().c_str());
+
+				ImGui::PopStyleColor();
+			}
+
+			ImGui::Separator();
+
+			ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+			ImGui::Text("Games:");
+			ImGui::PopStyleColor();
+			ImGui::SameLine();
+			ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+			ImGui::Text(std::format("{}", fileGames).c_str());
+			ImGui::PopStyleColor();
+
+			ImGui::SameLine();
+			
+			ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+			ImGui::Text("Size:");
+			ImGui::PopStyleColor();
+			ImGui::SameLine();
+			ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+			ImGui::Text(std::format("{} KB", fileSize / 1024).c_str());
+			ImGui::PopStyleColor();
+
+			if (!filePath.empty())
+			{
+				bool isPGN = filePath.extension().u8string() == ".pgn";
+				bool isCLD = filePath.extension().u8string() == ".cld";
+
+				ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+				ImGui::Text("Format:");
+				ImGui::PopStyleColor();
+				ImGui::SameLine();
+				ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+				ImGui::Text(std::format("{}", isPGN ? "PGN" : "CLD").c_str());
+				ImGui::PopStyleColor();
+
+				if (isCLD)
+				{
+					ImGui::Separator();
+
+					auto& chessFile = ChessAPI::GetChessFile();
+
+					uint8_t version = ((Chess::CldFile*)&chessFile)->GetVersion();
+					ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+					ImGui::Text("Version:");
+					ImGui::PopStyleColor();
+					ImGui::SameLine();
+					ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+					ImGui::Text(std::format("{}", version).c_str());
+					ImGui::PopStyleColor();
+
+					Chess::MoveEncoding moveEncoding = ((Chess::CldFile*)&chessFile)->GetEncoding();
+					ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+					ImGui::Text("Encoding:");
+					ImGui::PopStyleColor();
+					ImGui::SameLine();
+					ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+					ImGui::Text(moveEncoding == Chess::MoveEncoding::CLD ? "CLD" : "CORE");
+					ImGui::PopStyleColor();
+
+					bool isUsingTable = ((Chess::CldFile*)&chessFile)->IsUsingTable();
+					ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+					ImGui::Text("Using Table:");
+					ImGui::PopStyleColor();
+					ImGui::SameLine();
+					ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+					ImGui::Text(isUsingTable ? "Yes" : "No");
+					ImGui::PopStyleColor();
+				}
+			}
+
+			ImGui::NewLine();
+
+			ImGui::EndGroup();
+
+			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.1f, 0.1f, 0.65f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
+
+			ImGuiStyle& style = ImGui::GetStyle();
+
+			float actualSize = ImGui::CalcTextSize("Close").x + style.FramePadding.x * 2.0f;
+			float avail = ImGui::GetContentRegionAvail().x;
+
+			float off = (avail - actualSize) * 0.5f;
+			if (off > 0.0f)
+				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+
+			if (ImGui::SmallButton("Close"))
+			{
+				m_OpenInfoPopup = false;
 				ImGui::CloseCurrentPopup();
 			}
 
+			ImGui::PopStyleColor(3);
+
 			ImGui::EndPopup();
+		}
+		else
+			m_OpenInfoPopup = false;
+	}
+
+	void DatabasePanel::DrawTools(int tableIndex)
+	{
+		Chess::ChessFile& chessfile = ChessAPI::GetChessFile();
+		float size = ImGui::GetFrameHeight();
+		const ImVec4 RMbuttonColN = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.0f));
+		const ImVec4 RMbuttonColH = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.2f));
+		const ImVec4 RMbuttonColP = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::Theme::textDarker);
+		const float RMbuttonWidth = size * 0.9f;
+		const float RMbuttonHeight = size * 0.9f;
+		ImVec2 oldCursorPos;
+
+		{
+			oldCursorPos = ImGui::GetCursorPos();
+			if (ImGui::InvisibleButton("New Game", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+				ChessAPI::NewGameInFile();
+			ImGui::SetCursorPos(oldCursorPos);
+
+			DrawImage(m_IconAdd, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("New Game");
+		}
+
+		ImGui::SameLine();
+
+		{
+			oldCursorPos = ImGui::GetCursorPos();
+			if (ImGui::InvisibleButton("Save", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+			{
+				ChessLab::Utils::Save();
+			}
+			ImGui::SetCursorPos(oldCursorPos);
+
+			DrawImage(m_IconSave, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Save");
+		}
+
+		ImGui::SameLine();
+
+		{
+			oldCursorPos = ImGui::GetCursorPos();
+			if (ImGui::InvisibleButton("Save As", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+			{
+				ChessLab::Utils::SaveAs();
+			}
+			ImGui::SetCursorPos(oldCursorPos);
+
+			DrawImage(m_IconSaveAs, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Save As");
+		}
+
+		ImGui::SameLine(0, RMbuttonWidth * 1.5);
+
+		{
+			oldCursorPos = ImGui::GetCursorPos();
+			if (ImGui::InvisibleButton("delete", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+			{
+				for (auto index : m_pressedIndexes)
+					chessfile.DeleteGame(index);
+			}
+			ImGui::SetCursorPos(oldCursorPos);
+
+			DrawImage(m_IconDelete, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Delete");
+		}
+
+		ImGui::SameLine();
+
+		{
+			oldCursorPos = ImGui::GetCursorPos();
+			if (ImGui::InvisibleButton("restore", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+			{
+				for (auto index : m_pressedIndexes)
+					chessfile.RecoverGame(index);
+			}
+			ImGui::SetCursorPos(oldCursorPos);
+
+			DrawImage(m_IconRestore, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Restore");
+		}
+
+		ImGui::SameLine();
+
+		{
+			oldCursorPos = ImGui::GetCursorPos();
+			if (ImGui::InvisibleButton("deleteAll", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+			{
+				for (size_t index = 0; index < chessfile.GetSize(); index++)
+					chessfile.DeleteGame(index);
+			}
+			ImGui::SetCursorPos(oldCursorPos);
+
+			DrawImage(m_IconDeleteAll, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Delete All");
+		}
+
+		ImGui::SameLine();
+
+		{
+			oldCursorPos = ImGui::GetCursorPos();
+			if (ImGui::InvisibleButton("restoreAll", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+			{
+				for (size_t index = 0; index < chessfile.GetSize(); index++)
+					chessfile.RecoverGame(index);
+			}
+			ImGui::SetCursorPos(oldCursorPos);
+
+			DrawImage(m_IconRestoreAll, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Restore All");
+		}
+
+		ImGui::SameLine(0, RMbuttonWidth * 1.5);
+
+		{
+			oldCursorPos = ImGui::GetCursorPos();
+			if (ImGui::InvisibleButton("Copy Game", ImVec2(RMbuttonWidth, RMbuttonHeight)) && !m_pressedIndexes.empty())
+			{
+				std::string gameData = "CLG";
+
+				for (auto index : m_pressedIndexes)
+					gameData += (chessfile[index].GetData() + (char)0x03);
+
+				ImGui::SetClipboardText(gameData.c_str());
+			}
+			ImGui::SetCursorPos(oldCursorPos);
+
+			DrawImage(m_IconCopyGame, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Copy Game");
+		}
+
+		ImGui::SameLine();
+
+		{
+			oldCursorPos = ImGui::GetCursorPos();
+			if (ImGui::InvisibleButton("Paste Game", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+			{
+				auto buffer = ImGui::GetClipboardText();
+
+				if (buffer)
+				{
+					std::string gamesToAdd(buffer);
+
+					if (gamesToAdd.size() >= 4 && gamesToAdd.substr(0, 3) == "CLG")
+					{
+						size_t pos = 3;
+						for (size_t nextPos = gamesToAdd.find((char)0x03, pos); nextPos != std::string::npos; nextPos = gamesToAdd.find((char)0x03, pos))
+						{
+							ChessAPI::NewGameInFile();
+							ChessAPI::GetPgnGame().Parse(gamesToAdd.substr(pos, nextPos - pos));
+							ChessAPI::GetActiveGame().InitPgnGame(ChessAPI::GetPgnGame());
+							pos = nextPos + 1;
+						}
+					}
+				}
+			}
+			ImGui::SetCursorPos(oldCursorPos);
+
+			DrawImage(m_IconPasteGame, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Paste Game");
+		}
+
+		ImGui::SameLine(0, RMbuttonWidth * 1.5);
+
+		{
+			oldCursorPos = ImGui::GetCursorPos();
+			if (ImGui::InvisibleButton("Editor", ImVec2(RMbuttonWidth, RMbuttonHeight)))
+			{
+				Panels::GetBoardPanel().OpenEditor();
+			}
+			ImGui::SetCursorPos(oldCursorPos);
+
+			DrawImage(m_IconEditor, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth, RMbuttonHeight));
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Editor");
+		}
+
+		ImGui::SameLine(0, RMbuttonWidth * 1.5);
+
+		auto oldValueFPy = ImGui::GetStyle().FramePadding.y;
+		ImGui::GetStyle().FramePadding.y = RMbuttonHeight / 2 - ImGui::CalcTextSize("Go").y / 2;
+
+		ImGui::SetNextItemWidth(std::max(ImGui::CalcTextSize(std::format("{}12", chessfile.GetSize()).c_str()).x, 70.0f));
+		ImGui::DragScalar("##GoToLine", ImGuiDataType_U64, &m_GoToLine, 1, 0, 0, "%d");
+
+		ImGui::GetStyle().FramePadding.y = oldValueFPy;
+		
+		if (tableIndex == -1)
+		{
+			if (m_GoToLine < 1)
+				m_GoToLine = 1;
+			else if (m_GoToLine > chessfile.GetSize())
+				m_GoToLine = chessfile.GetSize();
+		}
+		else
+		{
+			if (m_GoToLine < 1 && !m_searchTables[tableIndex]->second.PossitiveIndexes.empty())
+				m_GoToLine = 1;
+			else if (m_GoToLine > m_searchTables[tableIndex]->second.PossitiveIndexes.size())
+				m_GoToLine = m_searchTables[tableIndex]->second.PossitiveIndexes.size();
+		}
+
+		ImGui::SameLine();
+
+		{
+			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + RMbuttonHeight * 0.3f / 2);
+			oldCursorPos = ImGui::GetCursorPos();
+			if (ImGui::InvisibleButton("GoToLine", ImVec2(RMbuttonWidth * 0.7f, RMbuttonHeight * 0.7f)))
+			{
+				if (tableIndex == -1)
+					m_pressedIndexes.insert(m_GoToLine - 1);
+				else
+					m_pressedIndexes.insert(m_searchTables[tableIndex]->second.PossitiveIndexes[m_GoToLine - 1]);
+				m_GoToLinePressed = true;
+			}
+			ImGui::SetCursorPos(oldCursorPos);
+
+			DrawImage(m_IconSearch, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonWidth * 0.7f, RMbuttonHeight * 0.7f));
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip("Go to Line");
+
+			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + RMbuttonHeight * 0.3f / 2);
 		}
 	}
 }

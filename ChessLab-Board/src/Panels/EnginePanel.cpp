@@ -77,10 +77,8 @@ namespace Panels
 				if (nEngine.empty())
 					continue;
 
-				int extensionIndex = nEngine.find_last_of('.');
-				if (extensionIndex != std::string::npos)
-					nEngine.erase(extensionIndex);
-				m_AvailEngines.emplace_back(nEngine);
+				auto nEnginePath = "MyDocuments\\engines\\" / std::filesystem::u8path(nEngine);
+				m_AvailEngines.emplace_back(nEnginePath);
 			}
 
 			inFile.close();
@@ -334,19 +332,21 @@ namespace Panels
 
 			if (m_DefaultEngine == "False")
 				m_DefaultEngine = "";
+			else
+				m_DefaultEngine = "MyDocuments\\engines\\" / m_DefaultEngine;
 
 			inFile.close();
 		}
 	}
 
-	std::string EnginePanel::GetDefaultEngine() const
+	std::filesystem::path EnginePanel::GetDefaultEngine() const
 	{
-		return "MyDocuments\\engines\\" + m_DefaultEngine;
+		return m_DefaultEngine;
 	}
 
-	void EnginePanel::OpenEngine(const std::string& programpath)
+	void EnginePanel::OpenEngine(const std::filesystem::path& programPath)
 	{
-		if (programpath.empty())
+		if (programPath.empty())
 			return;
 
 		CloseEngine();
@@ -357,10 +357,10 @@ namespace Panels
 		m_IsBarOpen = true;
 
 		m_processThread = new std::thread(
-			[this, programpath]()
+			[this, programPath]()
 			{
-				Process EngineApp(std::wstring(programpath.begin(), programpath.end()), L"");
-				m_EngineName = std::filesystem::path(programpath).filename().string().substr(0, std::filesystem::path(programpath).filename().string().find_last_of('.'));
+				Process EngineApp(programPath.wstring(), L"");
+				m_EngineName = programPath.filename().stem().u8string();
 
 				m_EndThread = false;
 
@@ -651,7 +651,7 @@ namespace Panels
 		m_processThread = nullptr;
 	}
 
-	std::vector<std::string>& EnginePanel::GetAvailEngines()
+	std::vector<std::filesystem::path>& EnginePanel::GetAvailEngines()
 	{
 		return m_AvailEngines;
 	}

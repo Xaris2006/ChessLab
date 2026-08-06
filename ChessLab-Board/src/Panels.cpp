@@ -13,20 +13,25 @@ static Panels::GamePropertiesPanel s_GamePropertiesPanel;
 static Panels::EnginePanel s_EnginePanel;
 static Panels::MovePanel s_MovePanel;
 static Panels::NotePanel s_NotePanel;
-static Panels::ContentBrowserPanel s_ContentBrowserPanel;
 static Panels::ReferencePanel s_ReferencePanel;
 
 static bool s_AlreadyOpenedPopupOpen = false;
 static bool s_AboutPopupOpen = false;
 static bool s_LoadingPopupOpen = false;
 
-float s_LoadingPersentage;
+static float s_LoadingPersentage;
 
 namespace Panels
 {
 	void DrawAboutPopup()
 	{
-		if (ImGui::BeginPopupModal("About", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+		bool isOpen = ImGui::BeginPopupModal("About", 0, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::PopStyleColor();
+
+		if (isOpen)
 		{
 			auto image = Walnut::Application::Get().GetApplicationIcon();
 			ImGui::Image((ImTextureID)image->GetRendererID(), { 48, 48 });
@@ -71,9 +76,16 @@ namespace Panels
 		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
 		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-		if (ImGui::BeginPopupModal("Error! File Is Already Opened", 0))
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.1f, 0.1f, 0.85f));
+		bool isOpen = ImGui::BeginPopupModal("Error! File Is Already Opened", 0, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::PopStyleColor();
+
+		if (isOpen)
 		{
-			ImGui::TextWrapped("The file that you are trying to open is already opened in a different Chess Lab Window!");
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+			Walnut::UI::TextCentered("The file that you are trying to open is already opened");
+			Walnut::UI::TextCentered("in a different Chess Lab Window!");
+			ImGui::PopStyleColor();
 
 			ImGui::NewLine();
 
@@ -109,7 +121,7 @@ namespace Panels
 		{
 			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.62f, 0.24f, 1.0f));
 
-			Walnut::UI::TextCentered("Please wait patiently...");
+			Walnut::UI::TextCentered("        Please wait patiently...        ");
 
 			ImGui::PopStyleColor();
 
@@ -185,10 +197,40 @@ namespace Panels
 		s_GamePropertiesPanel.OnImGuiRender();
 		s_EnginePanel.OnImGuiRender();
 		s_NotePanel.OnImGuiRender();
-		s_ContentBrowserPanel.OnImGuiRender();
 		s_ReferencePanel.OnImGuiRender();
 		s_MovePanel.OnImGuiRender();
 		s_BoardPanel.OnImGuiRender();
+
+		static bool s_firstFrame = true;
+		if (s_firstFrame)
+		{
+			bool toOpenFile = false;
+			auto args = ChessLab::Utils::GetArguments();
+
+			if (args.size() > 1)
+			{
+				auto fileExtension = std::filesystem::u8path(args[1]).extension().u8string();
+				if (fileExtension == ".pgn" || fileExtension == ".cld")
+					toOpenFile = true;
+			}
+
+			if (toOpenFile)
+			{
+				Panels::OpenLoadingPopup();
+
+				std::thread(
+					[args]()
+					{
+						Panels::SetLoadingPersentage(0);
+						AppManagerChild::OwnChessFile(std::filesystem::u8path(args[1]));
+						ChessAPI::OpenChessFile(std::filesystem::u8path(args[1]), &Panels::GetLoadingPersentageRef());
+						Panels::SetLoadingPersentage(1);
+					}
+				).detach();
+			}
+
+			s_firstFrame = false;
+		}
 
 		if (s_AlreadyOpenedPopupOpen)
 			ImGui::OpenPopup("Error! File Is Already Opened");
@@ -299,11 +341,6 @@ namespace Panels
 	NotePanel& GetNotePanel()
 	{
 		return s_NotePanel;
-	}
-
-	ContentBrowserPanel& GetContentBrowserPanel()
-	{
-		return s_ContentBrowserPanel;
 	}
 
 	ReferencePanel& GetReferencePanel()

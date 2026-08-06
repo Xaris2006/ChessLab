@@ -62,6 +62,7 @@ namespace Chess
 		std::string GetDataRead() const;
 
 		void SetCurrentAsInitial();
+		void SetDataRead(std::string_view data);
 
 		void Parse(std::string_view data, bool onlyRead = false, bool readMoves = true);
 

@@ -110,7 +110,7 @@ namespace AppManagerChild
 			return;
 		}
 
-		std::cerr << "App: " << std::this_thread::get_id() << " - *Open Path:" << path.string() << ":Path \n";
+		std::cerr << "App: " << std::this_thread::get_id() << " - *Open Path:" << path.u8string() << ":Path \n";
 		//std::cerr << "App: " << std::this_thread::get_id() << " - *Open Path:" << s_Hasher(path) << ":Path \n";
 	}
 
@@ -118,7 +118,7 @@ namespace AppManagerChild
 	{
 
 #ifndef WL_DIST
-
+		
 		return;
 
 #endif // !WL_DIST

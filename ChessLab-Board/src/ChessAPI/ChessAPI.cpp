@@ -36,17 +36,6 @@ namespace ChessAPI
 		s_OpenGames.emplace_back(0);
 
 		s_Games[0].InitPgnGame(s_ChessFile->operator[](0));
-		
-		auto args = ChessLab::Utils::GetArguments();
-
-		if (args.size() > 1)
-		{
-			if (Chess::IsFileValidFormat(args[1], ".pgn") || Chess::IsFileValidFormat(args[1], ".cld"))
-			{
-				ChessAPI::OpenChessFile(args[1]);
-				AppManagerChild::OwnChessFile(ChessAPI::GetChessFilePath());
-			}
-		}
 	}
 
 	void ShareClrFile(std::shared_ptr<Chess::ClrFile> file)
@@ -202,8 +191,8 @@ namespace ChessAPI
 		}
 
 		s_FilePath = path;
-		s_FileName = path.filename().string();
-		std::string extension = path.extension().string();
+		s_FileName = path.filename().u8string();
+		std::string extension = path.extension().u8string();
 
 		//find a way to avoid removing and removing again the chess file, just waist of time
 		delete s_ChessFile;
@@ -466,11 +455,11 @@ namespace ChessAPI
 		s_Games.clear();
 		s_OpenGames.clear();
 
-		std::string extension = filepath.extension().string();
+		std::string extension = filepath.extension().u8string();
 
 		if (extension == ".pgn")
 		{
-			if (s_FilePath.extension().string() == ".pgn")
+			if (s_FilePath.extension().u8string() == ".pgn")
 			{
 				s_ChessFile->SaveFile(filepath, persentage);
 			}
@@ -486,7 +475,7 @@ namespace ChessAPI
 		}
 		else if (extension == ".cld")
 		{
-			if (s_FilePath.extension().string() == ".cld")
+			if (s_FilePath.extension().u8string() == ".cld")
 			{
 				s_ChessFile->SaveFile(filepath, persentage);
 			}
@@ -502,7 +491,7 @@ namespace ChessAPI
 		}
 
 		s_FilePath = filepath;
-		s_FileName = filepath.filename().string();
+		s_FileName = filepath.filename().u8string();
 
 		s_ActiveGame = 0;
 		s_OpenGames.emplace_back(0);

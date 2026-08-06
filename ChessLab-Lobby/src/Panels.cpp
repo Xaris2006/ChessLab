@@ -35,7 +35,11 @@ namespace Panels
 {
 	void DrawAboutPopup()
 	{
-		if (ImGui::BeginPopupModal("About", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+		bool isOpen = ImGui::BeginPopupModal("About", 0, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::PopStyleColor();
+
+		if (isOpen)
 		{
 			auto image = Walnut::Application::Get().GetApplicationIcon();
 			ImGui::Image((ImTextureID)image->GetRendererID(), { 48, 48 });
@@ -48,19 +52,19 @@ namespace Panels
 			ImGui::Text("by C.Betsakos");
 			ImGui::EndGroup();
 
+			ImGui::NewLine();
+
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.53f, 0.53f, 1.0f, 1.0f));
+			ImGui::Text("Version: %s", s_Update->GetVersion().c_str());
+			ImGui::PopStyleColor();
+
+			ImGui::SameLine();
+
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7f, 0.1f, 0.1f, 0.65f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
 
-			ImGuiStyle& style = ImGui::GetStyle();
-
-			float actualSize = ImGui::CalcTextSize("Close").x + style.FramePadding.x * 2.0f;
-			float avail = ImGui::GetContentRegionAvail().x;
-
-			float off = (avail - actualSize) * 0.5f;
-			if (off > 0.0f)
-				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
-
+			ImGui::SetCursorPosX(ImGui::GetContentRegionMax().x - ImGui::CalcTextSize("Close").x - ImGui::GetStyle().FramePadding.x - ImGui::GetStyle().WindowPadding.x);	
 			if (ImGui::SmallButton("Close"))
 			{
 				s_AboutPopupOpen = false;
@@ -80,9 +84,16 @@ namespace Panels
 		ImVec2 center = ImGui::GetMainViewport()->GetCenter();
 		ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
 
-		if (ImGui::BeginPopupModal("Error! File Is Already Opened", 0))
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.1f, 0.1f, 0.85f));
+		bool isOpen = ImGui::BeginPopupModal("Error! File Is Already Opened", 0, ImGuiWindowFlags_AlwaysAutoResize);
+		ImGui::PopStyleColor();
+
+		if (isOpen)
 		{
-			ImGui::TextWrapped("The file that you are trying to open is already opened in a different Chess Lab Window!");
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+			Walnut::UI::TextCentered("The file that you are trying to open is already opened");
+			Walnut::UI::TextCentered("in a different Chess Lab Window!");
+			ImGui::PopStyleColor();
 
 			ImGui::NewLine();
 
@@ -92,7 +103,7 @@ namespace Panels
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 0.45f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f, 0.1f, 0.1f, 0.25f));
 
-			ImGui::SetCursorPosX(ImGui::GetWindowContentRegionMax().x - ImGui::CalcTextSize("Close").x - 18);
+			ImGui::SetCursorPosX(ImGui::GetContentRegionMax().x - ImGui::CalcTextSize("Close").x - ImGui::GetStyle().FramePadding.x - ImGui::GetStyle().WindowPadding.x);
 			if (ImGui::SmallButton("Close"))
 			{
 				s_AlreadyOpenedPopupOpen = false;
@@ -198,12 +209,12 @@ namespace Panels
 
 		if (arg.size() > 1)
 		{
-			std::filesystem::path pathToOpen(arg[1]);
+			std::filesystem::path pathToOpen = std::filesystem::u8path(arg[1]);
 			if (pathToOpen.is_relative())
-				pathToOpen = std::filesystem::current_path() / arg[1];
-			if (pathToOpen.extension().string() == ".pgn")
+				pathToOpen = std::filesystem::current_path() / std::filesystem::u8path(arg[1]);
+			if (pathToOpen.extension().u8string() == ".pgn")
 			{
-				Manager::AppManager::Get().CreateApp(pathToOpen.string());
+				Manager::AppManager::Get().CreateApp(pathToOpen);
 			}
 		}
 	}

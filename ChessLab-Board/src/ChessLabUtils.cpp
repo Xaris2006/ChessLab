@@ -16,32 +16,34 @@
 static Walnut::ApplicationSpecification s_spec;
 static std::vector<std::string> s_arg;
 
-std::string s_AppDirectory;
-std::filesystem::path s_CacheDirectory;
+static std::filesystem::path s_AppDirectory;
+static std::filesystem::path s_CacheDirectory;
 
 static std::string WCharToString(const wchar_t* w)
 {
-	if (!w) return {};
+	if (!w || *w == L'\0') return "";
 
-	int size = WideCharToMultiByte(
+	int neededSize = WideCharToMultiByte(
 		CP_UTF8, 0,
 		w, -1,
 		nullptr, 0,
 		nullptr, nullptr
 	);
 
-	std::string str(size, 0);
+	if (neededSize <= 0) return "";
+
+	std::string str(neededSize, '\0');
 
 	WideCharToMultiByte(
 		CP_UTF8, 0,
 		w, -1,
-		&str[0], size,
+		&str[0], neededSize,
 		nullptr, nullptr
 	);
 
-	// Remove Windows null terminator
-	if (!str.empty() && str.back() == '\0')
+	if (!str.empty() && str.back() == '\0') {
 		str.pop_back();
+	}
 
 	return str;
 }
@@ -60,29 +62,21 @@ namespace ChessLab::Utils
 		std::string filepath = Windows::Utils::OpenFile(L"Any Database (*.pgn, *.cld)\0*.pgn;*.cld\0PGN Database (*.pgn)\0*.pgn\0Chess Lab Database (*.cld)\0*.cld\0\0");
 		if (!filepath.empty())
 		{
-			bool anwser = AppManagerChild::IsChessFileAvail(filepath);
+			bool anwser = AppManagerChild::IsChessFileAvail(std::filesystem::u8path(filepath));
 
 			if (anwser)
 			{
 				Panels::OpenLoadingPopup();
-
-				static std::thread* openerThread = nullptr;
-
-				if (openerThread != nullptr && openerThread->joinable())
-				{
-					openerThread->join();
-					delete openerThread;
-				}
-
-
-				openerThread = new std::thread(
+				
+				std::thread(
 					[filepath]()
 					{
 						Panels::SetLoadingPersentage(0);
-						ChessAPI::OpenChessFile(filepath, &Panels::GetLoadingPersentageRef());
-						AppManagerChild::OwnChessFile(ChessAPI::GetChessFilePath());
+						AppManagerChild::OwnChessFile(std::filesystem::u8path(filepath));
+						ChessAPI::OpenChessFile(std::filesystem::u8path(filepath), &Panels::GetLoadingPersentageRef());
 						Panels::SetLoadingPersentage(1);
-					});
+					}
+				).detach();
 			}
 			else
 			{
@@ -102,8 +96,8 @@ namespace ChessLab::Utils
 				[filepath]()
 				{
 					Panels::SetLoadingPersentage(0);
-					ChessAPI::OverWriteChessFile(filepath, &Panels::GetLoadingPersentageRef());
-					AppManagerChild::OwnChessFile(ChessAPI::GetChessFilePath());
+					AppManagerChild::OwnChessFile(std::filesystem::u8path(filepath));
+					ChessAPI::OverWriteChessFile(std::filesystem::u8path(filepath), &Panels::GetLoadingPersentageRef());
 					Panels::SetLoadingPersentage(1);
 				}
 			).detach();
@@ -135,7 +129,6 @@ namespace ChessLab::Utils
 	{
 		std::ifstream lsIni("chesslab.ini");
 		std::string name;
-		lsIni >> name >> Panels::GetContentBrowserPanel().IsPanelOpen();
 		lsIni >> name >> Panels::GetGamePropertiesPanel().IsPanelOpen();
 		lsIni >> name >> Panels::GetNotePanel().IsPanelOpen();
 		lsIni >> name >> Panels::GetMovePanel().IsPanelOpen();
@@ -150,7 +143,6 @@ namespace ChessLab::Utils
 	void SaveViewStyle()
 	{
 		std::ofstream lsIni("chesslab.ini");
-		lsIni << "Content_Browser" << ' ' << Panels::GetContentBrowserPanel().IsPanelOpen() << '\n';
 		lsIni << "Game_Properties" << ' ' << Panels::GetGamePropertiesPanel().IsPanelOpen() << '\n';
 		lsIni << "Notes" << ' ' << Panels::GetNotePanel().IsPanelOpen() << '\n';
 		lsIni << "Moves" << ' ' << Panels::GetMovePanel().IsPanelOpen() << '\n';
@@ -186,14 +178,18 @@ namespace ChessLab::Utils
 			{
 				ChessLab::Utils::SaveAs();
 			}
-			if (ImGui::MenuItem("Remove Deleted"))
+			if (ImGui::MenuItem("Info"))
 			{
-				std::string filepath = Windows::Utils::OpenFile(L"Any Database (*.pgn, *.cld)\0*.pgn;*.cld\0PGN Database (*.pgn)\0*.pgn\0Chess Lab Database (*.cld)\0*.cld\0\0");
-				if (!filepath.empty())
-				{
-					Chess::CldFile::RemoveDeletedGames(filepath);
-				}
+				Panels::GetDatabasePanel().OpenInfoPopup();
 			}
+			//if (ImGui::MenuItem("Remove Deleted"))
+			//{
+			//	std::string filepath = Windows::Utils::OpenFile(L"Any Database (*.pgn, *.cld)\0*.pgn;*.cld\0PGN Database (*.pgn)\0*.pgn\0Chess Lab Database (*.cld)\0*.cld\0\0");
+			//	if (!filepath.empty())
+			//	{
+			//		Chess::CldFile::RemoveDeletedGames(filepath);
+			//	}
+			//}
 			ImGui::Separator();
 			if (ImGui::MenuItem("Exit", "Alt+F4"))
 			{
@@ -203,7 +199,6 @@ namespace ChessLab::Utils
 		}
 		if (ImGui::BeginMenu("View"))
 		{
-			if (ImGui::MenuItem("Content Browser", 0, &Panels::GetContentBrowserPanel().IsPanelOpen())) {}
 			if (ImGui::MenuItem("Game Properties", 0, &Panels::GetGamePropertiesPanel().IsPanelOpen())) {}
 			if (ImGui::MenuItem("Notes", 0, &Panels::GetNotePanel().IsPanelOpen())) {}
 			if (ImGui::MenuItem("Moves", 0, &Panels::GetMovePanel().IsPanelOpen())) {}
@@ -254,16 +249,16 @@ namespace ChessLab::Utils
 			}
 			if (ImGui::BeginMenu("Open"))
 			{
-				for (auto& Engine : Panels::GetEnginePanel().GetAvailEngines())
+				for (auto& EnginePath : Panels::GetEnginePanel().GetAvailEngines())
 				{
-					if (ImGui::MenuItem(Engine.c_str()))
-						Panels::GetEnginePanel().OpenEngine("MyDocuments\\engines\\" + Engine + ".exe");
+					if (ImGui::MenuItem(EnginePath.filename().stem().u8string().c_str()))
+						Panels::GetEnginePanel().OpenEngine(EnginePath);
 				}
 				if (ImGui::MenuItem("from Explorer..."))
 				{
 					std::string filepath = Windows::Utils::OpenFile(L"Chess Engine (*.exe)\0*.exe\0");
 					if (!filepath.empty())
-						Panels::GetEnginePanel().OpenEngine(filepath);
+						Panels::GetEnginePanel().OpenEngine(std::filesystem::u8path(filepath).u8string());
 				}
 				ImGui::EndMenu();
 			}
@@ -278,6 +273,10 @@ namespace ChessLab::Utils
 
 		if (ImGui::BeginMenu("Help"))
 		{
+			if (ImGui::MenuItem("File Info"))
+			{
+				Panels::GetDatabasePanel().OpenInfoPopup();
+			}
 			if (ImGui::MenuItem("About"))
 			{
 				Panels::OpenAboutPopup();
@@ -341,7 +340,7 @@ namespace ChessLab::Utils
 		s_arg.emplace_back(WCharToString(wargv[0]));
 		for (int i = 1; i < argc; i++)
 		{
-			if (std::filesystem::path(s_arg[s_arg.size() - 1]).has_extension())
+			if (std::filesystem::u8path(s_arg[s_arg.size() - 1]).has_extension())
 				s_arg.emplace_back(WCharToString(wargv[i]));
 			else
 			{
@@ -410,16 +409,11 @@ namespace ChessLab::Utils
 
 	void InitializeAppDirectory()
 	{
-		if (s_arg.empty())
-		{
-			s_AppDirectory = std::filesystem::current_path().string();
-			return;
-		}
-
-		s_AppDirectory = std::filesystem::path(s_arg[0]).parent_path().string();
-
 #if defined(WL_DIST)
+		s_AppDirectory = std::filesystem::u8path(s_arg[0]).parent_path();
 		std::filesystem::current_path(s_AppDirectory);
+#else
+		s_AppDirectory = std::filesystem::current_path();
 #endif
 	}
 

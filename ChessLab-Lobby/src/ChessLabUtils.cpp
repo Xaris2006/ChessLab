@@ -17,8 +17,8 @@
 static Walnut::ApplicationSpecification s_spec;
 static std::vector<std::string> s_arg;
 
-std::string s_AppDirectory;
-std::filesystem::path s_CacheDirectory;
+static std::filesystem::path s_AppDirectory;
+static std::filesystem::path s_CacheDirectory;
 
 static bool s_IamSecond = false;
 static HANDLE s_hMutex;
@@ -61,7 +61,7 @@ namespace ChessLab::Utils
 	{
 		std::string filepath = Windows::Utils::OpenFile(L"Any Database (*.pgn, *.cld)\0*.pgn;*.cld\0PGN Database (*.pgn)\0*.pgn\0Chess Lab Database (*.cld)\0*.cld\0\0");
 		if (!filepath.empty())
-			Manager::AppManager::Get().CreateApp(filepath);
+			Manager::AppManager::Get().CreateApp(std::filesystem::u8path(filepath));
 	}
 
 	void CreateSingularity()
@@ -100,24 +100,24 @@ namespace ChessLab::Utils
 	{
 		{
 			std::ifstream infile("secondAppRequest.txt");
-			std::string path;
-			infile >> path;
-			if (!path.empty())
+			std::string pathStr;
+			infile >> pathStr;
+			if (!pathStr.empty())
 			{
-				std::filesystem::path pathToOpen(path);
+				std::filesystem::path pathToOpen = std::filesystem::u8path(pathStr);
 
 				while (!pathToOpen.has_extension())
 				{
 					std::string addpath;
 					infile >> addpath;
-					path = path + ' ' + addpath;
-					pathToOpen = std::filesystem::path(path);
+					pathStr = pathStr + ' ' + addpath;
+					pathToOpen = std::filesystem::u8path(pathStr);
 				}
 
 				if (pathToOpen.is_relative())
-					pathToOpen = std::filesystem::current_path() / path;
+					pathToOpen = std::filesystem::current_path() / pathToOpen;
 
-				Manager::AppManager::Get().CreateApp(pathToOpen.string());
+				Manager::AppManager::Get().CreateApp(pathToOpen);
 			}
 			infile.close();
 		}
@@ -169,7 +169,7 @@ namespace ChessLab::Utils
 		s_arg.emplace_back(WCharToString(wargv[0]));
 		for (int i = 1; i < argc; i++)
 		{
-			if (std::filesystem::path(s_arg[s_arg.size() - 1]).has_extension())
+			if (std::filesystem::u8path(s_arg[s_arg.size() - 1]).has_extension())
 				s_arg.emplace_back(WCharToString(wargv[i]));
 			else
 			{
@@ -204,16 +204,11 @@ namespace ChessLab::Utils
 
 	void InitializeAppDirectory()
 	{
-		if (s_arg.empty())
-		{
-			s_AppDirectory = std::filesystem::current_path().string();
-			return;
-		}
-
-		s_AppDirectory = std::filesystem::path(s_arg[0]).parent_path().string();
-
 #if defined(WL_DIST)
+		s_AppDirectory = std::filesystem::u8path(s_arg[0]).parent_path();
 		std::filesystem::current_path(s_AppDirectory);
+#else
+		s_AppDirectory = std::filesystem::current_path();
 #endif
 	}
 

@@ -261,13 +261,15 @@ namespace Chess
 			
 			for (auto& game : editedGames)
 			{
-				if (game > lastIndex && game < m_DataPointers->size())
-					loadFileByChunk((*m_DataPointers)[game], game);
-				
-				if (game == m_DataPointers->size())
+				if (game > lastIndex)
 				{
-					source.seekg(0, std::ios::end);
-					loadFileByChunk((size_t)source.tellg(), m_DataPointers->size());
+					if (game < m_DataPointers->size())
+						loadFileByChunk((*m_DataPointers)[game], game);
+					else if (game == m_DataPointers->size())
+					{
+						source.seekg(0, std::ios::end);
+						loadFileByChunk((size_t)source.tellg(), m_DataPointers->size());
+					}
 				}
 				
 				lastIndex = game + 1;

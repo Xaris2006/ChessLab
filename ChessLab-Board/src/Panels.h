@@ -5,7 +5,6 @@
 #include "Panels/EnginePanel.h"
 #include "Panels/MovePanel.h"
 #include "Panels/NotePanel.h"
-#include "Panels/ContentBrowserPanel.h"
 #include "Panels/BoardPanel.h"
 #include "Panels/ReferencePanel.h"
 
@@ -35,6 +34,5 @@ namespace Panels
 	EnginePanel& GetEnginePanel();
 	MovePanel& GetMovePanel();
 	NotePanel& GetNotePanel();
-	ContentBrowserPanel& GetContentBrowserPanel();
 	ReferencePanel& GetReferencePanel();
 }

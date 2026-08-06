@@ -544,4 +544,9 @@ namespace Chess
 	{
 		m_DataRead = GetData();
 	}
+
+	void PgnGame::SetDataRead(std::string_view data)
+	{
+		m_DataRead = data;
+	}
 }

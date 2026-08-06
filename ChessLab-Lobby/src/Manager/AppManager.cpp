@@ -5,10 +5,10 @@
 #include <unordered_map>
 #include <filesystem>
 
+#include "../Panels.h"
 #include "ChessCore/FileFormats/FileManager.h"
 
 static std::mutex addMutex;
-extern bool g_AlreadyOpenedModalOpen;
 
 static Manager::AppManager* s_AppManager = nullptr;
 
@@ -119,7 +119,7 @@ namespace Manager
 							if (IndexPath != std::string::npos)
 								path = std::string(s_AppManager->m_Commands[i].Open.begin() + IndexPath + 5, s_AppManager->m_Commands[i].Open.begin() + s_AppManager->m_Commands[i].Open.find(":Path"));
 							//here
-							s_AppManager->CreateApp(path);
+							s_AppManager->CreateApp(std::filesystem::u8path(path));
 						}
 
 						if (s_AppManager->m_Commands[i].Ask.size())
@@ -171,7 +171,7 @@ namespace Manager
 								if (other == npathHash)
 								{
 									alreadyOpened = true;
-									g_AlreadyOpenedModalOpen = true;
+									Panels::OpenAlreadyOpenedPopup();
 									break;
 								}
 							}
@@ -179,10 +179,14 @@ namespace Manager
 
 						if (!alreadyOpened)
 						{
-							auto pathToAdd = std::filesystem::canonical(npath).wstring();
+							std::error_code ec;
+							auto pathToAdd = std::filesystem::canonical(npath, ec).wstring();
 
-							s_AppManager->m_Apps.emplace_back(L"ChessLabApp\\ChessLab-Board.exe", pathToAdd);
-							s_AppManager->m_Apps[s_AppManager->m_Apps.size() - 1].Write("Ok");
+							if (!ec)
+							{
+								s_AppManager->m_Apps.emplace_back(L"ChessLabApp\\ChessLab-Board.exe", pathToAdd);
+								s_AppManager->m_Apps[s_AppManager->m_Apps.size() - 1].Write("Ok");
+							}
 						}
 					}
 
@@ -229,7 +233,6 @@ namespace Manager
 		bool founded = false;
 		Chess::FileManager::PathHash hasher;
 
-
 		for (auto& [key, value] : m_OpenedPaths)
 		{
 			if (value == hasher(path))
@@ -241,5 +244,4 @@ namespace Manager
 
 		return founded;
 	}
-
 }

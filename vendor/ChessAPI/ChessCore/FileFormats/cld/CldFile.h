@@ -42,6 +42,9 @@ namespace Chess
 		virtual std::string* GetSearchName(size_t index) override;
 
 		void GetCldGame(CldGame& game, size_t index);
+		MoveEncoding GetEncoding() const;
+		bool IsUsingTable() const;
+		uint8_t GetVersion() const;
 
 	public:
 		static void RemoveDeletedGames(const std::filesystem::path& path);
@@ -64,6 +67,7 @@ namespace Chess
 		std::shared_ptr<uint8_t> m_typeName;
 		std::shared_ptr<uint8_t> m_typeValue;
 		std::shared_ptr<uint8_t> m_Settings;
+		uint8_t m_Version = 1ui8;
 
 		size_t m_LabelNamesPointer = 0;
 		size_t m_LabelValuesPointer = 0;

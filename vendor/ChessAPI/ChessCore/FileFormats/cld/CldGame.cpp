@@ -515,8 +515,8 @@ namespace Chess
 		if (cldMovePathCoreE.details.contains(-1))
 		{
 			auto& detail = cldMovePathCldE.details[-1];
-			detail.cmds = cldMovePathCldE.details.at(-1).cmds;
-			detail.note = cldMovePathCldE.details.at(-1).note;
+			detail.cmds = cldMovePathCoreE.details.at(-1).cmds;
+			detail.note = cldMovePathCoreE.details.at(-1).note;
 		}
 
 		size_t index = 0;
@@ -557,14 +557,16 @@ namespace Chess
 				prevProm = promType;
 			}
 			
-
 			if (cldMovePathCoreE.details.contains(i))
 			{
 				auto& detail = cldMovePathCldE.details[i];
-				detail.cmds = cldMovePathCldE.details.at(i).cmds;
-				detail.note = cldMovePathCldE.details.at(i).note;
+				detail.cmds = cldMovePathCoreE.details.at(i).cmds;
+				detail.note = cldMovePathCoreE.details.at(i).note;
 			}
 		}
+
+		if (reset)
+			cldMovePathCldE.ReloadChildren();
 	}
 
 	void CldGame::ConvertCldMovePathCldEToCldMovePathCoreE(CldGame::CldMovesPath& cldMovePathCoreE, const CldGame::CldMovesPath& cldMovePathCldE, bool reset, std::string startFen)
@@ -581,8 +583,8 @@ namespace Chess
 		if (cldMovePathCldE.details.contains(-1))
 		{
 			auto& detail = cldMovePathCoreE.details[-1];
-			detail.cmds = cldMovePathCoreE.details.at(-1).cmds;
-			detail.note = cldMovePathCoreE.details.at(-1).note;
+			detail.cmds = cldMovePathCldE.details.at(-1).cmds;
+			detail.note = cldMovePathCldE.details.at(-1).note;
 		}
 
 		size_t index = 0;
@@ -624,9 +626,12 @@ namespace Chess
 			if (cldMovePathCldE.details.contains(i))
 			{
 				auto& detail = cldMovePathCoreE.details[i];
-				detail.cmds = cldMovePathCoreE.details.at(i).cmds;
-				detail.note = cldMovePathCoreE.details.at(i).note;
+				detail.cmds = cldMovePathCldE.details.at(i).cmds;
+				detail.note = cldMovePathCldE.details.at(i).note;
 			}
 		}
+
+		if (reset)
+			cldMovePathCoreE.ReloadChildren();
 	}
 }

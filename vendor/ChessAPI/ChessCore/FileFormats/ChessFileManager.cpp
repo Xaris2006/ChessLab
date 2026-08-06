@@ -113,7 +113,7 @@ namespace Chess
 
 		s_ChessFileManager->m_SearchWorkers.fill(nullptr);
 
-		const size_t amountOfWorkers = 1;// std::max(s_ChessFileManager->s_amountOfWorkersMin, std::min(s_ChessFileManager->s_amountOfWorkersMax, size_t(std::thread::hardware_concurrency() / 4)));
+		const size_t amountOfWorkers = std::max(s_ChessFileManager->s_amountOfWorkersMin, std::min(s_ChessFileManager->s_amountOfWorkersMax, size_t(std::thread::hardware_concurrency() / 4)));
 
 		for (int threadIndex = 0; threadIndex < amountOfWorkers; threadIndex++)
 		{
@@ -496,38 +496,38 @@ namespace Chess
 										if (lmLD > mLD)
 											mLD = lmLD;
 									}
-								}
 
-								if (f_localClrTopGames.size() > 20)
-									f_localClrTopGames.resize(20);
+									if (f_localClrTopGames.size() > 20)
+										f_localClrTopGames.resize(20);
 
-								for (auto& [index, elo] : f_localClrTopGames)
-								{
-									bool isGameSorted = false;
-									for (int gameIndex = 0; gameIndex < f_clrTopGames->size(); gameIndex++)
+									for (auto& [index, elo] : f_localClrTopGames)
 									{
-										if (s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second[gameIndex] < elo)
+										bool isGameSorted = false;
+										for (int gameIndex = 0; gameIndex < f_clrTopGames->size(); gameIndex++)
 										{
-											f_clrTopGames->insert(f_clrTopGames->begin() + gameIndex, index);
-											s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.insert(s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.begin() + gameIndex, elo);
+											if (s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second[gameIndex] < elo)
+											{
+												f_clrTopGames->insert(f_clrTopGames->begin() + gameIndex, index);
+												s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.insert(s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.begin() + gameIndex, elo);
 
-											isGameSorted = true;
-											break;
+												isGameSorted = true;
+												break;
+											}
+										}
+
+										if (!isGameSorted && f_clrTopGames->size() < 21)
+										{
+											f_clrTopGames->emplace_back(index);
+											s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.emplace_back(elo);
 										}
 									}
 
-									if (!isGameSorted && f_clrTopGames->size() < 21)
-									{
-										f_clrTopGames->emplace_back(index);
-										s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.emplace_back(elo);
-									}
-								}
+									if (f_clrTopGames->size() > 20)
+										f_clrTopGames->resize(20);
 
-								if (f_clrTopGames->size() > 20)
-									f_clrTopGames->resize(20);
-
-								if (s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.size() > 20)
-									s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.resize(20);
+									if (s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.size() > 20)
+										s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.resize(20);
+								}								
 							}
 
 							f_currentSearchID = 0;
@@ -1114,6 +1114,9 @@ namespace Chess
 				detail.note = cldMovePath.details.at(i).note;
 			}
 		}
+
+		if (reset)
+			pgnMovePath.ReloadChildren();
 	}
 
 	void ChessFileManager::ConvertPgnMovePathToCldMovePath(CldGame::CldMovesPath& cldMovePath, const PgnGame::ChessMovesPath& pgnMovePath, MoveEncoding encoding, bool reset)
@@ -1146,7 +1149,7 @@ namespace Chess
 				Board oldBoard = staticBoard;
 
 				cldMovePath.move.emplace_back(childIndexID, childIndexID);
-				
+
 				auto& child = cldMovePath.children.emplace_back(&cldMovePath);
 				ConvertPgnMovePathToCldMovePath(child, pgnMovePath.children[index], encoding);
 				index++;
@@ -1170,12 +1173,12 @@ namespace Chess
 				uint8_t promotionBits = (promType - 1) & 0b00000011;
 
 				cldMovePath.move.emplace_back(coreMove.index, (uint8_t(coreMove.move + coreMove.index) << 2) | promotionBits);
-				
+
 				if (myBoard.MakeMove(coreMove, promType) != Board::SUCCESS)
 					break;
 				if (prevMove.move != 0)
 					staticBoard.MakeMove(prevMove, prevProm);
-				
+
 				prevMove = coreMove;
 				prevProm = promType;
 			}
@@ -1186,6 +1189,9 @@ namespace Chess
 				cldMovePath.details[i].cmds = detail.cmds;
 				cldMovePath.details[i].note = detail.note;
 			}
-		}		
+		}
+
+		if (reset)
+			cldMovePath.ReloadChildren();
 	}
 }

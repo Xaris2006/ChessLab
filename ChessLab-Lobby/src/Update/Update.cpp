@@ -154,7 +154,11 @@ void Update::UI_DrawUpdateModal()
 		return;
 
 	ImGui::OpenPopup("Update");
+
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
 	m_UpdateModalOpen = ImGui::BeginPopupModal("Update", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+	ImGui::PopStyleColor();
+	
 	if (m_UpdateModalOpen)
 	{
 		auto image = Walnut::Application::Get().GetApplicationIcon();
@@ -162,16 +166,12 @@ void Update::UI_DrawUpdateModal()
 		ImGui::SameLine();
 		Walnut::UI::ShiftCursorX(20.0f);
 		ImGui::BeginGroup();
-		//ImGui::Text("Chess Lab is a Chess GUI");
-		//ImGui::Text("by C.Betsakos");
-		//
-		//ImGui::Separator();
-
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
-
+		
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.53f, 0.53f, 1.0f, 1.0f));
 		ImGui::Text("Version: %s", m_Version.c_str());
+		ImGui::PopStyleColor();
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.53f, 1.0f, 0.53f, 1.0f));
 		ImGui::Text("Latest Version: %s", m_LatestVersion.c_str());
-
 		ImGui::PopStyleColor();
 		
 		ImGui::Separator();

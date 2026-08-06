@@ -19,9 +19,14 @@ namespace Panels {
 		void OnImGuiRender();
 
 		void Reset();
-	
+		void OpenInfoPopup() { m_OpenInfoPopup = true; }
+		bool IsInfoPopupOpen() const { return m_OpenInfoPopup; }
+
 	private:
 		void GamePopup();
+
+		void DrawTools(int tableIndex = -1);
+		void InfoPopup();
 
 	private:
 		std::filesystem::path m_filePath;
@@ -63,11 +68,14 @@ namespace Panels {
 		std::vector<std::string> m_ecoItems;
 
 		std::vector<std::string> m_important_prop = {
-			"White",    "Black",
-			"WhiteElo", "BlackElo",
+			"White", "WhiteElo", 
+			"Black", "BlackElo",
 			"Date", "ECO", "Result",
 			"Event", "Round", "Site"
 		};
+
+		bool m_GoToLinePressed = false;
+		size_t m_GoToLine = 1;
 
 		std::vector<std::shared_ptr<std::pair<Chess::SearchOptions, Chess::SearchResult>>> m_searchTables;
 
@@ -84,8 +92,8 @@ namespace Panels {
 		std::shared_ptr<Walnut::Image> m_IconPasteGame;
 		std::shared_ptr<Walnut::Image> m_IconEditor;
 		std::shared_ptr<Walnut::Image> m_IconSearch;
+		std::shared_ptr<Walnut::Image> m_IconInfo;
+
+		bool m_OpenInfoPopup = false;
 	};
-
-	
-
 }

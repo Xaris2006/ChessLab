@@ -212,31 +212,6 @@ void BoardPanel::OnImGuiRender()
 	RenderPlayerColorBox();
 	RenderBoard();
 
-	if (ImGui::BeginDragDropTarget())
-	{
-		if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("CONTENT_BROWSER_ITEM"))
-		{
-			const wchar_t* path = (const wchar_t*)payload->Data;
-			std::wstring wstrpath = path;
-			std::string strpath = std::string(wstrpath.begin(), wstrpath.end());
-			if (std::filesystem::path(strpath).extension().string() == ".pgn")
-			{
-				bool anwser = AppManagerChild::IsChessFileAvail(strpath);
-
-				if (anwser)
-				{
-					ChessAPI::OpenChessFile(strpath);
-					AppManagerChild::OwnChessFile(ChessAPI::GetChessFilePath());
-				}
-				else
-				{
-					Panels::OpenAlreadyOpenedPopup();
-				}
-			}
-		}
-		ImGui::EndDragDropTarget();
-	}
-
 	if (Panels::GetEnginePanel().IsBarOpen())
 		RenderBar();
 
@@ -1396,7 +1371,12 @@ void BoardPanel::EditorPopup()
 	
 	ImGui::SetNextWindowSize(ImVec2(mainViewport->Size.x * 0.6, mainViewport->Size.y * 0.6), ImGuiCond_Appearing);
 	ImGui::SetNextWindowPos(ImVec2(mainViewport->GetWorkCenter().x - mainViewport->Size.x * 0.3, mainViewport->GetWorkCenter().y - mainViewport->Size.y * 0.3), ImGuiCond_Appearing);
-	if (ImGui::BeginPopupModal("Editor", NULL, ImGuiWindowFlags_NoResize))
+	
+	ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
+	bool isOpen = ImGui::BeginPopupModal("Editor", NULL, ImGuiWindowFlags_NoResize);
+	ImGui::PopStyleColor();
+
+	if (isOpen)
 	{
 		ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = true;
 
@@ -1797,13 +1777,11 @@ void BoardPanel::EditorPopup()
 					ChessAPI::GetActiveGame().GoToPositionByKey(startPosition);
 
 					auto& PgnGame = ChessAPI::GetPgnGame();
+					std::string oldDataRead = PgnGame.GetDataRead();
 					PgnGame.Clear();
+					PgnGame.SetDataRead(oldDataRead);
 					PgnGame["FEN"] = fen;
 					ChessAPI::GetActiveGame().InitPgnGame(PgnGame);
-
-					//ChessAPI::OverWriteChessFile("");
-
-					ChessAPI::OpenChessGameInFile(ChessAPI::GetActiveGameIndex());
 
 					ImGui::CloseCurrentPopup();
 					ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = false;
@@ -1826,10 +1804,6 @@ void BoardPanel::EditorPopup()
 					PgnGame["FEN"] = fen;
 					ChessAPI::GetActiveGame().InitPgnGame(PgnGame);
 
-					//ChessAPI::OverWriteChessFile("");
-
-					ChessAPI::OpenChessGameInFile(ChessAPI::GetActiveGameIndex());
-
 					ImGui::CloseCurrentPopup();
 					ImGui::GetIO().ConfigWindowsMoveFromTitleBarOnly = false;
 				}
@@ -1843,26 +1817,39 @@ void BoardPanel::EditorPopup()
 
 			ImGui::SetNextWindowSize(ImVec2(mainViewport->Size.x * 0.12, mainViewport->Size.y * 0.15), ImGuiCond_Appearing);
 			ImGui::SetNextWindowPos(mainViewport->GetWorkCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-			if (ImGui::BeginPopupModal("Error", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize))
+			
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.1f, 0.1f, 0.85f));
+			bool isOpenError = ImGui::BeginPopupModal("Error", 0, ImGuiWindowFlags_AlwaysAutoResize);
+			ImGui::PopStyleColor();
+			
+			if (isOpenError)
 			{
-				Walnut::UI::TextCentered("    Invalid Board!    ");
+				Walnut::UI::TextCentered("       Invalid Board!       ");
 
-				ImGui::NewLine();
+				//ImGui::NewLine();
 
 				ImGui::PushID("errorIB");
 
 				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.7, 0.1, 0.1, 0.65));
 				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7, 0.1, 0.1, 0.5));
 				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7, 0.1, 0.1, 0.35));
-				if (Walnut::UI::ButtonCentered("Close"))
+
+				ImGuiStyle& style = ImGui::GetStyle();
+
+				float actualSize = ImGui::CalcTextSize("Close").x + style.FramePadding.x * 2.0f;
+				float avail = ImGui::GetContentRegionAvail().x;
+
+				float off = (avail - actualSize) * 0.5f;
+				if (off > 0.0f)
+					ImGui::SetCursorPosX(ImGui::GetCursorPosX() + off);
+
+				if (ImGui::SmallButton("Close"))
 				{
 					ImGui::CloseCurrentPopup();
 				}
 				ImGui::PopStyleColor(3);
 
 				ImGui::PopID();
-
-				ImGui::SameLine();
 
 				ImGui::EndPopup();
 			}

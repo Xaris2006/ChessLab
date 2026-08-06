@@ -38,6 +38,7 @@ namespace Panels
 		std::shared_ptr<Walnut::Image> m_FileIconCLD;
 		std::shared_ptr<Walnut::Image> m_FileIconCOB;
 		std::shared_ptr<Walnut::Image> m_BackArrow;
+		std::shared_ptr<Walnut::Image> m_IconSearch;
 
 		std::vector<std::filesystem::path> m_filesToBeMerged;
 		std::string m_mergedName;

@@ -163,7 +163,11 @@ namespace Panels
 			}
 
 			{
-				ImGui::SetCursorPosY(ImGui::GetContentRegionMax().y - 7 * ImGui::GetStyle().ItemSpacing.y);
+				ImGui::SetCursorPosY(ImGui::GetContentRegionMax().y
+					- ImGui::GetStyle().FramePadding.y * 2
+					//- ImGui::GetStyle().ItemSpacing.y * 2
+					- ImGui::GetStyle().WindowPadding.y
+					- ImGui::CalcTextSize("U").y);
 			
 				ImGui::Separator();
 			
@@ -476,9 +480,6 @@ namespace Panels
 				}
 
 				prevMoveKey = pathmove;
-
-				if (pathmove == ChessAPI::GetActiveGame().GetLastMoveKey())
-					ImGui::SetScrollHereY();
 
 				if (ImGui::IsItemHovered())
 					m_HoveredMove = pathmove;

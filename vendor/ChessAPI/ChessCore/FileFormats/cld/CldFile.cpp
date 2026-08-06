@@ -38,7 +38,7 @@ namespace Chess
 
 	void CldFile::OpenFile(const std::filesystem::path& path, float* persentage)
 	{
-		if (path.extension().string() != ".cld")
+		if (path.extension().u8string() != ".cld")
 			return;
 
 		for (auto& search : m_Searches)
@@ -49,6 +49,7 @@ namespace Chess
 		FileManager::Get().RemoveFile(m_ID);
 		ChessFileManager::Get().RemoveFileReference(m_ID);
 
+		m_Version = 0ui8;
 		m_AddedGamesCount = 0;
 		m_DeletedGames.clear();
 		m_Searches.clear();
@@ -233,7 +234,7 @@ namespace Chess
 			std::ofstream destination(cachePath / "helper", std::ios::binary, std::ios::trunc);
 			std::ofstream destinationGames(cachePath / "helperGames", std::ios::binary, std::ios::trunc);
 			
-			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, (*m_Settings), 0x00, 0x01, 0x04 };
+			const uint8_t title[8] = { 'C', 'L', 'D', m_Version, (*m_Settings), 0x00, 0x01, 0x04 };
 			uint64_t indexName = m_LabelNamesPointer;
 			uint64_t indexValue = m_LabelValuesPointer + bufferNameNew.size();
 			//check if we have no games
@@ -313,13 +314,15 @@ namespace Chess
 					*persentage = std::min(0.4f + float(i / (double)editedGames.size()) * 0.4f, 0.8f);
 				}
 
-				if (editedGames[i] > lastIndex && editedGames[i] < m_GamePointers->size())
-					loadFileByChunk((*m_GamePointers)[editedGames[i]], editedGames[i]);
-
-				if (editedGames[i] == m_GamePointers->size())
+				if (editedGames[i] > lastIndex)
 				{
-					source.seekg(0, std::ios::end);
-					loadFileByChunk((size_t)source.tellg(), m_GamePointers->size());
+					if (editedGames[i] < m_GamePointers->size())
+						loadFileByChunk((*m_GamePointers)[editedGames[i]], editedGames[i]);
+					else if (editedGames[i] == m_GamePointers->size())
+					{
+						source.seekg(0, std::ios::end);
+						loadFileByChunk((size_t)source.tellg(), m_GamePointers->size());
+					}
 				}
 
 				lastIndex = editedGames[i] + 1;
@@ -363,7 +366,7 @@ namespace Chess
 			std::ofstream destination(cachePath / "helper", std::ios::binary, std::ios::trunc);
 			std::ofstream destinationGames(cachePath / "helperGames", std::ios::binary, std::ios::trunc);
 
-			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, (*m_Settings), 0x00, 0x01, 0x04 };
+			const uint8_t title[8] = { 'C', 'L', 'D', m_Version, (*m_Settings), 0x00, 0x01, 0x04 };
 			m_LabelNamesPointer = 40;
 			m_LabelValuesPointer = m_LabelNamesPointer + bufferNameNew.size();
 			m_GamePointersPointer = m_LabelValuesPointer + bufferValueNew.size();
@@ -613,7 +616,7 @@ namespace Chess
 			else
 				*m_Settings |= 0x02;
 
-			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, (*m_Settings), 0x00, 0x01, 0x04 };
+			const uint8_t title[8] = { 'C', 'L', 'D', m_Version, (*m_Settings), 0x00, 0x01, 0x04 };
 			uint64_t indexName = m_LabelNamesPointer;
 			uint64_t indexValue = m_LabelValuesPointer + bufferNameNew.size();
 			//check if we have no games
@@ -695,13 +698,15 @@ namespace Chess
 						*persentage = std::min(0.4f + float(i / (double)editedGames.size()) * 0.4f, 0.8f);
 					}
 
-					if (editedGames[i] > lastIndex && editedGames[i] < m_GamePointers->size())
-						loadFileByChunk((*m_GamePointers)[editedGames[i]], editedGames[i]);
-
-					if (editedGames[i] == m_GamePointers->size())
+					if (editedGames[i] > lastIndex)
 					{
-						source.seekg(0, std::ios::end);
-						loadFileByChunk((size_t)source.tellg(), m_GamePointers->size());
+						if (editedGames[i] < m_GamePointers->size())
+							loadFileByChunk((*m_GamePointers)[editedGames[i]], editedGames[i]);
+						else  if (editedGames[i] == m_GamePointers->size())
+						{
+							source.seekg(0, std::ios::end);
+							loadFileByChunk((size_t)source.tellg(), m_GamePointers->size());
+						}
 					}
 
 					lastIndex = editedGames[i] + 1;
@@ -792,7 +797,7 @@ namespace Chess
 			else
 				*m_Settings |= 0x02;
 
-			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, (*m_Settings), 0x00, 0x01, 0x04 };
+			const uint8_t title[8] = { 'C', 'L', 'D', m_Version, (*m_Settings), 0x00, 0x01, 0x04 };
 			m_LabelNamesPointer = 40;
 			m_LabelValuesPointer = m_LabelNamesPointer + bufferNameNew.size();
 			m_GamePointersPointer = m_LabelValuesPointer + bufferValueNew.size();
@@ -883,7 +888,7 @@ namespace Chess
 		if (buffer[0] != 'C' || buffer[1] != 'L' || buffer[2] != 'D')
 			return;
 
-		uint8_t version = buffer[3];
+		m_Version = buffer[3];
 		(*m_Settings) = buffer[4];
 		uint8_t idTable = buffer[5];
 		(*m_typeName) = buffer[6];
@@ -894,7 +899,7 @@ namespace Chess
 		m_GamePointersPointer = *(uint64_t*)&buffer[24];
 		size_t numberOfGames = *(uint64_t*)&buffer[32];
 		
-		if (version == 0x01)
+		if (m_Version == 0x01)
 		{
 			//if ((*m_Settings) != 0x00 && (*m_Settings) != 0x01)
 			//	return;
@@ -981,6 +986,7 @@ namespace Chess
 		ChessFileManager::Get().RemoveFileReference(m_ID);
 
 		m_ID = UUID();
+		m_Version = 0ui8;
 		m_AddedGamesCount = 0;
 		m_DeletedGames.clear();
 		m_Searches.clear();
@@ -1351,4 +1357,18 @@ namespace Chess
 		game.Parse(data, (*m_Settings) % 2 == 0 ? MoveEncoding::CLD : MoveEncoding::CORE, (*m_typeName), (*m_typeValue), true, false, true, false);
 	}
 
+	MoveEncoding CldFile::GetEncoding() const
+	{
+		return (*m_Settings) % 2 == 0 ? MoveEncoding::CLD : MoveEncoding::CORE;
+	}
+
+	bool CldFile::IsUsingTable() const
+	{
+		return ((*m_Settings) & 0x02) == 0x02 ? false : true;
+	}
+
+	uint8_t CldFile::GetVersion() const
+	{
+		return m_Version;
+	}
 }
