@@ -12,6 +12,8 @@
 
 #include "windowsMain.h"
 
+static std::vector<std::string> s_arg;
+
 // Vertex shader source code
 const char* vertexShaderSource = R"glsl(
     #version 330 core
@@ -110,22 +112,67 @@ GLuint createShaderProgram()
     return shaderProgram;
 }
 
+static std::string WCharToString(const wchar_t* w)
+{
+    if (!w) return {};
+
+    int size = WideCharToMultiByte(
+        CP_UTF8, 0,
+        w, -1,
+        nullptr, 0,
+        nullptr, nullptr
+    );
+
+    std::string str(size, 0);
+
+    WideCharToMultiByte(
+        CP_UTF8, 0,
+        w, -1,
+        &str[0], size,
+        nullptr, nullptr
+    );
+
+    // Remove Windows null terminator
+    if (!str.empty() && str.back() == '\0')
+        str.pop_back();
+
+    return str;
+}
+
 #ifdef WL_DIST
 
-int APIENTRY WinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PSTR cmdline, int cmdshow)
+int APIENTRY wWinMain(HINSTANCE hInst, HINSTANCE hInstPrev, PWSTR cmdline, int cmdshow)
 
 #else
 
-int main(int argc, char* argv[])
+int wmain(int argc, wchar_t* wargv[])
 
 #endif
 {
 
-#if defined(WL_DIST)
-    std::filesystem::current_path(std::filesystem::path(__argv[0]).parent_path().u8string());
-#endif
+    s_arg.clear();
 
-	//fragmentShaderSource = fragment_shader_glsl_130;
+    if (__argc < 1)
+        return 0;
+
+    s_arg.emplace_back(WCharToString(__wargv[0]));
+    for (int i = 1; i < __argc; i++)
+    {
+        if (std::filesystem::u8path(s_arg[s_arg.size() - 1]).has_extension())
+            s_arg.emplace_back(WCharToString(__wargv[i]));
+        else
+        {
+            s_arg[s_arg.size() - 1] += ' ';
+            s_arg[s_arg.size() - 1] += WCharToString(__wargv[i]);
+        }
+    }
+
+#if defined(WL_DIST)
+
+    if (!s_arg.empty())
+        std::filesystem::current_path(std::filesystem::u8path(s_arg[0]).parent_path());
+#endif
+    //fragmentShaderSource = fragment_shader_glsl_130;
 	//vertexShaderSource = vertex_shader_glsl_130;
 
     // Initialize GLFW
@@ -285,11 +332,7 @@ int main(int argc, char* argv[])
     
             std::error_code ec;
             std::filesystem::copy(std::filesystem::current_path() / "ChessLab", std::filesystem::canonical(std::filesystem::current_path() / "..\\..\\ChessLab"), std::filesystem::copy_options::overwrite_existing | std::filesystem::copy_options::recursive);
-            
-	 		std::ofstream outfile("logfile.txt");
-	 		outfile << ec.message();
-	 		outfile.close();
-    
+                
             threadEnded = true;
         });
 

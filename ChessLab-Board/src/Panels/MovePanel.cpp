@@ -31,14 +31,12 @@ namespace Panels
 			return;
 		}
 
-		//ImGui::Text(std::to_string(ChessAPI::GetActiveGame()+1).c_str());
-
-		ImGui::NewLine();
-
 		ImGuiStyle& style = ImGui::GetStyle();
 
 		if (ChessAPI::GetChessFileName() == "New Game" && ChessAPI::GetActiveGameIndex() >= 0)
 		{
+			ImGui::NewLine();
+
 			float size = ImGui::CalcTextSize("New Game").x + style.FramePadding.x * 2.0f;
 			float avail = ImGui::GetContentRegionAvail().x;
 
@@ -50,9 +48,6 @@ namespace Panels
 		}
 		else
 		{
-			//ImGui::TextWrapped(ChessAPI::GetChessFileName().c_str());
-			//ImGui::NewLine();
-
 			ImGui::PushFont(Walnut::Application::GetFont("Bold"));
 
 			ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.7, 0.7, 0.7, 1));
@@ -101,14 +96,33 @@ namespace Panels
 			ImGui::PopStyleColor();
 			ImGui::PopFont();
 
-			ImGui::Text(("ECO: " + ChessAPI::GetPgnGame()["ECO"]).c_str());
+			ImVec4 bcolor = { 0, 0.66, 0.95, 1 };
+			ImVec4 gcolor = { 0.38, 0.67, 0, 1 };
+
+			ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+			ImGui::Text("ECO:");
+			ImGui::PopStyleColor();
+			ImGui::SameLine();
+			ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+			ImGui::PushFont(Walnut::Application::GetFont("Bold"));
+			ImGui::Text(ChessAPI::GetPgnGame()["ECO"].c_str());
+			ImGui::PopFont();
+			ImGui::PopStyleColor();
+
 			ImGui::SameLine();
 
+			ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+			ImGui::Text("Result:");
+			ImGui::PopStyleColor();
+			ImGui::SameLine();
+			ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
 			std::string result = ChessAPI::GetPgnGame()["Result"];
 			if (result == "1/2-1/2")
 				result = "½-½";
-
-			ImGui::Text(("Result: " + result).c_str());
+			ImGui::PushFont(Walnut::Application::GetFont("Bold"));
+			ImGui::Text(result.c_str());
+			ImGui::PopFont();
+			ImGui::PopStyleColor();
 		}
 		ImGui::NewLine();
 
@@ -141,8 +155,13 @@ namespace Panels
 
 				ImGui::EndTabItem();
 			}
+
+			bool isTraining = false;
+
 			if (ImGui::BeginTabItem("Training"))
 			{
+				isTraining = true;
+
 				auto curMovePath = ChessAPI::GetActiveGame().GetLastMoveKey();
 				Chess::PgnGame::ChessMovesPath* ptrpgnMovePath = &m_moves;
 				for (int i = 1; i < curMovePath.size(); i += 2)
@@ -170,21 +189,10 @@ namespace Panels
 					- ImGui::CalcTextSize("U").y);
 			
 				ImGui::Separator();
-			
-				ImGui::PushStyleColor(ImGuiCol_Text, hoveredColor);
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.48f, 0.87f, 0.0f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.48f, 0.87f, 0.0f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.48f, 0.87f, 0.0f));
-			
-				//ImGui::Button(("ECO: " + (*ChessAPI::GetPgnGame())["ECO")).c_str());
-				//ImGui::SameLine();
-				//ImGui::Button("Blah blah blaah");
-				
-				ImGui::PopStyleColor(4);
-			
+					
 				auto curNote = ChessAPI::GetActiveGame().GetNote(ChessAPI::GetActiveGame().GetLastMoveKey());
 
-				if (curNote.cmds.contains("eval"))
+				if (curNote.cmds.contains("eval") && !isTraining)
 				{
 					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.48f, 0.87f, 0.2f));
 					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.2f, 0.48f, 0.87f, 0.2f));
@@ -474,8 +482,12 @@ namespace Panels
 				ImGui::PushID(id.c_str());
 
 				if (ImGui::Button(par.move[i].c_str()))
-				{
 					ChessAPI::GetActiveGame().GoToPositionByKey(pathmove);
+				
+				static Chess::GameManager::MoveKey oldMoveKey;
+				if (pathmove != oldMoveKey && pathmove == ChessAPI::GetActiveGame().GetLastMoveKey())
+				{
+					oldMoveKey = pathmove;
 					ImGui::SetScrollHereY();
 				}
 

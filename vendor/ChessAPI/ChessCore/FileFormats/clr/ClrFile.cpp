@@ -34,7 +34,7 @@ namespace Chess
 
 	void ClrFile::OpenFile(const std::filesystem::path& path, float* persentage)
 	{
-		if (path.extension().string() != ".cld")
+		if (path.extension().u8string() != ".clr" && path.extension().u8string() != ".cld")
 			return;
 
 		ChessFileManager::Get().ClearSearch(std::get<0>(m_Search));
@@ -56,9 +56,10 @@ namespace Chess
 			*persentage = 0.1f;
 
 		m_ID = FileManager::Get().AddFile(path);
-		ChessFileManager::Get().AddClrFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue, m_Settings, m_SearchGameIndexes);
 
 		LoadDataPointers(persentage);
+
+		ChessFileManager::Get().AddClrFileReference(m_ID, m_GamePointers, m_LabelNames, m_LabelValues, m_typeName, m_typeValue, m_Settings, m_SearchGameIndexes);
 
 		if (persentage)
 			*persentage = 0.8f;

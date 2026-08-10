@@ -299,21 +299,22 @@ namespace Chess
 						else
 							lastPer = true;
 
-						if (realNote.empty() && (Parent->details[detailIndex].note[i] == ' ' || Parent->details[detailIndex].note[i] == '\n'))
+						if (!realNote.empty() && realNote.back() == ' ' && (Parent->details[detailIndex].note[i] == ' ' || Parent->details[detailIndex].note[i] == '\n'))
 							continue;
 
-						realNote += Parent->details[detailIndex].note[i];
+						if (Parent->details[detailIndex].note[i] == '\n')
+							realNote += ' ';
+						else
+							realNote += Parent->details[detailIndex].note[i];
 					}
 
-					int lastIndex = 0;
-					for (int indexN = 0; indexN < realNote.size(); indexN++)
-					{
-						if (realNote[indexN] != ' ')
-							lastIndex = indexN;
-					}
+					if (!realNote.empty() && realNote.back() == ' ')
+						realNote.pop_back();
 
-					if (realNote.size() > lastIndex + 1)
-						Parent->details[detailIndex].note = std::string(realNote.begin(), realNote.begin() + lastIndex + 1);
+					Parent->details[detailIndex].note = realNote;
+
+					if (Parent->details[detailIndex].note.empty() && Parent->details[detailIndex].cmds.empty())
+						Parent->details.erase(detailIndex);
 
 					detailsOpen = false;
 					continue;

@@ -43,6 +43,28 @@ namespace ChessAPI
 		s_ClrFile = file;
 	}
 
+	void UnShareClrFile()
+	{
+		s_ClrFile.reset();
+
+		for (int i = 0; i < s_OpenGames.size(); i++)
+		{
+			if (s_OpenGames[i] < 0)
+			{
+				ChessAPI::CloseOpenGame(s_OpenGames[i]);
+				i--;
+			}
+		}
+
+		if (s_ActiveGame < 0)
+		{
+			if (s_OpenGames.empty())
+				OpenChessGameInFile(0);
+			else
+				OpenChessGameInFile(s_OpenGames[0]);
+		}
+	}
+
 	int GetActiveGameIndex()
 	{
 		return s_ActiveGame;

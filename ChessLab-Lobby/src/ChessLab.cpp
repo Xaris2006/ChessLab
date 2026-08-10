@@ -21,7 +21,10 @@ public:
 	{
 		ChessLab::Utils::CreateSingularity();
 
-		Process startProcess(L"Start.exe", L"");
+		Process* startProcess;
+
+		if (!ChessLab::Utils::IsSecondInstance())
+			startProcess = new Process(L"Start.exe", L"");
 		
 		Manager::AppManager::Init();
 		Manager::ToolManager::Init();
@@ -31,9 +34,13 @@ public:
 
 		Panels::OnAttach();
 
-		using namespace std::chrono_literals;
-		//std::this_thread::sleep_for(2s);
-		startProcess.EndProcess();		
+		if (!ChessLab::Utils::IsSecondInstance())
+		{
+			using namespace std::chrono_literals;
+			//std::this_thread::sleep_for(1s);
+			startProcess->EndProcess();
+			delete startProcess;
+		}
 	}
 
 	virtual void OnDetach() override
@@ -55,6 +62,8 @@ public:
 			Walnut::Application::Get().Close();
 			return;
 		}		
+
+		ChessLab::Utils::ReadRequestFile();
 
 		Panels::OnKeyEvent();
 		Panels::OnImGuiRender();

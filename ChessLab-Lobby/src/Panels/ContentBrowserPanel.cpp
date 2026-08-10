@@ -4,6 +4,7 @@
 #include "Walnut/UI/UI.h"
 #include "Walnut/ImGui/ImGuiTheme.h"
 
+#include "../Panels.h"
 #include "../Manager/AppManager.h"
 
 #include <imgui.h>
@@ -48,7 +49,7 @@ namespace Panels {
 		m_FileIcon		= std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/FileIcon.png");
 		m_FileIconPGN   = std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/FileIconPGN.png");
 		m_FileIconCLD   = std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/FileIconCLD.png");
-		m_FileIconCOB	= std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/FileIconCOB.png");
+		m_FileIconCOB	= std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/FileIconCLR.png");
 		m_BackArrow		= std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/ContentBrowser/previous.png");
 		m_IconSearch	= std::make_shared<Walnut::Image>("ChessLabApp/Resources/Icons/search.png");
 
@@ -85,16 +86,16 @@ namespace Panels {
 			
 			//windows only
 			{
-				PWSTR userFolderPath;
-				HRESULT result = SHGetKnownFolderPath(FOLDERID_Profile, 0, NULL, &userFolderPath);
+				PWSTR FolderPath;
+				HRESULT result = SHGetKnownFolderPath(FOLDERID_Profile, 0, NULL, &FolderPath);
 
 				if (result == S_OK)
 				{
-					userPath = std::filesystem::path(userFolderPath);
+					userPath = std::filesystem::path(FolderPath);
 				}
-				CoTaskMemFree(static_cast<LPVOID>(userFolderPath));
+				CoTaskMemFree(static_cast<LPVOID>(FolderPath));
 			}
-
+			
 			TreeDirectory(userPath / "Documents");
 			ImGui::Separator();
 			
@@ -102,6 +103,10 @@ namespace Panels {
 			ImGui::Separator();
 			
 			TreeDirectory(userPath / "Desktop");
+			ImGui::Separator();
+			
+			TreeDirectory("Drives##pheudo");
+			
 			ImGui::Separator();
 
 			ImGui::EndChild();
@@ -112,16 +117,21 @@ namespace Panels {
 
 			std::filesystem::path semiPath = m_CurrentDirectory;
 			std::vector<std::string> DirectoryNames;
-
 			int indexEnd = 0;
-			while (semiPath.has_parent_path() && semiPath.has_filename())
+
+			if (semiPath != "Drives##pheudo")
 			{
-				DirectoryNames.push_back(semiPath.filename().u8string());
-				semiPath = semiPath.parent_path();
-				indexEnd++;
+				while (semiPath.has_parent_path() && semiPath.has_filename())
+				{
+					DirectoryNames.push_back(semiPath.filename().u8string());
+					semiPath = semiPath.parent_path();
+					indexEnd++;
+				}
 			}
 
 			{
+				ImGui::BeginDisabled(m_CurrentDirectory == "Drives##pheudo" || m_CurrentDirectory.root_path() == m_CurrentDirectory);
+
 				ImGui::SetCursorPosX(ImGui::GetCursorPosX() + ImGui::CalcTextSize("  ").x);
 
 				const ImVec4 RMbuttonColN = ImGui::ColorConvertU32ToFloat4(Walnut::UI::Colors::ColorWithMultipliedValue(Walnut::UI::Colors::Theme::text, 1.0f));
@@ -137,12 +147,16 @@ namespace Panels {
 				ImGui::SetCursorPos(oldCursorPos);
 
 				DrawImage(m_BackArrow, RMbuttonColN, RMbuttonColH, RMbuttonColP, ImVec2(RMbuttonSize, RMbuttonSize));
+
+				ImGui::EndDisabled();
 			}
 			
 			ImGui::SameLine(0, ImGui::CalcTextSize("  ").x);
 			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + ImGui::GetStyle().ItemSpacing.y / 2);
 
-			if (ImGui::SmallButton(semiPath.root_name().string().c_str()))
+			if (m_CurrentDirectory == "Drives##pheudo")
+				ImGui::SmallButton("Drives##pheudo");
+			else if (ImGui::SmallButton(semiPath.root_name().string().c_str()))
 			{
 				m_CurrentDirectory = m_CurrentDirectory.root_path();
 				goto DirectoryChange;
@@ -178,6 +192,8 @@ namespace Panels {
 			
 			static ImGuiTextFilter filter;
 			{
+				ImGui::BeginDisabled(m_CurrentDirectory == "Drives##pheudo");
+
 				float filterWidth = ImGui::GetContentRegionAvail().x / 3.0f;
 				float oldCursorY = ImGui::GetCursorPosY();
 				const float IconSize = ImGui::CalcTextSize("C").y + ImGui::GetStyle().ItemSpacing.y;
@@ -193,6 +209,8 @@ namespace Panels {
 				ImGui::SetCursorPosY(oldCursorY);
 
 				filter.Draw("##SearchFilter", filterWidth);
+				
+				ImGui::EndDisabled();
 			}
 
 			ImGui::Separator();
@@ -216,119 +234,156 @@ namespace Panels {
 
 			ImGui::Columns(columnCount, 0, false);
 
-			for (auto& directoryEntry : std::filesystem::directory_iterator(m_CurrentDirectory))
+			if (m_CurrentDirectory == "Drives##pheudo")
 			{
-				const auto& path = directoryEntry.path();
-				std::string filenameString = path.filename().u8string();
-
-				if (!filter.PassFilter(filenameString.c_str()))
-					continue;
-
-				auto icon = m_FileIcon;
-				if (directoryEntry.is_directory())
-					icon = m_DirectoryIcon;
-				else if (directoryEntry.path().extension().u8string() == u8".pgn")
-					icon = m_FileIconPGN;
-				else if (directoryEntry.path().extension().u8string() == u8".cld")
-					icon = m_FileIconCLD;
-				else if (directoryEntry.path().extension().u8string() == u8".cob")
-					icon = m_FileIconCOB;
-
-				if (m_showChessFilesOnly && !directoryEntry.is_directory() && !(directoryEntry.path().extension().u8string() == u8".pgn" || directoryEntry.path().extension().u8string() == u8".cld"))
-					continue;
-				
-				ImGui::PushID(filenameString.c_str());
-
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-				ImGui::ImageButton((ImTextureID)icon->GetRendererID(), { thumbnailSize, thumbnailSize });
-				ImGui::PopStyleColor();
-
-				if (directoryEntry.is_regular_file() && (path.extension().u8string() == u8".pgn" || path.extension().u8string() == u8".cld"))
+				DWORD mask = GetLogicalDrives();
+				for (char drive = 'A'; drive <= 'Z'; ++drive)
 				{
+					if (mask & (1u << (drive - 'A')))
+					{
+						ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+						ImGui::ImageButton((ImTextureID)m_DirectoryIcon->GetRendererID(), { thumbnailSize, thumbnailSize });
+						ImGui::PopStyleColor();
+
+						if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+						{
+							m_CurrentDirectory = drive + std::string(":\\");
+						}
+
+						ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
+						Walnut::UI::ButtonCentered((drive + std::string(":\\")).c_str());
+						ImGui::PopStyleColor(3);
+
+						ImGui::SetColumnWidth(-1, thumbnailSize + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().ItemSpacing.x * 2.0f);
+						ImGui::NextColumn();
+					}
+				}
+			}
+			else
+			{
+				std::error_code ec;
+				auto directoryIterator = std::filesystem::directory_iterator(m_CurrentDirectory, ec);
+
+				for (auto& directoryEntry : directoryIterator)
+				{
+					const auto& path = directoryEntry.path();
+					std::string filenameString = path.filename().u8string();
+
+					if (!filter.PassFilter(filenameString.c_str()))
+						continue;
+
+					auto icon = m_FileIcon;
+					if (directoryEntry.is_directory())
+						icon = m_DirectoryIcon;
+					else if (directoryEntry.path().extension().u8string() == u8".pgn")
+						icon = m_FileIconPGN;
+					else if (directoryEntry.path().extension().u8string() == u8".cld")
+						icon = m_FileIconCLD;
+					else if (directoryEntry.path().extension().u8string() == u8".clr")
+						icon = m_FileIconCOB;
+
+					if (m_showChessFilesOnly && !directoryEntry.is_directory() 
+						&& !(directoryEntry.path().extension().u8string() == u8".pgn" 
+							|| directoryEntry.path().extension().u8string() == u8".cld"
+							|| directoryEntry.path().extension().u8string() == u8".clr"))
+						continue;
+
+					ImGui::PushID(filenameString.c_str());
+
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+					ImGui::ImageButton((ImTextureID)icon->GetRendererID(), { thumbnailSize, thumbnailSize });
+					ImGui::PopStyleColor();
+
+					if (directoryEntry.is_regular_file() && (path.extension().u8string() == u8".pgn" || path.extension().u8string() == u8".cld"))
+					{
+						if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+						{
+							Manager::AppManager::Get().CreateApp(path);
+						}
+
+						if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+						{
+							s_openFilePopup = true;
+							s_path = path;
+						}
+
+						if (ImGui::BeginDragDropSource())
+						{
+							if (!Manager::AppManager::Get().IsAppOpen(path))
+							{
+								std::filesystem::path relativePath(path);
+								const wchar_t* itemPath = relativePath.c_str();
+								ImGui::SetDragDropPayload("MERGE_ITEM", itemPath, (wcslen(itemPath) + 1) * sizeof(wchar_t));
+							}
+							ImGui::EndDragDropSource();
+						}
+
+						if (ImGui::BeginDragDropTarget())
+						{
+							if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MERGE_ITEM"))
+							{
+								const wchar_t* wpath = (const wchar_t*)payload->Data;
+								std::filesystem::path spath(wpath);
+
+								if (spath.has_extension() && path.has_extension())
+								{
+									MergeFiles(path, { path, spath });
+								}
+							}
+							ImGui::EndDragDropTarget();
+						}
+
+					}
+
 					if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 					{
-						Manager::AppManager::Get().CreateApp(path);
+						if (directoryEntry.is_directory())
+							m_CurrentDirectory /= path.filename();
 					}
 
-					if (ImGui::IsItemClicked(ImGuiMouseButton_Right))
+					ImGuiStyle& style = ImGui::GetStyle();
+
+					int extensionIndex = filenameString.find_last_of('.');
+					if (extensionIndex != std::string::npos)
+						filenameString.erase(extensionIndex);
+
+					if (Manager::AppManager::Get().IsAppOpen(path))
 					{
-						s_openFilePopup = true;
-						s_path = path;
+						ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.53f, 0.53f, 1.0f, 0.6f));
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.53f, 0.53f, 1.0f, 0.6f));
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.53f, 0.53f, 1.0f, 0.6f));
 					}
-					
-					if (ImGui::BeginDragDropSource())
+					else
 					{
-						if (!Manager::AppManager::Get().IsAppOpen(path))
+						ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+						ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+						ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
+					}
+
+					if (ImGui::CalcTextSize(filenameString.c_str()).x > 0.9 * thumbnailSize)
+					{
+						std::string filenameShort(filenameString.data(), filenameString.size() * 0.9 * thumbnailSize / ImGui::CalcTextSize(filenameString.c_str()).x);
+						filenameShort += "...";
+						Walnut::UI::ButtonCentered(filenameShort.c_str());
+
+						if (ImGui::IsItemHovered())
 						{
-							std::filesystem::path relativePath(path);
-							const wchar_t* itemPath = relativePath.c_str();
-							ImGui::SetDragDropPayload("MERGE_ITEM", itemPath, (wcslen(itemPath) + 1) * sizeof(wchar_t));
+							ImGui::SetTooltip(filenameString.c_str());
 						}
-						ImGui::EndDragDropSource();
 					}
+					else
+						Walnut::UI::ButtonCentered(filenameString.c_str());
+					ImGui::PopStyleColor(3);
 
-					if (ImGui::BeginDragDropTarget())
-					{
-						if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("MERGE_ITEM"))
-						{
-							const wchar_t* wpath = (const wchar_t*)payload->Data;
-							std::filesystem::path spath(wpath);
+					ImGui::SetColumnWidth(-1, thumbnailSize + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().ItemSpacing.x * 2.0f);
+					ImGui::NextColumn();
 
-							if (spath.has_extension() && path.has_extension())
-							{
-								MergeFiles(path, { path, spath });
-							}
-						}
-						ImGui::EndDragDropTarget();
-					}
-
+					ImGui::PopID();
 				}
-
-				if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-				{
-					if (directoryEntry.is_directory())
-						m_CurrentDirectory /= path.filename();
-				}
-
-				ImGuiStyle& style = ImGui::GetStyle();
-
-				int extensionIndex = filenameString.find_last_of('.');
-				if(extensionIndex != std::string::npos)
-					filenameString.erase(extensionIndex);
-
-				if (Manager::AppManager::Get().IsAppOpen(path))
-				{
-					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.53f, 0.53f, 1.0f, 0.6f));
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.53f, 0.53f, 1.0f, 0.6f));
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.53f, 0.53f, 1.0f, 0.6f));
-				}
-				else
-				{
-					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
-					ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
-				}
-
-				if (ImGui::CalcTextSize(filenameString.c_str()).x > 0.9 * thumbnailSize)
-				{
-					std::string filenameShort(filenameString.data(), filenameString.size() * 0.9 * thumbnailSize / ImGui::CalcTextSize(filenameString.c_str()).x);
-					filenameShort += "...";
-					Walnut::UI::ButtonCentered(filenameShort.c_str());
-
-					if (ImGui::IsItemHovered())
-					{
-						ImGui::SetTooltip(filenameString.c_str());
-					}
-				}
-				else
-					Walnut::UI::ButtonCentered(filenameString.c_str());
-				ImGui::PopStyleColor(3);
-
-				ImGui::SetColumnWidth(-1, thumbnailSize + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetStyle().ItemSpacing.x * 2.0f);
-				ImGui::NextColumn();
-
-				ImGui::PopID();
 			}
+
 			ImGui::Columns(1);
 
 			ImGui::EndChild();
@@ -598,38 +653,48 @@ namespace Panels {
 
 		if(openTree)
 		{
-			for (auto& directoryEntry : std::filesystem::directory_iterator(directory))
+			if (directory == "Drives##pheudo")
 			{
-				if (directoryEntry.is_directory())
+				DWORD mask = GetLogicalDrives();
+				for (char drive = 'A'; drive <= 'Z'; ++drive)
 				{
-					TreeDirectory(directoryEntry);
-				}
-				else if(directoryEntry.is_regular_file())
-				{
-					const auto& path = directoryEntry.path();
-					std::string filenameString = path.filename().u8string();
-					//std::string filenameU8String = path.filename().u8string();
-					//std::string filenameString = std::string(filenameU8String.begin(), filenameU8String.end());
-
-					bool isChessFile = (path.extension().u8string() == u8".pgn" || path.extension().u8string() == u8".cld");
-
-					ImGui::TreeNodeEx(filenameString.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen);
-					if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+					if (mask & (1u << (drive - 'A')))
 					{
-						if (!isChessFile)
-						{
-							//printf("Could not load {0} - not a chess file", filenameString);
-						}
-						else
-						{
-							Manager::AppManager::Get().CreateApp(path);
-						}
+						ImGui::TreeNodeEx((drive + std::string(":\\")).c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen);
+						
+						if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+							m_CurrentDirectory = drive + std::string(":\\");
 					}
-					
-					if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && isChessFile)
+				}
+			}
+			else
+			{
+				std::error_code ec;
+				auto directoryIterator = std::filesystem::directory_iterator(m_CurrentDirectory, ec);
+
+				for (auto& directoryEntry : directoryIterator)
+				{
+					if (directoryEntry.is_directory())
 					{
-						s_openFilePopup = true;
-						s_path = directoryEntry.path();
+						TreeDirectory(directoryEntry);
+					}
+					else if (directoryEntry.is_regular_file())
+					{
+						const auto& path = directoryEntry.path();
+						std::string filenameString = path.filename().u8string();
+
+						bool isChessFile = (path.extension().u8string() == u8".pgn" || path.extension().u8string() == u8".cld");
+
+						ImGui::TreeNodeEx(filenameString.c_str(), ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen);
+						
+						if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && isChessFile)
+							Manager::AppManager::Get().CreateApp(path);
+						
+						if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && isChessFile)
+						{
+							s_openFilePopup = true;
+							s_path = directoryEntry.path();
+						}
 					}
 				}
 			}
@@ -650,17 +715,12 @@ namespace Panels {
 			ImGui::Separator();
 			ImGui::Separator();
 
+			ImGui::BeginDisabled(Manager::AppManager::Get().IsAppOpen(s_path));
+
 			if (ImGui::Selectable("Open"))
 			{
-				//Bug when open file it does not reset the other panels
-				if (s_path.extension().u8string() != ".pgn" && s_path.extension().u8string() != ".cld")
-				{
-					//printf("Could not load {0} - not a chess file", s_path.filename().u8string());
-				}
-				else
-				{
+				if (s_path.extension().u8string() == ".pgn" || s_path.extension().u8string() == ".cld")
 					Manager::AppManager::Get().CreateApp(s_path);
-				}
 
 				ImGui::CloseCurrentPopup();
 			}
@@ -673,8 +733,6 @@ namespace Panels {
 				ImGui::CloseCurrentPopup();
 			}
 
-			ImGui::BeginDisabled(Manager::AppManager::Get().IsAppOpen(s_path));
-			
 			if (s_path.extension().u8string() == ".pgn" && ImGui::Selectable("Merge..."))
 			{
 				bool alreadyAdded = false;
@@ -699,11 +757,7 @@ namespace Panels {
 				ImGui::CloseCurrentPopup();
 			}
 
-			ImGui::EndDisabled();
-
 			ImGui::Separator();
-
-			ImGui::BeginDisabled(Manager::AppManager::Get().IsAppOpen(s_path));
 
 			if (ImGui::Selectable("Copy"))
 			{
@@ -729,55 +783,106 @@ namespace Panels {
 			
 			if (ImGui::Selectable("Remove Deleted Games"))
 			{
-				Chess::PgnFile::RemoveDeletedGames(s_path);
-
+				if (s_path.extension() == ".pgn")
+					Chess::PgnFile::RemoveDeletedGames(s_path);
+				else if (s_path.extension() == ".cld")
+					Chess::CldFile::RemoveDeletedGames(s_path);
+				
 				ImGui::CloseCurrentPopup();
 			}
 
 			ImGui::Separator();
 
-			if (ImGui::BeginMenu("Convert To Cld"))
+			if (ImGui::BeginMenu("Convert To CLD"))
 			{
 				if (s_path.extension() == ".pgn")
 				{
 					if (ImGui::Selectable("CLD encoding + Table"))
 					{
-						Chess::PgnFile PgnFile;
-						PgnFile.OpenFile(s_path);
+						Panels::OpenLoadingPopup();
 
-						s_path.replace_extension(".cld");
+						std::thread(
+							[](std::filesystem::path path)
+							{
+								Panels::SetLoadingPersentage(0);
 
-						Chess::ConvertToCld(PgnFile, s_path, Chess::CLD, true);
+								Chess::PgnFile PgnFile;
+								PgnFile.OpenFile(path);
+
+								path.replace_extension(".cld");
+
+								Chess::ConvertToCld(PgnFile, path, Chess::CLD, true, &Panels::GetLoadingPersentageRef());
+
+								Panels::SetLoadingPersentage(1);
+							}
+						, s_path).detach();
+												
 						ImGui::CloseCurrentPopup();
 					}
 					if (ImGui::Selectable("CORE encoding + Table"))
 					{
-						Chess::PgnFile PgnFile;
-						PgnFile.OpenFile(s_path);
+						Panels::OpenLoadingPopup();
 
-						s_path.replace_extension(".cld");
+						std::thread(
+							[](std::filesystem::path path)
+							{
+								Panels::SetLoadingPersentage(0);
 
-						Chess::ConvertToCld(PgnFile, s_path, Chess::CORE, true);
+								Chess::PgnFile PgnFile;
+								PgnFile.OpenFile(path);
+
+								path.replace_extension(".cld");
+
+								Chess::ConvertToCld(PgnFile, path, Chess::CORE, true, &Panels::GetLoadingPersentageRef());
+
+								Panels::SetLoadingPersentage(1);
+							}
+						, s_path).detach();
+											
 						ImGui::CloseCurrentPopup();
 					}
 					if (ImGui::Selectable("CLD encoding"))
 					{
-						Chess::PgnFile PgnFile;
-						PgnFile.OpenFile(s_path);
+						Panels::OpenLoadingPopup();
 
-						s_path.replace_extension(".cld");
+						std::thread(
+							[](std::filesystem::path path)
+							{
+								Panels::SetLoadingPersentage(0);
 
-						Chess::ConvertToCld(PgnFile, s_path, Chess::CLD, false);
+								Chess::PgnFile PgnFile;
+								PgnFile.OpenFile(path);
+
+								path.replace_extension(".cld");
+
+								Chess::ConvertToCld(PgnFile, path, Chess::CLD, false, &Panels::GetLoadingPersentageRef());
+
+								Panels::SetLoadingPersentage(1);
+							}
+						, s_path).detach();
+
 						ImGui::CloseCurrentPopup();
 					}
 					if (ImGui::Selectable("CORE encoding"))
 					{
-						Chess::PgnFile PgnFile;
-						PgnFile.OpenFile(s_path);
+						Panels::OpenLoadingPopup();
 
-						s_path.replace_extension(".cld");
+						std::thread(
+							[](std::filesystem::path path)
+							{
+								Panels::SetLoadingPersentage(0);
 
-						Chess::ConvertToCld(PgnFile, s_path, Chess::CORE, false);
+								Chess::PgnFile PgnFile;
+								PgnFile.OpenFile(path);
+
+								path.replace_extension(".cld");
+
+								Chess::ConvertToCld(PgnFile, path, Chess::CORE, false, &Panels::GetLoadingPersentageRef());
+
+								Panels::SetLoadingPersentage(1);
+							}
+						, s_path).detach();
+
 						ImGui::CloseCurrentPopup();
 					}
 				}
@@ -785,30 +890,78 @@ namespace Panels {
 				{
 					if (ImGui::Selectable("CLD encoding + Table"))
 					{
-						Chess::CldFile CldFile;
-						CldFile.OpenFile(s_path);
-						CldFile.SaveFileAs(s_path, Chess::CLD, true);
+						Panels::OpenLoadingPopup();
+
+						std::thread(
+							[](std::filesystem::path path)
+							{
+								Panels::SetLoadingPersentage(0);
+
+								Chess::CldFile CldFile;
+								CldFile.OpenFile(path);
+								CldFile.SaveFileAs(path, Chess::CLD, true, &Panels::GetLoadingPersentageRef());
+
+								Panels::SetLoadingPersentage(1);
+							}
+						, s_path).detach();
+
 						ImGui::CloseCurrentPopup();
 					}
 					if (ImGui::Selectable("CORE encoding + Table"))
 					{
-						Chess::CldFile CldFile;
-						CldFile.OpenFile(s_path);
-						CldFile.SaveFileAs(s_path, Chess::CORE, true);
+						Panels::OpenLoadingPopup();
+
+						std::thread(
+							[](std::filesystem::path path)
+							{
+								Panels::SetLoadingPersentage(0);
+
+								Chess::CldFile CldFile;
+								CldFile.OpenFile(path);
+								CldFile.SaveFileAs(path, Chess::CORE, true, &Panels::GetLoadingPersentageRef());
+
+								Panels::SetLoadingPersentage(1);
+							}
+						, s_path).detach();
+
 						ImGui::CloseCurrentPopup();
 					}
 					if (ImGui::Selectable("CLD encoding"))
 					{
-						Chess::CldFile CldFile;
-						CldFile.OpenFile(s_path);
-						CldFile.SaveFileAs(s_path, Chess::CLD, false);
+						Panels::OpenLoadingPopup();
+
+						std::thread(
+							[](std::filesystem::path path)
+							{
+								Panels::SetLoadingPersentage(0);
+
+								Chess::CldFile CldFile;
+								CldFile.OpenFile(path);
+								CldFile.SaveFileAs(path, Chess::CLD, false, &Panels::GetLoadingPersentageRef());
+
+								Panels::SetLoadingPersentage(1);
+							}
+						, s_path).detach();
+
 						ImGui::CloseCurrentPopup();
 					}
 					if (ImGui::Selectable("CORE encoding"))
 					{
-						Chess::CldFile CldFile;
-						CldFile.OpenFile(s_path);
-						CldFile.SaveFileAs(s_path, Chess::CORE, false);
+						Panels::OpenLoadingPopup();
+
+						std::thread(
+							[](std::filesystem::path path)
+							{
+								Panels::SetLoadingPersentage(0);
+
+								Chess::CldFile CldFile;
+								CldFile.OpenFile(path);
+								CldFile.SaveFileAs(path, Chess::CORE, false, &Panels::GetLoadingPersentageRef());
+
+								Panels::SetLoadingPersentage(1);
+							}
+						, s_path).detach();
+
 						ImGui::CloseCurrentPopup();
 					}
 				}
@@ -817,15 +970,35 @@ namespace Panels {
 
 			ImGui::BeginDisabled(s_path.extension() == ".pgn");
 
-			if (ImGui::Selectable("Convert To Pgn"))
+			if (ImGui::Selectable("Convert To PGN"))
 			{
-				Chess::CldFile CldFile;
-				CldFile.OpenFile(s_path);
+				Panels::OpenLoadingPopup();
 
-				s_path.replace_extension(".pgn");
+				std::thread(
+					[](std::filesystem::path path)
+					{
+						Panels::SetLoadingPersentage(0);
 
-				Chess::ConvertToPgn(CldFile, s_path);
-				
+						Chess::CldFile CldFile;
+						CldFile.OpenFile(path);
+
+						path.replace_extension(".pgn");
+						Chess::ConvertToPgn(CldFile, path, &Panels::GetLoadingPersentageRef());
+
+						Panels::SetLoadingPersentage(1);
+					}
+				, s_path).detach();
+								
+				ImGui::CloseCurrentPopup();
+			}
+
+			if (ImGui::Selectable("Convert To CLR (Reference)"))
+			{
+				auto oldPath = s_path;
+				s_path.replace_extension(".clr");
+
+				std::filesystem::copy(oldPath, s_path, std::filesystem::copy_options::overwrite_existing);
+
 				ImGui::CloseCurrentPopup();
 			}
 

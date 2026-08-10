@@ -2,13 +2,12 @@
 #include "Walnut/EntryPoint.h"
 
 #include "Tools/Engine_Manager/Engine_Manager.h"
-//#include "Tools/COB_Creator/COB_Creator.h"
 
 std::string g_AppDirectory;
 std::filesystem::path g_cachedDirectory = "Resources\\cache";
 Walnut::ApplicationSpecification g_spec;
 
-Walnut::Application* Walnut::CreateApplication(int argc, char** argv)
+Walnut::Application* Walnut::CreateApplication(int argc, wchar_t** wargv)
 {
-	return Tools::EngineManager::CreateApplication(argc, argv);
+	return Tools::EngineManager::CreateApplication(argc, wargv);
 }

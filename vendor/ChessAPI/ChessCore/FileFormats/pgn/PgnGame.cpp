@@ -316,11 +316,17 @@ namespace Chess
 						else
 							lastPer = true;
 
-						if(realNote.empty() && (Parent->details[detailIndex].note[i] == ' ' || Parent->details[detailIndex].note[i] == '\n'))
+						if (!realNote.empty() && realNote.back() == ' ' && (Parent->details[detailIndex].note[i] == ' ' || Parent->details[detailIndex].note[i] == '\n'))
 							continue;
 
-						realNote += Parent->details[detailIndex].note[i];
+						if (Parent->details[detailIndex].note[i] == '\n')
+							realNote += ' ';
+						else
+							realNote += Parent->details[detailIndex].note[i];
 					}
+
+					if (!realNote.empty() && realNote.back() == ' ')
+						realNote.pop_back();
 
 					Parent->details[detailIndex].note = realNote;
 

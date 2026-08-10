@@ -71,5 +71,5 @@ namespace Tools::EngineManager
 
 	};
 
-	Walnut::Application* CreateApplication(int argc, char** argv);
+	Walnut::Application* CreateApplication(int argc, wchar_t** wargv);
 }

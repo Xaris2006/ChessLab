@@ -98,7 +98,7 @@ namespace Chess
 			std::shared_ptr<uint8_t> settings;
 
 			std::shared_ptr<std::tuple<size_t, size_t, size_t, size_t, size_t, size_t, size_t>> searchGameIndexes;
-
+			//std::shared_ptr<std::vector<CldGame>> preloadedGames;
 		};
 
 	private:
@@ -111,8 +111,8 @@ namespace Chess
 		std::unordered_map<FileManager::FileID, ClrSharedData> m_ClrData;
 		std::unordered_map<SearchID, std::tuple<FileManager::FileID, std::shared_ptr<std::pair<SearchOptions, SearchResult>>, std::shared_ptr<std::mutex>, size_t>> m_Searches;
 		std::unordered_map<SearchID, std::shared_ptr<SearchResultMoveData>> m_ClrSearchResults;
-		std::unordered_map<SearchID, std::pair<std::shared_ptr<std::vector<size_t>>, std::vector<uint16_t>>> m_ClrSearchTopGames;
-
+		std::unordered_map<SearchID, std::pair<std::shared_ptr<std::vector<size_t>>, std::shared_ptr<std::vector<uint16_t>>>> m_ClrSearchTopGames;
+		
 		std::thread* m_ThreadFileHandler = nullptr;
 		bool m_endThread = true;
 

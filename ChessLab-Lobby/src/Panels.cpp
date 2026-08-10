@@ -129,7 +129,7 @@ namespace Panels
 		{
 			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.62f, 0.24f, 1.0f));
 
-			Walnut::UI::TextCentered("Please wait patiently...");
+			Walnut::UI::TextCentered("        Please wait patiently...        ");
 
 			ImGui::PopStyleColor();
 
@@ -194,8 +194,11 @@ namespace Panels
 		ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NavEnableKeyboard;
 		ImGui::GetStyle().WindowRounding = 10.0f;
 
-		glfwMaximizeWindow(Walnut::Application::Get().GetWindowHandle());
-		glfwFocusWindow(Walnut::Application::Get().GetWindowHandle());
+		if (!ChessLab::Utils::IsSecondInstance())
+		{
+			glfwMaximizeWindow(Walnut::Application::Get().GetWindowHandle());
+			glfwFocusWindow(Walnut::Application::Get().GetWindowHandle());
+		}
 	}
 
 	void OnAttach()
@@ -205,16 +208,20 @@ namespace Panels
 		s_ToolsPanel.OnAttach();
 		s_HelpPanel.OnAttach();
 
-		auto arg = ChessLab::Utils::GetArguments();
 
-		if (arg.size() > 1)
+		if (!ChessLab::Utils::IsSecondInstance())
 		{
-			std::filesystem::path pathToOpen = std::filesystem::u8path(arg[1]);
-			if (pathToOpen.is_relative())
-				pathToOpen = std::filesystem::current_path() / std::filesystem::u8path(arg[1]);
-			if (pathToOpen.extension().u8string() == ".pgn")
+			auto arg = ChessLab::Utils::GetArguments();
+
+			if (arg.size() > 1)
 			{
-				Manager::AppManager::Get().CreateApp(pathToOpen);
+				std::filesystem::path pathToOpen = std::filesystem::u8path(arg[1]);
+				if (pathToOpen.is_relative())
+					pathToOpen = std::filesystem::current_path() / std::filesystem::u8path(arg[1]);
+				if (pathToOpen.extension().u8string() == ".pgn" || pathToOpen.extension().u8string() == ".cld")
+				{
+					Manager::AppManager::Get().CreateApp(pathToOpen);
+				}
 			}
 		}
 	}

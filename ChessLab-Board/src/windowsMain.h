@@ -58,10 +58,13 @@ public:
 
         // Create the child process.
 
+        std::wstring cmdLine = L"\"" + std::filesystem::path(std::filesystem::current_path() / processNamepath).wstring() + L"\"";
+
+        if (!cmdarg.empty())
+            cmdLine += L" " + cmdarg;
+
         bSuccess = CreateProcess(processNamepath.c_str(),
-            (wchar_t*)(std::filesystem::path(std::filesystem::current_path() / processNamepath).wstring() +
-                L" " +
-                cmdarg).c_str(),     // command line 
+            (wchar_t*)cmdLine.c_str(),     // command line 
             NULL,          // process security attributes 
             NULL,          // primary thread security attributes 
             TRUE,          // handles are inherited 

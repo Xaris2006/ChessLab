@@ -3,10 +3,12 @@
 #include "misc/cpp/imgui_stdlib.h"
 #include "Walnut/UI/UI.h"
 
+#define NOMINMAX
+#define GLFW_EXPOSE_NATIVE_WIN32
 #include "GLFW/glfw3.h"
+#include <GLFW/glfw3native.h>
 
-#include "../../ChessLab-Lobby/src/Windows/WindowsUtils.h"
-#include "../../ChessLab-Lobby/src/windowsMain.h"
+#include "../../Windows/WindowsUtils.h"
 
 #include <fstream>
 #include <iostream>
@@ -29,6 +31,34 @@ static bool s_openErrorODPopup = false;
 
 extern std::string g_AppDirectory;
 extern Walnut::ApplicationSpecification g_spec;
+
+static std::string WCharToString(const wchar_t* w)
+{
+	if (!w) return {};
+
+	int size = WideCharToMultiByte(
+		CP_UTF8, 0,
+		w, -1,
+		nullptr, 0,
+		nullptr, nullptr
+	);
+
+	std::string str(size, 0);
+
+	WideCharToMultiByte(
+		CP_UTF8, 0,
+		w, -1,
+		&str[0], size,
+		nullptr, nullptr
+	);
+
+	// Remove Windows null terminator
+	if (!str.empty() && str.back() == '\0')
+		str.pop_back();
+
+	return str;
+}
+
 
 namespace Tools::EngineManager
 {
@@ -125,7 +155,7 @@ namespace Tools::EngineManager
 				for (int i = 0; i < m_AvailableEngines.size(); i++)
 				{
 					const auto& path = s_PathToEngines / m_AvailableEngines[i];
-					std::string filenameString = path.filename().string();
+					std::string filenameString = path.filename().u8string();
 
 					if (!filter.PassFilter(filenameString.c_str()))
 						continue;
@@ -415,7 +445,7 @@ namespace Tools::EngineManager
 
 				if (s_DownloadAvailIntex > -1)
 				{
-					float size = min(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y) * 0.8f;
+					float size = std::min(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y) * 0.8f;
 
 					ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (ImGui::GetContentRegionAvail().x - size) * 0.5f);
 					ImGui::Image((ImTextureID)m_EngineIcon->GetRendererID(), ImVec2(size, size));
@@ -470,21 +500,10 @@ namespace Tools::EngineManager
 										if (m_DownloadableEngines[s_DownloadAvailIntex].status == Web::Finished)
 										{
 											std::error_code ec;
-											std::filesystem::copy(filename, s_PathToEngines / std::filesystem::path(filename).filename(), std::filesystem::copy_options::overwrite_existing, ec);
-											if (ec)
-											{
-												std::ofstream ef("ErrorFile.txt");
-												ef << "func(std::filesystem::copy) " << ec << "path: " << filename << " to: " << s_PathToEngines / std::filesystem::path(filename).filename();
-												ef.close();
-											}
-
-											std::filesystem::remove_all(filename);
-											if (ec)
-											{
-												std::ofstream ef("ErrorFile.txt");
-												ef << "func(std::filesystem::remove_all) " << ec << "path: " << filename;
-												ef.close();
-											}
+											std::filesystem::copy(std::filesystem::u8path(filename), s_PathToEngines / std::filesystem::u8path(filename).filename(), std::filesystem::copy_options::overwrite_existing, ec);
+											
+											if (!ec)
+												std::filesystem::remove_all(std::filesystem::u8path(filename));
 											
 											FindAvailEngines();
 										}
@@ -599,9 +618,9 @@ namespace Tools::EngineManager
 
 		for (auto& directoryEntry : std::filesystem::directory_iterator(s_PathToEngines))
 		{
-			if (directoryEntry.path().extension() == ".exe")
+			if (directoryEntry.path().extension().u8string() == ".exe")
 			{
-				if (directoryEntry.path().filename() == m_DefaultEngine)
+				if (directoryEntry.path().filename().u8string() == m_DefaultEngine)
 					DefaultFinded = true;
 				m_AvailableEngines.emplace_back(directoryEntry.path().filename());
 			}
@@ -617,10 +636,10 @@ namespace Tools::EngineManager
 			return;
 
 		std::ofstream outFile(s_PathToEngines / "Avail.ce");
-		outFile << m_AvailableEngines[0].string();
+		outFile << m_AvailableEngines[0].u8string();
 
 		for (int i = 1; i < m_AvailableEngines.size(); i++)
-			outFile << '\n' << m_AvailableEngines[i].string();
+			outFile << '\n' << m_AvailableEngines[i].u8string();
 
 		outFile.close();
 	}
@@ -658,7 +677,7 @@ namespace Tools::EngineManager
 				static Web::DownLoadStatus status;
 				Web::DownLoadFileFromGoogleDrive(file_id, file_at, status);
 
-				std::ifstream inDownFile(file_path);
+				std::ifstream inDownFile(std::filesystem::u8path(file_path));
 				while (inDownFile.good())
 				{
 					//std::string name, id, at;
@@ -728,18 +747,13 @@ namespace Tools::EngineManager
 
 	void Layer::AddEngine()
 	{
-		std::string filepath = Windows::Utils::OpenFile("Chess Engine (*.exe)\0*.exe\0");
-
+		std::string filepath = Windows::Utils::OpenFile(L"Chess Engine (*.exe)\0*.exe\0");
+		
 		if (!filepath.empty())
 		{
 			std::error_code ec;
-			std::filesystem::copy(filepath, s_PathToEngines / std::filesystem::path(filepath).filename(), std::filesystem::copy_options::overwrite_existing, ec);
-			if (ec)
-			{
-				std::ofstream ef("ErrorFile.txt");
-				ef << "func(std::filesystem::copy) " << ec << "path: " << filepath << " to: " << s_PathToEngines / std::filesystem::path(filepath).filename();
-				ef.close();
-			}
+			std::filesystem::copy(std::filesystem::u8path(filepath), s_PathToEngines / std::filesystem::u8path(filepath).filename(), std::filesystem::copy_options::overwrite_existing, ec);
+			
 			FindAvailEngines();
 		}
 	}
@@ -781,18 +795,18 @@ namespace Tools::EngineManager
 			if (ImGui::Selectable("Rename"))
 			{
 				s_openRenamePopup = true;
-				s_inputNName = s_path.filename().string();
+				s_inputNName = s_path.filename().u8string();
 				s_oldpath = s_path;
 				ImGui::CloseCurrentPopup();
 			}
 
 			if (ImGui::Selectable("Set Default"))
 			{
-				m_DefaultEngine = m_AvailableEngines[m_TargetedEngineIndex].string();
+				m_DefaultEngine = m_AvailableEngines[m_TargetedEngineIndex].u8string();
 				ImGui::CloseCurrentPopup();
 			}
 
-			ImGui::BeginDisabled(m_AvailableEngines.size() == 1 || m_AvailableEngines[m_TargetedEngineIndex].string() == m_DefaultEngine);
+			ImGui::BeginDisabled(m_AvailableEngines.size() == 1 || m_AvailableEngines[m_TargetedEngineIndex].u8string() == m_DefaultEngine);
 
 			if (ImGui::Selectable("Delete"))
 			{
@@ -811,7 +825,7 @@ namespace Tools::EngineManager
 
 			if (ImGui::Selectable("Open Explorer"))
 			{
-				std::string cmd = "explorer " + s_PathToEngines.string();
+				std::string cmd = "explorer " + s_PathToEngines.u8string();
 				std::system(cmd.c_str());
 				ImGui::CloseCurrentPopup();
 			}
@@ -835,20 +849,15 @@ namespace Tools::EngineManager
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.7f, 0.1f, 0.25f));
 			if (ImGui::Button("Rename"))
 			{
-				std::string fileNpath = s_oldpath.string().substr(0, s_oldpath.string().size() - s_oldpath.filename().string().size() - 1) + '\\' + s_inputNName;
+				std::filesystem::path fileNpath = s_oldpath.parent_path() / s_inputNName;
 				std::error_code ec;
 				std::filesystem::rename(s_oldpath, fileNpath, ec); 
-				if (ec)
+				
+				if (!ec)
 				{
-					std::ofstream ef("ErrorFile.txt");
-					ef << "func(std::filesystem::rename) " << ec << "path: " << s_oldpath << " to: " << fileNpath;
-					ef.close();
+					if (m_AvailableEngines[m_TargetedEngineIndex].u8string() == m_DefaultEngine)
+						m_DefaultEngine = s_inputNName;
 				}
-				
-				
-				
-				if (m_AvailableEngines[m_TargetedEngineIndex].string() == m_DefaultEngine)
-					m_DefaultEngine = s_inputNName;
 
 				FindAvailEngines();
 				SetEngineSettings();
@@ -879,7 +888,7 @@ namespace Tools::EngineManager
 
 			if (ImGui::Selectable("Open Explorer"))
 			{
-				std::string cmd = "explorer " + s_PathToEngines.string();
+				std::string cmd = "explorer " + s_PathToEngines.u8string();
 				std::system(cmd.c_str());
 				ImGui::CloseCurrentPopup();
 			}
@@ -910,7 +919,7 @@ namespace Tools::EngineManager
 		}
 	}
 
-	Walnut::Application* CreateApplication(int argc, char** argv)
+	Walnut::Application* CreateApplication(int argc, wchar_t** wargv)
 	{
 		g_spec.Name = "Engine Manager";
 		g_spec.CustomTitlebar = true;
@@ -923,25 +932,30 @@ namespace Tools::EngineManager
 			};
 
 		//fix arg
-		s_arg.emplace_back(argv[0]);
-		for (int i = 1; i < argc; i++)
+		if (argc > 0)
 		{
-			if (std::filesystem::path(s_arg[s_arg.size() - 1]).has_extension())
-				s_arg.emplace_back(argv[i]);
-			else
-			{
-				s_arg[s_arg.size() - 1] += ' ';
-				s_arg[s_arg.size() - 1] += argv[i];
-			}
-		}
 
-		g_AppDirectory = std::filesystem::path(s_arg[0]).parent_path().string();
+			s_arg.emplace_back(WCharToString(wargv[0]));
+			for (int i = 1; i < argc; i++)
+			{
+				if (std::filesystem::u8path(s_arg[s_arg.size() - 1]).has_extension())
+					s_arg.emplace_back(WCharToString(wargv[i]));
+				else
+				{
+					s_arg[s_arg.size() - 1] += ' ';
+					s_arg[s_arg.size() - 1] += WCharToString(wargv[i]);
+				}
+			}
+
+			g_AppDirectory = std::filesystem::u8path(s_arg[0]).parent_path().u8string();
 
 #if defined(WL_DIST)
-		std::filesystem::current_path(g_AppDirectory);
+			std::filesystem::current_path(g_AppDirectory);
 
-		s_PathToEngines = "..\\..\\engines\\";
+			s_PathToEngines = "..\\..\\engines\\";
 #endif
+		}
+	
 
 		Walnut::Application* app = new Walnut::Application(g_spec, 117 - 15);
 

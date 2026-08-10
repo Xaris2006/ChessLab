@@ -9,6 +9,7 @@
 namespace ChessAPI
 {
 	void Init();
+	void UnShareClrFile();
 	void ShareClrFile(std::shared_ptr<Chess::ClrFile> file);
 
 	int GetActiveGameIndex();

@@ -1077,14 +1077,25 @@ namespace Panels
 				fileSize = std::filesystem::file_size(filePath, ec);
 			}
 
-			ImGui::BeginGroup();
-			ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
-			ImGui::Text("Name:");
-			ImGui::PopStyleColor();
-			ImGui::SameLine();
-			ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
-			ImGui::Text(fileName.c_str());
-			ImGui::PopStyleColor();
+			{
+				ImGui::BeginGroup();
+				ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+				ImGui::Text("Name:");
+				ImGui::PopStyleColor();
+				ImGui::SameLine();
+
+				std::string nameToShow = fileName;
+				bool isNameTooLong = fileName.size() > 50;
+				if (isNameTooLong)
+					nameToShow = nameToShow.substr(0, 30) + "...";
+
+				ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+				ImGui::Text(nameToShow.c_str());
+				ImGui::PopStyleColor();
+
+				if (ImGui::IsItemHovered() && isNameTooLong)
+					ImGui::SetTooltip(fileName.c_str());
+			}
 
 			if (!filePath.empty())
 			{
@@ -1092,19 +1103,21 @@ namespace Panels
 				ImGui::Text(std::format("Path:").c_str());
 				ImGui::PopStyleColor();
 				ImGui::SameLine();
-				ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
 
 				std::string pathToShow = filePath.u8string();
-				if (pathToShow.size() > 50)
+				bool isPathTooLong = pathToShow.size() > 50;
+				
+				if (isPathTooLong)
 					pathToShow = pathToShow.substr(0, 30) + "...";
 				
+				ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
 				if (ImGui::SmallButton(pathToShow.c_str()))
 				{
 					std::string cmd = "explorer " + filePath.parent_path().u8string();
 					std::system(cmd.c_str());
 				}
 
-				if (ImGui::IsItemHovered())
+				if (ImGui::IsItemHovered() && isPathTooLong)
 					ImGui::SetTooltip(filePath.u8string().c_str());
 
 				ImGui::PopStyleColor();
@@ -1404,6 +1417,8 @@ namespace Panels
 
 		ImGui::SameLine(0, RMbuttonWidth * 1.5);
 
+		ImGui::BeginDisabled(tableIndex != -1 && m_searchTables[tableIndex]->second.PossitiveIndexes.empty());
+
 		auto oldValueFPy = ImGui::GetStyle().FramePadding.y;
 		ImGui::GetStyle().FramePadding.y = RMbuttonHeight / 2 - ImGui::CalcTextSize("Go").y / 2;
 
@@ -1421,7 +1436,7 @@ namespace Panels
 		}
 		else
 		{
-			if (m_GoToLine < 1 && !m_searchTables[tableIndex]->second.PossitiveIndexes.empty())
+			if (m_GoToLine < 1 || m_searchTables[tableIndex]->second.PossitiveIndexes.size() == 0)
 				m_GoToLine = 1;
 			else if (m_GoToLine > m_searchTables[tableIndex]->second.PossitiveIndexes.size())
 				m_GoToLine = m_searchTables[tableIndex]->second.PossitiveIndexes.size();
@@ -1449,5 +1464,7 @@ namespace Panels
 
 			ImGui::SetCursorPosY(ImGui::GetCursorPosY() + RMbuttonHeight * 0.3f / 2);
 		}
+
+		ImGui::EndDisabled();
 	}
 }

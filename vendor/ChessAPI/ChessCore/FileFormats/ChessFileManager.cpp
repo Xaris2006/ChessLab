@@ -136,7 +136,9 @@ namespace Chess
 					std::shared_ptr<std::mutex> f_mtx;
 					std::shared_ptr<std::vector<size_t>> f_pointers;
 					std::shared_ptr<SearchResultMoveData> f_clrResults;
-					std::shared_ptr<std::vector<size_t>> f_clrTopGames;
+					std::shared_ptr<std::vector<size_t>> f_clrTopGamesIndexes;
+					std::shared_ptr<std::vector<uint16_t>> f_clrTopGamesElos;
+					//std::shared_ptr<std::vector<CldGame>> f_clrPreloadedGames;
 
 					while (!s_ChessFileManager->m_endWorkers[threadIndex])
 					{
@@ -216,12 +218,16 @@ namespace Chess
 									if (s_ChessFileManager->m_ClrData.contains(fileID))
 									{
 										f_clrResults = s_ChessFileManager->m_ClrSearchResults[searchID];
-										f_clrTopGames = s_ChessFileManager->m_ClrSearchTopGames[searchID].first;
+										f_clrTopGamesIndexes = s_ChessFileManager->m_ClrSearchTopGames[searchID].first;
+										f_clrTopGamesElos = s_ChessFileManager->m_ClrSearchTopGames[searchID].second;
+										//f_clrPreloadedGames = s_ChessFileManager->m_ClrData[fileID].preloadedGames;
 									}
 									else
 									{
 										f_clrResults.reset();
-										f_clrTopGames.reset();
+										f_clrTopGamesIndexes.reset();
+										f_clrTopGamesElos.reset();
+										//f_clrPreloadedGames.reset();
 									}
 
 									break;
@@ -292,7 +298,9 @@ namespace Chess
 							size_t fileEndIndex = ((f_endIndex < f_pointers->size()) ? f_pointers->at(f_endIndex) : SIZE_MAX);
 
 							static thread_local std::vector<char> data;
-							FileManager::Get().ReadBuffer(f_fileID, fileStartIndex, fileEndIndex - fileStartIndex, (std::vector<uint8_t>&)data);
+
+							//if (!s_ChessFileManager->m_ClrData.contains(f_fileID) || (s_ChessFileManager->m_ClrData.contains(f_fileID) && f_endIndex >= 1'000'000))
+								FileManager::Get().ReadBuffer(f_fileID, fileStartIndex, fileEndIndex - fileStartIndex, (std::vector<uint8_t>&)data);
 
 							size_t nextDataIndex = 0;
 
@@ -345,19 +353,31 @@ namespace Chess
 									if (!wencode)
 										encoding = MoveEncoding::CORE;
 
-									static thread_local CldGame game;
-									game.Parse(std::span<uint8_t>((uint8_t*)data.data() + nextDataIndex, endDataIndex - nextDataIndex),
-										encoding,
-										(*s_ChessFileManager->m_ClrData.at(f_fileID).typeName),
-										(*s_ChessFileManager->m_ClrData.at(f_fileID).typeValue),
-										true, 
-										true,
-										true,
-										false);
+
+									CldGame* clrGame;
+
+									//if (f_clrPreloadedGames && f_clrPreloadedGames->size() > j)
+									//{
+									//	clrGame = &f_clrPreloadedGames->at(j);
+									//}
+									//else
+									{
+										static thread_local CldGame game;
+										game.Parse(std::span<uint8_t>((uint8_t*)data.data() + nextDataIndex, endDataIndex - nextDataIndex),
+											encoding,
+											(*s_ChessFileManager->m_ClrData.at(f_fileID).typeName),
+											(*s_ChessFileManager->m_ClrData.at(f_fileID).typeValue),
+											true,
+											true,
+											true,
+											false);
+
+										clrGame = &game;
+									}
 
 									nextDataIndex = endDataIndex;
 
-									int moveIndex = f_searchPtr->first.IsGameValidClr(game);
+									int moveIndex = f_searchPtr->first.IsGameValidClr(*clrGame);
 
 									if (moveIndex > -2)
 									{
@@ -365,7 +385,7 @@ namespace Chess
 
 										auto& [resIndex, w, b, d, WEloIndex, BEloIndex, DateIndex] = *s_ChessFileManager->m_ClrData.at(f_fileID).searchGameIndexes;
 
-										size_t res = game.At(resIndex);
+										size_t res = clrGame->At(resIndex);
 
 										if (res == w)
 											f_wWins++;
@@ -374,9 +394,9 @@ namespace Chess
 										else if (res == d)
 											f_Draws++;
 										
-										size_t WElo = game.At(WEloIndex);
-										size_t BElo = game.At(BEloIndex);
-										size_t Date = game.At(DateIndex);
+										size_t WElo = clrGame->At(WEloIndex);
+										size_t BElo = clrGame->At(BEloIndex);
+										size_t Date = clrGame->At(DateIndex);
 
 										std::string WEloStr = (*s_ChessFileManager->m_ClrData.at(f_fileID).labelValues)[WElo];
 										std::string BEloStr = (*s_ChessFileManager->m_ClrData.at(f_fileID).labelValues)[BElo];
@@ -423,11 +443,11 @@ namespace Chess
 										if (!isGameSorted && f_localClrTopGames.size() < 21)
 											f_localClrTopGames.emplace_back((size_t)j, averElo);
 
-										for (int nextMove = moveIndex + 1; nextMove < game.GetMovePathbyRef().move.size(); nextMove++)
+										for (int nextMove = moveIndex + 1; nextMove < clrGame->GetMovePathbyRef().move.size(); nextMove++)
 										{
-											if (game.GetMovePathbyRef().move[nextMove].first != 255ui8)
+											if (clrGame->GetMovePathbyRef().move[nextMove].first != 255ui8)
 											{
-												auto& [lw, lb, ld, lAE, lLP, lLD] = f_localClrResults[game.GetMovePathbyRef().move[nextMove]];
+												auto& [lw, lb, ld, lAE, lLP, lLD] = f_localClrResults[clrGame->GetMovePathbyRef().move[nextMove]];
 
 												if (res == w)
 													lw++;
@@ -467,7 +487,7 @@ namespace Chess
 								for (int j = 0; j < f_positiveIndexes.size(); j++)
 									f_searchPtr->second.PossitiveIndexes.emplace_back(f_positiveIndexes[j]);
 
-								if (s_ChessFileManager->m_ClrData.contains(f_fileID) && f_clrResults && f_clrTopGames)
+								if (s_ChessFileManager->m_ClrData.contains(f_fileID) && f_clrResults && f_clrTopGamesIndexes && f_clrTopGamesElos)
 								{
 									auto& [w, b, d, AE, LP, LD] = (*f_clrResults)[{0, 0}];
 									w += f_wWins;
@@ -500,33 +520,33 @@ namespace Chess
 									if (f_localClrTopGames.size() > 20)
 										f_localClrTopGames.resize(20);
 
-									for (auto& [index, elo] : f_localClrTopGames)
+									for (auto& [gameIndex, elo] : f_localClrTopGames)
 									{
 										bool isGameSorted = false;
-										for (int gameIndex = 0; gameIndex < f_clrTopGames->size(); gameIndex++)
+										for (int index = 0; index < f_clrTopGamesIndexes->size() && index < f_clrTopGamesElos->size(); index++)
 										{
-											if (s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second[gameIndex] < elo)
+											if (f_clrTopGamesElos->at(index) < elo)
 											{
-												f_clrTopGames->insert(f_clrTopGames->begin() + gameIndex, index);
-												s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.insert(s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.begin() + gameIndex, elo);
+												f_clrTopGamesIndexes->insert(f_clrTopGamesIndexes->begin() + index, gameIndex);
+												f_clrTopGamesElos->insert(f_clrTopGamesElos->begin() + index, elo);
 
 												isGameSorted = true;
 												break;
 											}
 										}
 
-										if (!isGameSorted && f_clrTopGames->size() < 21)
+										if (!isGameSorted && f_clrTopGamesIndexes->size() < 21)
 										{
-											f_clrTopGames->emplace_back(index);
-											s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.emplace_back(elo);
+											f_clrTopGamesIndexes->emplace_back(gameIndex);
+											f_clrTopGamesElos->emplace_back(elo);
 										}
 									}
 
-									if (f_clrTopGames->size() > 20)
-										f_clrTopGames->resize(20);
+									if (f_clrTopGamesIndexes->size() > 20)
+										f_clrTopGamesIndexes->resize(20);
 
-									if (s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.size() > 20)
-										s_ChessFileManager->m_ClrSearchTopGames[f_currentSearchID].second.resize(20);
+									if (f_clrTopGamesElos->size() > 20)
+										f_clrTopGamesElos->resize(20);
 								}								
 							}
 
@@ -612,6 +632,21 @@ namespace Chess
 		clrD.typeValue = typeValue;
 		clrD.settings = settings;
 		clrD.searchGameIndexes = searchGameIndexes;
+		//clrD.preloadedGames = std::make_shared<std::vector<CldGame>>();
+		//
+		//clrD.preloadedGames->resize(std::min(clrD.gamePointers->size(), (size_t)1'000'000));
+		//for (size_t index = 0; index < clrD.preloadedGames->size(); index++)
+		//{
+		//	std::vector<uint8_t> data;
+		//	FileManager::Get().ReadBuffer(fileID, (*clrD.gamePointers)[index], ((index + 1 < clrD.gamePointers->size()) ? ((*clrD.gamePointers)[index + 1] - (*clrD.gamePointers)[index]) : SIZE_MAX), (std::vector<uint8_t>&)data);
+		//
+		//	bool wencode = ((*s_ChessFileManager->m_ClrData.at(fileID).settings) % 2) == 0;
+		//	MoveEncoding encoding = MoveEncoding::CLD;
+		//	if (!wencode)
+		//		encoding = MoveEncoding::CORE;
+		//
+		//	clrD.preloadedGames->at(index).Parse(data, encoding, (*clrD.typeName), (*clrD.typeValue), true, true, true, false);
+		//}
 	}
 
 	void ChessFileManager::RemoveFileReference(FileManager::FileID fileID)
@@ -1019,9 +1054,9 @@ namespace Chess
 
 		if (m_ClrSearchResults.contains(id))
 			return;
-
+				
 		m_ClrSearchResults[id] = searchResults;
-		m_ClrSearchTopGames[id] = { searchTopGames, {} };
+		m_ClrSearchTopGames[id] = { searchTopGames, std::make_shared<std::vector<uint16_t>>() };
 	}
 
 

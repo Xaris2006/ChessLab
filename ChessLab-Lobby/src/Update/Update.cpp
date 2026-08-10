@@ -88,7 +88,7 @@ void Update::StartOperationForUpdate()
 				std::string command = "powershell -command \"Expand-Archive -Path '";
 				command += name;
 				command += "' -DestinationPath '";
-				command += (std::filesystem::current_path() / "toUpdate").string();
+				command += (std::filesystem::current_path() / "toUpdate").u8string();
 				command += "'\"";
 
 				STARTUPINFO si = { sizeof(STARTUPINFO) };

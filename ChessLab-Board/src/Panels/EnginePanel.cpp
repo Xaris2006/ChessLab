@@ -100,7 +100,7 @@ namespace Panels
 		if (!m_viewPanel)
 			CloseEngine();
 
-		ImGui::TextWrapped(GetName().c_str());
+		Walnut::UI::TextCentered(GetName().c_str());
 
 		ImGui::Separator();
 
@@ -197,11 +197,26 @@ namespace Panels
 
 		ImGui::SameLine();
 
-		ImGui::Text("Depth: %d", GetDepth());
+		ImVec4 bcolor = { 0, 0.66, 0.95, 1 };
+		ImVec4 gcolor = { 0.38, 0.67, 0, 1 };
+
+		ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+		ImGui::Text("Depth:");
+		ImGui::PopStyleColor();
+		ImGui::SameLine();
+		ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+		ImGui::Text(std::format("{}", GetDepth()).c_str());
+		ImGui::PopStyleColor();
 
 		ImGui::SameLine();
 
-		ImGui::Text("Knps: %d", GetNodesPerSecond() / 1000);
+		ImGui::PushStyleColor(ImGuiCol_Text, bcolor);
+		ImGui::Text("Knps:");
+		ImGui::PopStyleColor();
+		ImGui::SameLine();
+		ImGui::PushStyleColor(ImGuiCol_Text, gcolor);
+		ImGui::Text(std::format("{}", GetNodesPerSecond() / 1000).c_str());
+		ImGui::PopStyleColor();
 
 		bool showMove = false;
 		int indexToShow = 0;
@@ -223,7 +238,7 @@ namespace Panels
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.6f, 0.6f, 0.6f, 0.0f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.6f, 0.6f, 0.6f, 0.0f));
 
-			if(EngineMoves.empty())
+			if(EngineMoves.empty() || !m_running)
 				ImGui::TextWrapped("-");
 			else if (std::abs(m_Score[i]) > 1000.0f)
 				ImGui::Button(std::format("{0}#", m_Score[i] - 1000.0f * std::abs(m_Score[i]) / m_Score[i]).c_str(), ImVec2(buSize, 0));
@@ -233,6 +248,15 @@ namespace Panels
 				ImGui::Button(std::format("{0}", m_Score[i]).c_str(), ImVec2(buSize, 0));
 
 			ImGui::PopStyleColor(4);
+
+			if (ImGui::IsItemHovered() && !EngineMoves.empty() && !EngineMoves[0].empty() && m_running)
+			{
+				Chess::Board::Move coreMove;
+				Chess::Piece piecePromote = Chess::NONE;
+				ChessAPI::GetActiveGame().GetBoard().ConvertPGNMoveToCoreMove(coreMove, piecePromote, EngineMoves[0]);
+
+				GetBoardPanel().ShowArrowAt(coreMove.index % 8, coreMove.index / 8, (coreMove.index + coreMove.move) % 8, (coreMove.index + coreMove.move) / 8);
+			}
 
 			int index = 0;
 			for (int j = 0; j < EngineMoves.size() && m_running && std::abs(m_Score[0]) != 1000.0f; j++)

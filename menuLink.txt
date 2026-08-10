@@ -6,3 +6,13 @@
 <a href="https://www.flaticon.com/free-icons/back" title="back icons">Back icons created by Roundicons - Flaticon</a>
 <a href="https://www.flaticon.com/free-icons/turbo" title="turbo icons">Turbo icons created by IwitoStudio - Flaticon</a>
 <a href="https://www.flaticon.com/free-icons/up-arrow" title="up-arrow icons">Up-arrow icons created by Pixel perfect - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/trash-can" title="trash can icons">Trash can icons created by kliwir art - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/refresh" title="refresh icons">Refresh icons created by Freepik - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/refresh" title="refresh icons">Refresh icons created by bearicons - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/restore" title="restore icons">Restore icons created by zero_wing - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/save-file" title="save-file icons">Save-file icons created by Freepik - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/document" title="document icons">Document icons created by paonkz - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/copy" title="copy icons">Copy icons created by Pixel perfect - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/copy-writing" title="copy-writing icons">Copy-writing icons created by Corner Pixel - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/search" title="search icons">Search icons created by Dimitry Miroliubov - Flaticon</a>
+<a href="https://www.flaticon.com/free-icons/info" title="info icons">Info icons created by hqrloveq - Flaticon</a>

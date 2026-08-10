@@ -43,7 +43,7 @@ namespace Panels
 		std::vector<std::filesystem::path> m_filesToBeMerged;
 		std::string m_mergedName;
 
-		bool m_showChessFilesOnly = false;
+		bool m_showChessFilesOnly = true;
 	};
 
 }

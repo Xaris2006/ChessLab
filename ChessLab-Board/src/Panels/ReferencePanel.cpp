@@ -382,11 +382,11 @@ namespace Panels {
 		else
 		{
 			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.1f, 0.1f, 0.85f));
-			Walnut::UI::TextCentered("No database loaded.");
+			Walnut::UI::TextCentered("No Reference loaded.");
 			ImGui::PopStyleColor();
 
 			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(255.0f / 255.0f, 225.0f / 255.0f, 135.0f / 255.0f, 255.0f / 255.0f));
-			Walnut::UI::TextCentered("Load a database (*.cld) to view reference information for the current position.");
+			Walnut::UI::TextCentered("Load a Reference file (*.clr) to view reference information for the current position.");
 			ImGui::PopStyleColor();
 
 			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.8f, 0.85f));
@@ -394,10 +394,15 @@ namespace Panels {
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.8f, 0.35f));
 			if (Walnut::UI::ButtonCentered("Load"))
 			{
-				std::string filepath = Windows::Utils::OpenFile(L"Chess Lab Database (*.cld)\0*.cld\0\0");
-				m_ClrFile = std::make_shared<Chess::ClrFile>();
-				m_ClrFile->OpenFile(filepath);
-				ChessAPI::ShareClrFile(m_ClrFile);
+				std::string filepath = Windows::Utils::OpenFile(L"Chess Lab Reference (*.clr)\0*.clr\0\0");
+
+				if (filepath.size())
+				{
+					ChessAPI::UnShareClrFile();
+					m_ClrFile = std::make_shared<Chess::ClrFile>();
+					m_ClrFile->OpenFile(std::filesystem::u8path(filepath));
+					ChessAPI::ShareClrFile(m_ClrFile);
+				}
 			}
 			ImGui::PopStyleColor(3);
 		}

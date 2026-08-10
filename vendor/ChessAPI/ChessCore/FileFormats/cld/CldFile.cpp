@@ -396,13 +396,15 @@ namespace Chess
 
 			for (size_t i = 0; i < EcldGames.size(); i++)
 			{
-				if (editedGames[i])
+				if (persentage)
 				{
-					std::vector<uint8_t> data;
-					EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue), oldUseTable);
-					destinationGames.write((char*)data.data(), data.size());
-					NDataPointers->emplace_back(NDataPointers->back() + data.size());
+					*persentage = std::min(0.4f + float(i / (double)EcldGames.size()) * 0.4f, 0.8f);
 				}
+				
+				std::vector<uint8_t> data;
+				EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue), oldUseTable);
+				destinationGames.write((char*)data.data(), data.size());
+				NDataPointers->emplace_back(NDataPointers->back() + data.size());
 			}
 
 			NDataPointers->pop_back();
@@ -746,6 +748,11 @@ namespace Chess
 
 				for (size_t i = 0; i < m_GamePointers->size(); i++)
 				{
+					if (persentage)
+					{
+						*persentage = std::min(0.4f + float(i / (double)m_GamePointers->size()) * 0.4f, 0.8f);
+					}
+
 					std::vector<uint8_t> data;
 					FileManager::Get().ReadBuffer(m_ID, (*m_GamePointers)[i], ((i + 1 < m_GamePointers->size()) ? ((*m_GamePointers)[i + 1] - (*m_GamePointers)[i]) : SIZE_MAX), (std::vector<uint8_t>&)data);
 
@@ -764,6 +771,11 @@ namespace Chess
 
 				for (size_t i = 0; i < EcldGames.size(); i++)
 				{
+					if (persentage)
+					{
+						*persentage = std::min(0.8f + float(i / (double)EcldGames.size()) * 0.1f, 0.9f);
+					}
+
 					if (editedGames[i] >= m_GamePointers->size())
 					{
 						std::vector<uint8_t> data;
@@ -827,13 +839,15 @@ namespace Chess
 
 			for (size_t i = 0; i < EcldGames.size(); i++)
 			{
-				if (editedGames[i])
+				if (persentage)
 				{
-					std::vector<uint8_t> data;
-					EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue), useTable);
-					destinationGames.write((char*)data.data(), data.size());
-					NDataPointers->emplace_back(NDataPointers->back() + data.size());
+					*persentage = std::min(0.4f + float(i / (double)EcldGames.size()) * 0.5f, 0.9f);
 				}
+
+				std::vector<uint8_t> data;
+				EcldGames[i].GetData(data, (*m_typeName), (*m_typeValue), useTable);
+				destinationGames.write((char*)data.data(), data.size());
+				NDataPointers->emplace_back(NDataPointers->back() + data.size());
 			}
 
 			NDataPointers->pop_back();			
@@ -1146,7 +1160,7 @@ namespace Chess
 			std::ifstream source(FileManager::Get().GetFilePath(file.m_ID), std::ios::binary);
 			std::ofstream outfile(cachePath / "helper", std::ios::binary, std::ios::trunc);
 
-			const uint8_t title[8] = { 'C', 'L', 'D', 0x01, (*file.m_Settings), 0x00, 0x01, 0x04 };
+			const uint8_t title[8] = { 'C', 'L', 'D', file.m_Version, (*file.m_Settings), 0x00, (*file.m_typeName), (*file.m_typeValue)};
 			size_t numberOfGames = NewDataPointers.size();
 
 			outfile.write((char*)title, 8);
