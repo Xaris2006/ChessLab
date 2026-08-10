@@ -13,3 +13,14 @@ There might a problem when building the project. Please check that all needed pr
 ### 3rd party libaries
 - [implot](https://github.com/epezent/implot)
 - [Walnut](https://github.com/StudioCherno/Walnut)
+
+#### Some screenshots from the Chess Lab
+
+![Screenshot](images/screenshot2.png)
+![Screenshot](images/screenshot3.png)
+![Screenshot](images/screenshot4.png)
+![Screenshot](images/screenshot5.png)
+![Screenshot](images/screenshot6.png)
+![Screenshot](images/screenshot7.png)
+![Screenshot](images/screenshot8.png)
+![Screenshot](images/screenshot1.png)
