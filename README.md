@@ -16,11 +16,11 @@ There might a problem when building the project. Please check that all needed pr
 
 #### Some screenshots from the Chess Lab
 
-![Screenshot](images/screenshot2.png)
-![Screenshot](images/screenshot3.png)
-![Screenshot](images/screenshot4.png)
-![Screenshot](images/screenshot5.png)
-![Screenshot](images/screenshot6.png)
-![Screenshot](images/screenshot7.png)
-![Screenshot](images/screenshot8.png)
-![Screenshot](images/screenshot1.png)
+![Screenshot](images/Screenshot2.png)
+![Screenshot](images/Screenshot3.png)
+![Screenshot](images/Screenshot4.png)
+![Screenshot](images/Screenshot5.png)
+![Screenshot](images/Screenshot6.png)
+![Screenshot](images/Screenshot7.png)
+![Screenshot](images/Screenshot8.png)
+![Screenshot](images/Screenshot1.png)
