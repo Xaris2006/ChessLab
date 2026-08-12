@@ -117,7 +117,8 @@ public:
 
     ~Process()
     {
-        //EndProcess();
+        if (IsProcessActive())
+            EndProcess();
     }
 
     void Write(std::string message)
@@ -134,10 +135,16 @@ public:
 
     std::string Read()
     {
-        DWORD dwRead;
+        DWORD dwRead, dwAvail;
         CHAR chBuf[BUFSIZE];
         BOOL bSuccess = FALSE;
         std::string output;
+
+        if (!PeekNamedPipe(m_ChildStd_OUT_Rd, NULL, 0, &dwRead, &dwAvail, NULL))
+            printf("Check read Process");
+
+        if (dwAvail == 0)
+            return output;
 
         do
         {
@@ -151,6 +158,11 @@ public:
         } while (dwRead == BUFSIZE);
 
         return output;
+    }
+
+    HANDLE GetHandle()
+    {
+        return m_Process;
     }
 
 private:

@@ -35,13 +35,12 @@ namespace Manager
 		AppManager() = default;
 
 	private:
-		std::vector<Process> m_Apps;
+		std::unordered_map<HANDLE, Process*> m_Apps;
 		std::thread* m_CheckingThread = nullptr;
 		std::atomic<bool> m_EndThread = false;
 
-		std::unordered_map<int, size_t> m_OpenedPaths;
-		//std::unordered_map<int, std::filesystem::path> m_OpenedPaths;
-		std::vector<Command> m_Commands;
+		std::unordered_map<HANDLE, size_t> m_OpenedPaths;
+		std::unordered_map<HANDLE, Command> m_Commands;
 
 		bool m_AddApp = false;
 		std::filesystem::path m_NewPath;

@@ -27,33 +27,31 @@ namespace Manager
 				{
 					if (s_AppManager->m_EndThread)
 					{
-						for (int i = 0; i < s_AppManager->m_Apps.size(); i++)
+						for (auto& [handle, process] : s_AppManager->m_Apps)
 						{
-							s_AppManager->m_Apps[i].EndProcess();
+							process->EndProcess();
+							delete process;
 						}
 						return;
 					}
 
 					s_AppManager->m_Commands.clear();
-					//m_OpenedPaths.clear();
-					std::vector<int> endApps;
-					std::unordered_map<int, size_t> AskForNewFilePath;
+					std::vector<HANDLE> endApps;
+					std::unordered_map<HANDLE, size_t> AskForNewFilePath;
 
-					s_AppManager->m_Commands.resize(s_AppManager->m_Apps.size());
-
-					for (int i = 0; i < s_AppManager->m_Apps.size(); i++)
+					for (auto& [handle, process] : s_AppManager->m_Apps)
 					{
-						if(!s_AppManager->m_Apps[i].IsProcessActive())
+						if(!process->IsProcessActive())
 						{
-							endApps.emplace_back(i);
+							endApps.emplace_back(handle);
 							continue;
 						}
 
-						std::string Strcmd(s_AppManager->m_Apps[i].Read());
+						std::string Strcmd(process->Read());
 						//std::cout << Strcmd << std::endl;
 
 						if (Strcmd.find("*End") != std::string::npos)
-							endApps.emplace_back(i);
+							endApps.emplace_back(handle);
 
 						size_t index = 0;
 						std::vector<std::string> rawCommand;
@@ -76,7 +74,7 @@ namespace Manager
 								size_t FileIndex = rcmd.find("*File");
 								if (FileIndex != std::string::npos)
 								{
-									s_AppManager->m_Commands[i].File = std::string(rcmd.begin() + FileIndex, rcmd.end());
+									s_AppManager->m_Commands[handle].File = std::string(rcmd.begin() + FileIndex, rcmd.end());
 									continue;
 								}
 							}
@@ -84,7 +82,7 @@ namespace Manager
 								size_t OpenIndex = rcmd.find("*Open");
 								if (OpenIndex != std::string::npos)
 								{
-									s_AppManager->m_Commands[i].Open = std::string(rcmd.begin() + OpenIndex, rcmd.end());
+									s_AppManager->m_Commands[handle].Open = std::string(rcmd.begin() + OpenIndex, rcmd.end());
 									continue;
 								}
 							}
@@ -92,51 +90,51 @@ namespace Manager
 								size_t AskIndex = rcmd.find("*Ask");
 								if (AskIndex != std::string::npos)
 								{
-									s_AppManager->m_Commands[i].Ask = std::string(rcmd.begin() + AskIndex, rcmd.end());
+									s_AppManager->m_Commands[handle].Ask = std::string(rcmd.begin() + AskIndex, rcmd.end());
 									continue;
 								}
 							}
 						}
 					}
 
-					for (int i = 0; i < s_AppManager->m_Commands.size(); i++)
+					for (auto& [handle, cmd] : s_AppManager->m_Commands)
 					{
-						if (s_AppManager->m_Commands[i].File.size())
+						if (cmd.File.size())
 						{
 							std::string path = "";
-							size_t IndexPath = s_AppManager->m_Commands[i].File.find("Path:");
+							size_t IndexPath = cmd.File.find("Path:");
 							if (IndexPath != std::string::npos)
-								path = std::string(s_AppManager->m_Commands[i].File.begin() + IndexPath + 5, s_AppManager->m_Commands[i].File.begin() + s_AppManager->m_Commands[i].File.find(":Path"));
+								path = std::string(cmd.File.begin() + IndexPath + 5, cmd.File.begin() + cmd.File.find(":Path"));
 
 							if (!path.empty())
-								s_AppManager->m_OpenedPaths[i] = std::stoull(path);
+								s_AppManager->m_OpenedPaths[handle] = std::stoull(path);
 						}
 
-						if (s_AppManager->m_Commands[i].Open.size())
+						if (cmd.Open.size())
 						{
 							std::string path = "";
-							size_t IndexPath = s_AppManager->m_Commands[i].Open.find("Path:");
+							size_t IndexPath = cmd.Open.find("Path:");
 							if (IndexPath != std::string::npos)
-								path = std::string(s_AppManager->m_Commands[i].Open.begin() + IndexPath + 5, s_AppManager->m_Commands[i].Open.begin() + s_AppManager->m_Commands[i].Open.find(":Path"));
+								path = std::string(cmd.Open.begin() + IndexPath + 5, cmd.Open.begin() + cmd.Open.find(":Path"));
 							//here
 							s_AppManager->CreateApp(std::filesystem::u8path(path));
 						}
 
-						if (s_AppManager->m_Commands[i].Ask.size())
+						if (cmd.Ask.size())
 						{
 							std::string path = "";
-							size_t IndexPath = s_AppManager->m_Commands[i].Ask.find("Path:");
+							size_t IndexPath = cmd.Ask.find("Path:");
 							if (IndexPath != std::string::npos)
-								path = std::string(s_AppManager->m_Commands[i].Ask.begin() + IndexPath + 5, s_AppManager->m_Commands[i].Ask.begin() + s_AppManager->m_Commands[i].Ask.find(":Path"));
+								path = std::string(cmd.Ask.begin() + IndexPath + 5, cmd.Ask.begin() + cmd.Ask.find(":Path"));
 
 							if (path.empty())
-								s_AppManager->m_Apps[i].Write("Accept\n");
+								s_AppManager->m_Apps[handle]->Write("Accept\n");
 							else
-								AskForNewFilePath[i] = std::stoull(path);
+								AskForNewFilePath[handle] = std::stoull(path);
 						}
 					}
 					
-					for (auto& [key, value] : AskForNewFilePath)
+					for (auto& [handle, value] : AskForNewFilePath)
 					{
 						bool alreadyOpened = false;
 						for (auto& [otherKey, otherValue] : s_AppManager->m_OpenedPaths)
@@ -149,9 +147,9 @@ namespace Manager
 						}
 
 						if (alreadyOpened)
-							s_AppManager->m_Apps[key].Write("Decline\n");
+							s_AppManager->m_Apps[handle]->Write("Decline\n");
 						else
-							s_AppManager->m_Apps[key].Write("Accept\n");
+							s_AppManager->m_Apps[handle]->Write("Accept\n");
 					}
 
 					addMutex.lock();
@@ -184,8 +182,9 @@ namespace Manager
 
 							if (!ec)
 							{
-								s_AppManager->m_Apps.emplace_back(L"ChessLabApp\\ChessLab-Board.exe", pathToAdd);
-								s_AppManager->m_Apps[s_AppManager->m_Apps.size() - 1].Write("Ok");
+								Process* nApp = new Process(L"ChessLabApp\\ChessLab-Board.exe", pathToAdd);
+								s_AppManager->m_Apps[nApp->GetHandle()] = nApp;
+								nApp->Write("Ok");
 							}
 						}
 					}
@@ -197,8 +196,9 @@ namespace Manager
 
 					for (int i = 0; i < endApps.size(); i++)
 					{
-						s_AppManager->m_Apps[endApps[i] - i].EndProcess();
-						s_AppManager->m_Apps.erase(s_AppManager->m_Apps.begin() + endApps[i] - i);
+						s_AppManager->m_Apps[endApps[i]]->EndProcess();
+						delete s_AppManager->m_Apps[endApps[i]];
+						s_AppManager->m_Apps.erase(endApps[i]);
 						s_AppManager->m_OpenedPaths.erase(endApps[i]);
 					}
 				}

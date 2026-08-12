@@ -3,18 +3,21 @@
 #include <memory>
 #include <string>
 #include "ChessCore/FileFormats/Clr/ClrFile.h"
+#include "Walnut/Image.h"
 
 namespace Panels {
 
 	class ReferencePanel
 	{
 	public:
+		void OnAttach();
 		void OnImGuiRender();
 
 		bool& IsPanelOpen();
 
 	private:
 		bool m_viewPanel = true;
+		bool m_Running = true;
 
 		std::shared_ptr<Chess::ClrFile> m_ClrFile;
 		std::string m_clrFen;
@@ -28,5 +31,8 @@ namespace Panels {
 			"WhiteElo", "BlackElo",
 			"Date", "Result"
 		};
+
+		std::shared_ptr<Walnut::Image> m_IconPlay;
+		std::shared_ptr<Walnut::Image> m_IconStop;
 	};
 }

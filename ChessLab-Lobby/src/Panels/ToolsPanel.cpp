@@ -4,6 +4,8 @@
 
 #include "imgui.h"
 
+#define NOMINMAX
+
 #include "Walnut/Application.h"
 #include "Walnut/UI/UI.h"
 
@@ -67,7 +69,7 @@ namespace Panels
 
 			for (auto& eTool : m_AvailableTools)
 			{
-				if (eTool.filename().string() == tool.name)
+				if (eTool.filename().u8string() == tool.name)
 				{
 					exist = true;
 					break;
@@ -128,7 +130,7 @@ namespace Panels
 				for (int i = 0; i < m_AvailableTools.size(); i++)
 				{
 					auto& path = m_AvailableTools[i];
-					std::string filenameString = path.filename().string();
+					std::string filenameString = path.filename().u8string();
 
 					if (!filter.PassFilter(filenameString.c_str()))
 						continue;
@@ -169,7 +171,7 @@ namespace Panels
 
 				if (m_TargetedToolIndex > -1)
 				{
-					float size = min(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y) * 0.8f;
+					float size = std::min(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y) * 0.8f;
 
 					ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (ImGui::GetContentRegionAvail().x - size) * 0.5f);
 					ImGui::Image((ImTextureID)m_ToolIcons[m_TargetedToolIndex]->GetRendererID(), ImVec2(size, size));
@@ -300,7 +302,7 @@ namespace Panels
 
 				if (unistallCurrentTool)
 				{
-					std::string filenameString = m_AvailableTools[m_TargetedToolIndex].filename().string();
+					std::string filenameString = m_AvailableTools[m_TargetedToolIndex].filename().u8string();
 
 					std::error_code ec;
 					std::filesystem::remove_all(m_AvailableTools[m_TargetedToolIndex], ec);
@@ -462,7 +464,7 @@ namespace Panels
 
 				if (s_DownloadAvailIntex > -1)
 				{
-					float size = min(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y) * 0.8f;
+					float size = std::min(ImGui::GetContentRegionAvail().x, ImGui::GetContentRegionAvail().y) * 0.8f;
 
 					ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (ImGui::GetContentRegionAvail().x - size) * 0.5f);
 					ImGui::Image((ImTextureID)m_DownloadableToolIcons[s_DownloadAvailIntex]->GetRendererID(), ImVec2(size, size));
@@ -523,7 +525,7 @@ namespace Panels
 											std::string command = "powershell -command \"Expand-Archive -Path '";
 											command += filename;
 											command += "' -DestinationPath '";
-											command += (std::filesystem::current_path() / "ChessLabApp\\MyDocuments\\Tools").string();
+											command += (std::filesystem::current_path() / "ChessLabApp\\MyDocuments\\Tools").u8string();
 											command += "'\"";
 
 											STARTUPINFO si = { sizeof(STARTUPINFO) };
@@ -727,7 +729,7 @@ namespace Panels
 			std::string iconPathString = iconPath.u8string();//std::string(iconPathU8String.begin(), iconPathU8String.end());
 
 			m_ToolIcons.emplace_back(std::make_shared<Walnut::Image>(iconPathString));
-			Manager::ToolManager::Get().AddTool(path / (filenameString + ".exe"), filenameString);
+			Manager::ToolManager::Get().AddTool(path / std::filesystem::u8path(filenameString + ".exe"), filenameString);
 		}
 	}
 
@@ -821,7 +823,7 @@ namespace Panels
 						ef.close();
 					}
 
-					m_DownloadableToolIconsToLoad.emplace_back(IconPath / tool.name / filename);
+					m_DownloadableToolIconsToLoad.emplace_back(IconPath / std::filesystem::u8path(tool.name) / std::filesystem::u8path(filename));
 
 					std::string detailsfilename = Web::DownLoadFileFromGoogleDrive(tool.detailsId, tool.detailsAt, status);
 

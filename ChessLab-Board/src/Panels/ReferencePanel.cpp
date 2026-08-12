@@ -18,6 +18,12 @@ static Walnut::Timer s_timerLoadGames;
 
 namespace Panels {
 
+	void ReferencePanel::OnAttach()
+	{
+		m_IconPlay = std::make_shared<Walnut::Image>("Resources/Icons/PlayButton.png");
+		m_IconStop = std::make_shared<Walnut::Image>("Resources/Icons/StopButton.png");
+	}
+
 	void ReferencePanel::OnImGuiRender()
 	{
 		if (!m_viewPanel)
@@ -27,7 +33,24 @@ namespace Panels {
 
 		if (m_ClrFile)
 		{
-			if (ChessAPI::GetActiveGame().GetFen() != m_clrFen)
+			if (!m_Running)
+			{
+				if (!m_clrFen.empty())
+				{
+					m_clrFen.clear();
+					m_ClrFile->StopSearch(0);
+
+					s_timer.Reset();
+					s_time = 0.0f;
+
+					for (auto& [game, index] : m_TopGames)
+						game->RemoveReference();
+
+					m_TopGames.clear();
+					m_ResultsOrdered.clear();
+				}				
+			}
+			else if (ChessAPI::GetActiveGame().GetFen() != m_clrFen)
 			{
 				m_ClrFile->StopSearch(0);
 
@@ -68,6 +91,30 @@ namespace Panels {
 			
 			ImGui::SameLine();
 
+			float size = ImGui::GetFontSize();
+			ImGui::SetCursorPosX(ImGui::GetContentRegionMax().x - size - ImGui::GetStyle().ItemSpacing.x - ImGui::CalcTextSize("Unload").x - ImGui::GetStyle().FramePadding.x - ImGui::GetStyle().WindowPadding.x);
+
+			if (!m_Running && ImGui::ImageButton((ImTextureID)m_IconPlay->GetRendererID(), ImVec2(size, size), ImVec2(0, 0), ImVec2(1, 1), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), ImVec4(1.0f, 1.0f, 1.0f, 1.0f)))
+			{
+				m_Running = true;
+
+				ImGui::End();
+				return;
+				
+			}
+			else if (m_Running && ImGui::ImageButton((ImTextureID)m_IconStop->GetRendererID(), ImVec2(size, size), ImVec2(0, 0), ImVec2(1, 1), 0, ImVec4(0.0f, 0.0f, 0.0f, 0.0f), ImVec4(1.0f, 1.0f, 1.0f, 1.0f)))
+			{
+				m_Running = false;
+
+				ImGui::End();
+				return;
+			}
+
+			if (ImGui::IsItemHovered())
+				ImGui::SetTooltip(m_Running ? "Pause" : "Start");
+
+			ImGui::SameLine();
+
 			ImGui::SetCursorPosX(ImGui::GetContentRegionMax().x - ImGui::CalcTextSize("Unload").x - ImGui::GetStyle().FramePadding.x - ImGui::GetStyle().WindowPadding.x);
 
 			static bool s_unloadConfirm = false;
@@ -83,7 +130,7 @@ namespace Panels {
 
 			ImGui::Separator();
 
-			if (s_timerChecker.ElapsedMillis() > 100)
+			if (s_timerChecker.ElapsedMillis() > 100 && m_Running)
 			{
 				s_timerChecker.Reset();
 				m_ResultsOrdered.clear();

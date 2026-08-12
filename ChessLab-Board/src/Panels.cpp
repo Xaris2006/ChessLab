@@ -184,6 +184,7 @@ namespace Panels
 		s_BoardPanel.OnAttach();
 		s_DatabasePanel.OnAttach();
 		s_EnginePanel.OnAttach();
+		s_ReferencePanel.OnAttach();
 	}
 
 	void OnDetach()
