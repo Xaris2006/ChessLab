@@ -380,6 +380,7 @@ void BoardPanel::OnImGuiRender()
 		}
 		else
 			ChessAPI::GetActiveGame().GoNextMove();
+
 		m_NextMove = false;
 	}
 
@@ -391,24 +392,16 @@ void BoardPanel::OnImGuiRender()
 	m_Center.x += ImGui::GetContentRegionMax().x;
 	m_Center.y += ImGui::GetContentRegionMax().y * 0.25;
 
-	//Open Editor
-	if (m_ToOpenEditor)
-	{
-		m_ToOpenEditor = false;
-		ImGui::OpenPopup("Editor");
-	}
-
-	NextMovePopup();
-	NewVariantPopup();
-	NewPiecePopup();
-	EditorPopup();
-
-	m_IsMoveChooseOpen = ImGui::IsPopupOpen("Move_Choose");
-	
 	if (m_OpenEditor)
 	{
 		m_OpenEditor = false;
 		OpenEditor();
+	}
+
+	if (m_ToOpenEditor)
+	{
+		m_ToOpenEditor = false;
+		ImGui::OpenPopup("Editor");
 	}
 
 	auto mif = (std::vector<int>)ChessAPI::GetActiveGame().GetLastMoveKey();
@@ -584,15 +577,6 @@ void BoardPanel::OnImGuiRender()
 									CslCmd.erase(indexVH - 1, 3);
 								else
 									CslCmd.erase(indexVH - 1, 4);
-
-								//bool last = false;
-								//if (CslCmd[indexVH + 2] == CslCmd.size())
-								//	last = true;
-								//
-								//if (last)
-								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
-								//else
-								//	CslCmd.erase(indexVH - 1, 4);
 							}
 						}
 						else
@@ -638,15 +622,6 @@ void BoardPanel::OnImGuiRender()
 									CslCmd.erase(indexVH - 1, 3);
 								else
 									CslCmd.erase(indexVH - 1, 4);
-
-								//bool last = false;
-								//if (CslCmd[indexVH + 2] == CslCmd.size())
-								//	last = true;
-								//
-								//if (last)
-								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
-								//else
-								//	CslCmd.erase(indexVH - 1, 4);
 							}
 						}
 						else
@@ -692,15 +667,6 @@ void BoardPanel::OnImGuiRender()
 									CslCmd.erase(indexVH - 1, 3);
 								else
 									CslCmd.erase(indexVH - 1, 4);
-
-								//bool last = false;
-								//if (CslCmd[indexVH + 2] == CslCmd.size())
-								//	last = true;
-								//
-								//if (last)
-								//	CslCmd.erase(startIndex - 1, startIndex + 2 + 7);
-								//else
-								//	CslCmd.erase(indexVH - 1, 4);
 							}
 						}
 						else
@@ -879,6 +845,13 @@ void BoardPanel::OnImGuiRender()
 		ChessAPI::CloseOpenGame(opened[tabRemove]);
 		tabRemove = -1;
 	}
+
+	m_IsMoveChooseOpen = ImGui::IsPopupOpen("Move_Choose");
+
+	NextMovePopup();
+	NewVariantPopup();
+	NewPiecePopup();
+	EditorPopup();
 
 	ImGui::End();
 }
@@ -1514,16 +1487,14 @@ void BoardPanel::EditorPopup()
 
 			ImGui::Columns(2);
 
-			static bool w_BigRoke = true, b_BigRoke = true, w_SmallRoke = true, b_SmallRoke = true;
-
 			ImGui::PushID("W");
 			ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.2, 0.2, 0.2, 1));
 			ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.8, 0.8, 0.8, 1));
 			ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.8, 0.8, 0.8, 1));
 			ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.8, 0.8, 0.8, 1));
-			ImGui::Checkbox("0-0-0", &w_BigRoke);
+			ImGui::Checkbox("0-0-0", &m_wBigRoke);
 			ImGui::SameLine();
-			ImGui::Checkbox("0-0", &w_SmallRoke);
+			ImGui::Checkbox("0-0", &m_wSmallRoke);
 			ImGui::PopStyleColor(4);
 			ImGui::PopID();
 
@@ -1531,16 +1502,15 @@ void BoardPanel::EditorPopup()
 			ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.25, 0.25, 0.25, 1));
 			ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.25, 0.25, 0.25, 1));
 			ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.25, 0.25, 0.25, 1));
-			ImGui::Checkbox("0-0-0", &b_BigRoke);
+			ImGui::Checkbox("0-0-0", &m_bBigRoke);
 			ImGui::SameLine();
-			ImGui::Checkbox("0-0", &b_SmallRoke);
+			ImGui::Checkbox("0-0", &m_bSmallRoke);
 			ImGui::PopStyleColor(3);
 			ImGui::PopID();
 
 			ImGui::NextColumn();
 
-			static int player = 1;
-			ImGui::RadioButton("White", &player, 1);
+			ImGui::RadioButton("White", &m_EditorPlayerToPlay, 1);
 			
 			ImGui::SameLine();
 
@@ -1563,12 +1533,13 @@ void BoardPanel::EditorPopup()
 				Chess::GameManager gameNew;
 				gameNew.InitPgnGame(gamePgn);
 
-				w_BigRoke = true;
-				w_SmallRoke = true;
-				b_BigRoke = true;
-				b_SmallRoke = true;
+				m_wBigRoke = true;
+				m_wSmallRoke = true;
+				m_bBigRoke = true;
+				m_bSmallRoke = true;
 
-				player = 1;
+				m_EditorPlayerToPlay = 1;
+				m_anPanSanIndex = -1;
 
 				for (int i = 0; i < 8; i++)
 				{
@@ -1584,7 +1555,7 @@ void BoardPanel::EditorPopup()
 			}
 			ImGui::PopStyleColor(3);
 
-			ImGui::RadioButton("Black", &player, 0);
+			ImGui::RadioButton("Black", &m_EditorPlayerToPlay, 0);
 
 			ImGui::SameLine();
 			
@@ -1609,6 +1580,8 @@ void BoardPanel::EditorPopup()
 						m_Editorblock[i][j] = 0;
 					}
 				}
+
+				m_anPanSanIndex = -1;
 			}
 			ImGui::PopStyleColor(3);
 
@@ -1669,27 +1642,35 @@ void BoardPanel::EditorPopup()
 
 					fen += ' ';
 
-					if (player == 1)
+					if (m_EditorPlayerToPlay == 1)
 						fen += 'w';
 					else
 						fen += 'b';
 
 					fen += ' ';
 
-					if (w_SmallRoke)
+					if (m_wSmallRoke)
 						fen += 'K';
-					if (w_BigRoke)
+					if (m_wBigRoke)
 						fen += 'Q';
-					if (b_SmallRoke)
+					if (m_bSmallRoke)
 						fen += 'k';
-					if (b_BigRoke)
+					if (m_bBigRoke)
 						fen += 'q';
 
-					if (fen[fen.size() - 1] == ' ')
+					if (fen.back() == ' ')
 						fen += '-';
 
 					fen += ' ';
-					fen += '-';
+
+					if (m_anPanSanIndex == -1)
+						fen += '-';
+					else
+					{
+						fen += 'a' + m_anPanSanIndex;
+						fen += m_EditorPlayerToPlay == 0 ? '3' : '6';
+					}
+
 					fen += ' ';
 					fen += '0';
 					fen += ' ';
@@ -1888,6 +1869,15 @@ void BoardPanel::OpenEditor()
 		for (int j = 0; j < 8; j++)
 			m_Editorblock[i][j] = ChessAPI::GetBlockID(i + 8 * j);
 	}
+
+	m_EditorPlayerToPlay = ChessAPI::GetActiveGame().GetPlayerToPlay() == Chess::WHITE ? 1 : 0;
+
+	m_wSmallRoke = ChessAPI::GetActiveGame().GetBoard().GetKRoke();
+	m_wBigRoke = ChessAPI::GetActiveGame().GetBoard().GetQRoke();
+	m_bSmallRoke = ChessAPI::GetActiveGame().GetBoard().GetkRoke();
+	m_bBigRoke = ChessAPI::GetActiveGame().GetBoard().GetqRoke();
+
+	m_anPanSanIndex = ChessAPI::GetActiveGame().GetBoard().GetLastMoveIndex() % 8;
 }
 
 void BoardPanel::OpenEditor(const std::string& newFEN)
@@ -1911,6 +1901,15 @@ void BoardPanel::OpenEditor(const std::string& newFEN)
 			m_Editorblock[i][j] = (id.type != Chess::NONE ? ret : 0);
 		}
 	}
+
+	m_EditorPlayerToPlay = game.GetPlayerToPlay() == Chess::WHITE ? 1 : 0;
+
+	m_wSmallRoke = game.GetBoard().GetKRoke();
+	m_wBigRoke = game.GetBoard().GetQRoke();
+	m_bSmallRoke = game.GetBoard().GetkRoke();
+	m_bBigRoke = game.GetBoard().GetqRoke();
+
+	m_anPanSanIndex = game.GetBoard().GetLastMoveIndex() % 8;
 }
 
 void BoardPanel::ShowArrowAt(int xPos, int yPos, int xDir, int yDir)

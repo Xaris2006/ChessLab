@@ -98,5 +98,8 @@ namespace Panels
 	private:
 		bool m_ToOpenEditor = false;
 		std::array<std::array<int, 8>, 8> m_Editorblock;
+		bool m_wBigRoke = true, m_bBigRoke = true, m_wSmallRoke = true, m_bSmallRoke = true;
+		int m_EditorPlayerToPlay = 1;
+		int m_anPanSanIndex = -1;
 	};
 }
