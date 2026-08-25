@@ -370,12 +370,19 @@ namespace ChessLab::Utils
 		s_spec.AdditionalRightMenuIconPath.emplace_back("Resources\\Icons\\undo.png");
 		s_spec.AdditionalRightMenuFuncIconPressed.emplace_back([]()
 			{
+				if (ChessAPI::GetActiveGameIndex() <= 0)
+					return;
+
 				ChessAPI::OpenChessGameInFile(ChessAPI::GetActiveGameIndex() - 1);
 			});
 		s_spec.AdditionalRightMenuIconPath.emplace_back("Resources\\Icons\\return.png");
 		s_spec.AdditionalRightMenuFuncIconPressed.emplace_back([]()
 			{
 				int oldActive = ChessAPI::GetActiveGameIndex();
+
+				if (oldActive <= 0)
+					return;
+
 				ChessAPI::OpenChessGameInFile(ChessAPI::GetActiveGameIndex() - 1);
 
 				if (oldActive != ChessAPI::GetActiveGameIndex())
@@ -390,6 +397,10 @@ namespace ChessLab::Utils
 		s_spec.AdditionalRightMenuFuncIconPressed.emplace_back([]()
 			{
 				int oldActive = ChessAPI::GetActiveGameIndex();
+
+				if (oldActive < 0)
+					return;
+
 				ChessAPI::OpenChessGameInFile(ChessAPI::GetActiveGameIndex() + 1);
 
 				if (oldActive != ChessAPI::GetActiveGameIndex())
@@ -398,6 +409,9 @@ namespace ChessLab::Utils
 		s_spec.AdditionalRightMenuIconPath.emplace_back("Resources\\Icons\\Rundo.png");
 		s_spec.AdditionalRightMenuFuncIconPressed.emplace_back([]()
 			{
+				if (ChessAPI::GetActiveGameIndex() < 0)
+					return;
+
 				ChessAPI::OpenChessGameInFile(ChessAPI::GetActiveGameIndex() + 1);
 			});
 	}
