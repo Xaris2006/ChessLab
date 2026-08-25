@@ -115,6 +115,13 @@ public:
         CloseHandle(m_Process);
     }
 
+    void Detach()
+    {
+        m_ChildStd_IN_Wr = NULL;
+        m_ChildStd_OUT_Rd = NULL;
+        m_Process = NULL;
+    }
+
     ~Process()
     {
         if (IsProcessActive())

@@ -139,6 +139,7 @@ void Update::StartOperationForUpdate()
 				std::filesystem::copy_file(std::filesystem::current_path() / "Update.exe", std::filesystem::current_path() / "toUpdate" / "Update.exe", std::filesystem::copy_options::overwrite_existing);
 
 				Process startProcess(L"toUpdate\\Update.exe", L"");
+				startProcess.Detach();
 			}
 			else
 				m_UpdateFailed = true;
