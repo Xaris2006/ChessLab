@@ -759,11 +759,6 @@ namespace Panels
 				m_DownloadableTools.clear();
 				m_DownloadableToolLabelNameToValue.clear();
 
-#ifndef WL_DIST
-				if (m_DownloadableToolIconsToLoad.size())
-					__debugbreak();
-#endif // !Dist
-
 				static Web::DownLoadStatus status;
 				std::string filename = Web::DownLoadFileFromGoogleDrive("1vQ3b6RYMkc89iqf3cwcDyaST9KYEIx6O", "AO7h07c8OtoRrFgJGB3ePNLiA9f4:1727098162643", status);
 				

@@ -16,8 +16,8 @@ namespace Chess
 
 	PgnGame::~PgnGame()
 	{
-		if (m_Count)
-			__debugbreak();
+		//if (m_Count)
+		//	__debugbreak();
 	}
 
 	const PgnGame::ChessMovesPath PgnGame::GetMovePathbyCopy() const
@@ -54,7 +54,7 @@ namespace Chess
 		m_Count--;
 		if (m_Count < 0)
 		{
-			__debugbreak();
+			//__debugbreak();
 			m_Count = 0;
 		}
 	}

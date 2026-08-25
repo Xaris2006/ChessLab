@@ -1,14 +1,13 @@
 #include "ReferencePanel.h"
 
 #include "ImGui.h"
-
 #include "Walnut/timer.h"
-
 #include "../Windows/WindowsUtils.h"
 
 #include "../ChessAPI/ChessAPI.h"
-
 #include "../Panels.h"
+
+#include <fstream>
 
 static Walnut::Timer s_timer;
 static float s_time = 0.0f;
@@ -445,12 +444,46 @@ namespace Panels {
 
 				if (filepath.size())
 				{
+					std::ofstream fileW("referenceLOF.txt");
+					fileW << filepath;
+					fileW.close();
+
 					ChessAPI::UnShareClrFile();
 					m_ClrFile = std::make_shared<Chess::ClrFile>();
 					m_ClrFile->OpenFile(std::filesystem::u8path(filepath));
 					ChessAPI::ShareClrFile(m_ClrFile);
 				}
 			}
+
+			if (Walnut::UI::ButtonCentered("Load Last Opened"))
+			{
+				std::string filepath;
+				
+				std::ifstream fileR("referenceLOF.txt");
+				while (fileR.good())
+				{
+					fileR >> filepath;
+					filepath += ' ';
+				}
+				fileR.close();
+
+				if (filepath.size())
+				{
+					filepath.pop_back();
+
+					auto realFilepath = std::filesystem::u8path(filepath);
+
+					std::error_code ec;
+					if (std::filesystem::exists(realFilepath, ec) && !ec)
+					{
+						ChessAPI::UnShareClrFile();
+						m_ClrFile = std::make_shared<Chess::ClrFile>();
+						m_ClrFile->OpenFile(std::filesystem::u8path(filepath));
+						ChessAPI::ShareClrFile(m_ClrFile);
+					}
+				}
+			}
+
 			ImGui::PopStyleColor(3);
 		}
 
