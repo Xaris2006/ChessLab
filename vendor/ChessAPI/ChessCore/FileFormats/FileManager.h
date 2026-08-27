@@ -30,7 +30,7 @@ namespace Chess
 			{
 				std::size_t hash = 0;
 
-				if (path.extension().empty())
+				if (path.empty())
 					return hash;
 				
 				std::hash<std::string> hasher;

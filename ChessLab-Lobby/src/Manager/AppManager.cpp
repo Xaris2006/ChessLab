@@ -232,10 +232,11 @@ namespace Manager
 	{
 		bool founded = false;
 		Chess::FileManager::PathHash hasher;
+		auto pathValue = hasher(path);
 
 		for (auto& [key, value] : m_OpenedPaths)
 		{
-			if (value == hasher(path))
+			if (value == pathValue)
 			{
 				founded = true;
 				break;
